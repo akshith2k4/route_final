@@ -73,6 +73,7 @@ module.exports = (req, res) => {
   let regionName = meta ? meta.name : `Region ${regionId}`;
   let shortName = meta ? meta.short_name : regionName;
   let lotrRoute = meta ? meta.lotr_route : "N/A";
+  let routeStatus = meta ? meta.route_status : "Known";
   let keyAreas = meta ? meta.key_areas : "";
   let tier = meta ? meta.tier : "Operational Route";
   let color = meta ? meta.color : "#334155";
@@ -107,6 +108,7 @@ module.exports = (req, res) => {
     region_name: regionName,
     short_name: shortName,
     lotr_route: lotrRoute,
+    route_status: routeStatus,
     key_areas: keyAreas,
     tier: tier,
     color: color,

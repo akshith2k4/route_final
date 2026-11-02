@@ -1,5 +1,12 @@
 """
-Step 2: Urban Clustering — 86 BBMP hotels ni K=4-14 metrics tho evaluate chey
+Step 2: Urban Clustering — 86 BBMP hotels ni K=4-14 metrics tho evaluate chey.
+
+The KMeans step uses the historical 8-cluster solution, then merges it into the
+6 LOTR zones used by the map:
+  - old cluster 0 (BTM / Hulimavu / Bannerghatta) -> R4 South
+  - old cluster 6 (Koramangala / HSR)              -> R0 South-East
+  - old cluster 7 (Kanakapura / Uttarahalli)       -> R4 South
+All other clusters keep their IDs (1 Central, 2 North, 3 East, 5 West).
 """
 import pandas as pd
 import numpy as np
@@ -65,30 +72,30 @@ for k in range(4, 15):
         'balance': balance, 'labels': labels, 'inertia': km.inertia_
     })
 
-# ---- Choose best K ----
+# ---- Choose the 8-cluster base ----
+# The LOTR merge below is defined on the historical K=8 solution. Keep the
+# silhouette diagnostics above, but use K=8 as the base so the merge is stable.
 valid = [r for r in results if r['min'] >= 4 and r['max'] <= 22]
+best = next((r for r in results if r['k'] == 8),
+            max(valid or results, key=lambda r: r['sil']))
 
-if valid:
-    # Best = highest silhouette among balanced options
-    best = max(valid, key=lambda r: r['sil'])
-    print(f"\n✅ Best K = {best['k']}")
-    print(f"   Silhouette: {best['sil']:.3f} (higher better, max 1.0)")
-    print(f"   Davies-Bouldin: {best['db']:.3f} (lower better, min 0.0)")
-    print(f"   Region sizes: min={best['min']}, max={best['max']}, "
-          f"avg={best['max']/best['k']:.1f}")
-elif results:
-    best = max(results, key=lambda r: r['sil'])
-    print(f"\n⚠️ No ideal K in range. Best by silhouette: K={best['k']} "
-          f"(sil={best['sil']:.3f})")
+print(f"\n✅ Using KMeans K = {best['k']} as the 8-cluster base")
+print(f"   Silhouette: {best['sil']:.3f} (higher better, max 1.0)")
+print(f"   Davies-Bouldin: {best['db']:.3f} (lower better, min 0.0)")
+print(f"   Region sizes: min={best['min']}, max={best['max']}")
 
-# ---- Apply best K ----
-df_urban['region_urban'] = best['labels']
+# ---- Merge 8 KMeans clusters into 6 LOTR zones ----
+# South      = old 0 (BTM/Hulimavu/Bannerghatta) + old 4 (JP Nagar/Jayanagar) + old 7 (Kanakapura)
+# South-East = old 6 (Koramangala/HSR)
+# Others keep their IDs: 1 Central, 2 North, 3 East, 5 West.
+MERGE_MAP = {0: 4, 6: 0, 7: 4}
+df_urban['region_urban'] = [MERGE_MAP.get(int(x), int(x)) for x in best['labels']]
 
 print("\n" + "=" * 90)
-print(f"FINAL URBAN DISTRIBUTION (K={best['k']})")
+print(f"FINAL URBAN DISTRIBUTION (K={best['k']} → 6 LOTR zones)")
 print("=" * 90)
 
-for i in range(best['k']):
+for i in sorted(df_urban['region_urban'].unique()):
     sub = df_urban[df_urban['region_urban'] == i]
     print(f"\nRegion {i}: {len(sub)} hotels")
     # Sample 3 hotels
@@ -104,7 +111,7 @@ print(f"\n✅ Saved hotels_urban_clustered.csv ({len(df_urban)} hotels)")
 
 # ---- Save centroids (for hex map step) ----
 centroids = []
-for i in range(best['k']):
+for i in sorted(df_urban['region_urban'].unique()):
     sub = df_urban[df_urban['region_urban'] == i]
     centroids.append({
         'region': i,
@@ -114,7 +121,7 @@ for i in range(best['k']):
     })
 centroids_df = pd.DataFrame(centroids)
 centroids_df.to_csv('urban_centroids.csv', index=False)
-print(f"✅ Saved urban_centroids.csv ({best['k']} centroids)")
+print(f"✅ Saved urban_centroids.csv ({df_urban['region_urban'].nunique()} centroids)")
 
 # ---- Sanity check ----
 print("\n" + "=" * 90)

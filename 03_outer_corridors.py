@@ -1,8 +1,8 @@
 """
 Step 3: Outer Corridors — 14 BBMP-external hotels assigned directly to parent operational regions:
-- Hosur-Rd-E-City (12 hotels) -> Region 0 (Southeast: Koramangala, HSR, BTM & E-City)
+- Hosur-Rd-E-City (12 hotels) -> Region 0 (South-East: Koramangala, HSR & E-City)
 - NH44-Airport (1 hotel) -> Region 2 (North: Hebbal, Manyata & Airport NH 44)
-- Magadi-West (1 hotel) -> Region 5 (Northwest: Yeshwanthpur HQ & Magadi Rd)
+- Magadi-West (1 hotel) -> Region 5 (West: Yeshwanthpur HQ & Magadi Rd)
 """
 import pandas as pd
 from math import radians, sin, cos, atan2, sqrt

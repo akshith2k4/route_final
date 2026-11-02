@@ -116,6 +116,9 @@ test_locations = [
     (13.0450, 77.6250, 'Hebbal Flyover'),
     (12.9730, 77.7180, 'ITPL Whitefield'),
     (12.9200, 77.5800, 'Jayanagar 4th Block'),
+    (12.9166, 77.6101, 'BTM Layout'),
+    (12.8900, 77.5970, 'Bannerghatta Road'),
+    (12.9609, 77.6387, 'Domlur'),
     (13.0300, 77.5500, 'Yeshwanthpur Metro Station'),
     (12.8450, 77.6650, 'Electronic City Phase 1'),
     (12.7800, 77.6400, 'Attibele Highway Corridor'),
@@ -141,9 +144,9 @@ for lat, lon, name in test_locations:
 print("\n" + "=" * 95)
 print("4. OVERALL OPERATIONAL SCORECARD")
 print("=" * 95)
-print(f"Total Operational Regions:   6 (LOTR Schematic Aligned)")
+print(f"Total Operational Regions:   6 LOTR zones (4 known + 2 proposed/onboarding)")
 print(f"Total Operational Hexagons:  {len(hex_map)} (Tight ribbon footprint, 0 empty rural hexes)")
 print(f"Total Hotels Clustered:      100 hotels (86 urban + 14 outer corridor hotels)")
 print(f"Direct Hotel-to-Hex Match:   {matches} / 100 ({acc:.1f}%)")
-print(f"Production Usability:        100% (Strict 6 operational routes for ops & dispatch)")
+print(f"Production Usability:        100% (6 operational zones for ops & dispatch)")
 print("=" * 95)

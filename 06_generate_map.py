@@ -172,6 +172,7 @@ for idx, h in enumerate(hotels):
     r_code = meta.get('code', f"R{r}")
     r_route = meta.get('lotr_route', "")
     tier = meta.get('tier', "Operational Route")
+    route_status = meta.get('route_status', "Known")
     dist_center = haversine_calc(BANGALORE_CENTER[0], BANGALORE_CENTER[1], h['lat'], h['lon'])
     
     hotel_list_js.append({
@@ -183,6 +184,7 @@ for idx, h in enumerate(hotels):
         "region_code": r_code,
         "region_name": r_name,
         "lotr_route": r_route,
+        "route_status": route_status,
         "dist_center_km": round(dist_center, 1)
     })
     
@@ -193,6 +195,7 @@ for idx, h in enumerate(hotels):
         <b>Region:</b> <span style='color: {color}; font-weight: bold;'>{r_name}</span><br>
         <b>Code:</b> <span style='background:#f1f5f9; padding:1px 4px; border-radius:3px; font-weight:bold;'>{r_code}</span><br>
         <b>LinenGrass Route:</b> <span style='color:#0f766e; font-weight:600;'>{r_route}</span><br>
+        <b>Status:</b> {route_status}<br>
         <b>Tier:</b> {tier}<br>
         <b>Coordinates:</b> {h['lat']:.4f}, {h['lon']:.4f}<br>
         <b>Dist from Center:</b> {dist_center:.1f} km<br>
@@ -216,14 +219,30 @@ for idx, h in enumerate(hotels):
 hotels_group.add_to(m)
 
 # 7. FLOATING LEGEND (BOTTOM-LEFT)
+legend_rows = ""
+for r in range(6):
+    meta = REGION_METADATA[str(r)]
+    count = sum(1 for h in hotels if h['region'] == r)
+    status = meta.get('route_status', 'Known')
+    badge_bg = "#dcfce7" if status == "Known" else "#fef3c7"
+    badge_fg = "#15803d" if status == "Known" else "#b45309"
+    legend_rows += (
+        f'<div style="margin-bottom: 4px; cursor: pointer;" onclick="selectRegion({r}, true)">'
+        f'<i style="background:{COLOR_PALETTE[r]}; width:13px; height:13px; display:inline-block; border-radius:3px; border:1px solid #000; vertical-align:middle; margin-right:4px;"></i> '
+        f'<b>{meta["code"]}:</b> {meta["short_name"]} '
+        f'<span style="color:#0f766e; font-weight:700;">[{count}]</span> '
+        f'<span style="background:{badge_bg}; color:{badge_fg}; font-size:9px; font-weight:700; padding:1px 4px; border-radius:8px; margin-left:2px;">{status}</span>'
+        f'</div>'
+    )
+
 legend_html = f"""
 <div style="position: fixed; 
-     bottom: 25px; left: 25px; width: 330px; max-height: 380px; overflow-y: auto;
+     bottom: 25px; left: 25px; width: 380px; max-height: 400px; overflow-y: auto;
      background-color: rgba(255, 255, 255, 0.97); z-index:9999; font-size:12px;
      border:2px solid #0f172a; border-radius: 12px; padding: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.22);">
      
      <div style="font-weight: 800; font-size: 14px; margin-bottom: 2px; color: #0f172a;">LinenGrass Route System</div>
-     <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">6 Unified Operational Regions (100 Hotels)</div>
+     <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">6 LOTR-Aligned Zones · 4 Known + 2 Proposed · 100 Hotels</div>
      
      <div style="margin-bottom: 8px; font-size: 11px; color: #475569;">
          <span style="border-bottom: 3px solid #000000; padding-bottom: 2px;">━━</span> <b>Region Boundaries</b>
@@ -232,12 +251,7 @@ legend_html = f"""
      <hr style="margin: 6px 0; border-top: 1px solid #cbd5e1;">
      <div style="font-weight: 700; color: #0f172a; margin-bottom: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Click a Route to View Areas</div>
      
-     <div style="margin-bottom: 4px; cursor: pointer;" onclick="selectRegion(0, true)"><i style="background:{COLOR_PALETTE[0]}; width:13px; height:13px; display:inline-block; border-radius:3px; border:1px solid #000; vertical-align:middle; margin-right:4px;"></i> <b>R0:</b> South-East (Koramangala, HSR & E-City) <span style="color:#0f766e; font-weight:700;">[42]</span></div>
-     <div style="margin-bottom: 4px; cursor: pointer;" onclick="selectRegion(1, true)"><i style="background:{COLOR_PALETTE[1]}; width:13px; height:13px; display:inline-block; border-radius:3px; border:1px solid #000; vertical-align:middle; margin-right:4px;"></i> <b>R1:</b> Central (CBD, Indiranagar & MG Road) <span style="color:#0f766e; font-weight:700;">[17]</span></div>
-     <div style="margin-bottom: 4px; cursor: pointer;" onclick="selectRegion(2, true)"><i style="background:{COLOR_PALETTE[2]}; width:13px; height:13px; display:inline-block; border-radius:3px; border:1px solid #000; vertical-align:middle; margin-right:4px;"></i> <b>R2:</b> North (Hebbal, Manyata & Airport) <span style="color:#0f766e; font-weight:700;">[17]</span></div>
-     <div style="margin-bottom: 4px; cursor: pointer;" onclick="selectRegion(3, true)"><i style="background:{COLOR_PALETTE[3]}; width:13px; height:13px; display:inline-block; border-radius:3px; border:1px solid #000; vertical-align:middle; margin-right:4px;"></i> <b>R3:</b> East (Whitefield & Marathahalli) <span style="color:#0f766e; font-weight:700;">[6]</span></div>
-     <div style="margin-bottom: 4px; cursor: pointer;" onclick="selectRegion(4, true)"><i style="background:{COLOR_PALETTE[4]}; width:13px; height:13px; display:inline-block; border-radius:3px; border:1px solid #000; vertical-align:middle; margin-right:4px;"></i> <b>R4:</b> South-West (JP Nagar & Kanakapura) <span style="color:#0f766e; font-weight:700;">[12]</span></div>
-     <div style="margin-bottom: 4px; cursor: pointer;" onclick="selectRegion(5, true)"><i style="background:{COLOR_PALETTE[5]}; width:13px; height:13px; display:inline-block; border-radius:3px; border:1px solid #000; vertical-align:middle; margin-right:4px;"></i> <b>R5:</b> North-West (Yeshwanthpur HQ & Magadi) <span style="color:#0f766e; font-weight:700;">[6]</span></div>
+     {legend_rows}
 </div>
 """
 m.get_root().html.add_child(folium.Element(legend_html))
@@ -253,6 +267,18 @@ hotel_list_json = json.dumps(hotel_list_js, ensure_ascii=False)
 region_bounds_json = json.dumps(region_bounds)
 
 # 10. INTERACTIVE RIGHT-HAND REGION & AREA EXPLORER BOX + TOP SEARCH BAR
+region_tabs = ""
+for r in range(6):
+    meta = REGION_METADATA[str(r)]
+    count = sum(1 for h in hotels if h['region'] == r)
+    region_tabs += (
+        f'<button class="region-tab-btn" id="tab-btn-{r}" onclick="selectRegion({r}, true)" '
+        f'style="background:#f8fafc; border:2px solid #cbd5e1; border-radius:8px; padding:6px 4px; font-size:12px; font-weight:700; cursor:pointer; text-align:center; transition: all 0.15s;">'
+        f'<span style="color:{COLOR_PALETTE[r]};">{meta["code"]}</span> '
+        f'<span style="font-size:10px; color:#64748b; font-weight:500;">({count})</span>'
+        f'</button>'
+    )
+
 explorer_and_search_html = f"""
 <!-- Top-Center New Hotel Coordinate Search Bar -->
 <div id="new-hotel-search-bar" style="position: fixed; 
@@ -324,30 +350,7 @@ explorer_and_search_html = f"""
                  Select Operational Region:
              </div>
              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
-                 <button class="region-tab-btn" id="tab-btn-0" onclick="selectRegion(0, true)" 
-                         style="background:#f8fafc; border:2px solid #cbd5e1; border-radius:8px; padding:6px 4px; font-size:12px; font-weight:700; cursor:pointer; text-align:center; transition: all 0.15s;">
-                     <span style="color:#C0392B;">R0</span> <span style="font-size:10px; color:#64748b; font-weight:500;">(42)</span>
-                 </button>
-                 <button class="region-tab-btn" id="tab-btn-1" onclick="selectRegion(1, true)" 
-                         style="background:#f8fafc; border:2px solid #cbd5e1; border-radius:8px; padding:6px 4px; font-size:12px; font-weight:700; cursor:pointer; text-align:center; transition: all 0.15s;">
-                     <span style="color:#1A365D;">R1</span> <span style="font-size:10px; color:#64748b; font-weight:500;">(17)</span>
-                 </button>
-                 <button class="region-tab-btn" id="tab-btn-2" onclick="selectRegion(2, true)" 
-                         style="background:#f8fafc; border:2px solid #cbd5e1; border-radius:8px; padding:6px 4px; font-size:12px; font-weight:700; cursor:pointer; text-align:center; transition: all 0.15s;">
-                     <span style="color:#1E5F74;">R2</span> <span style="font-size:10px; color:#64748b; font-weight:500;">(17)</span>
-                 </button>
-                 <button class="region-tab-btn" id="tab-btn-3" onclick="selectRegion(3, true)" 
-                         style="background:#f8fafc; border:2px solid #cbd5e1; border-radius:8px; padding:6px 4px; font-size:12px; font-weight:700; cursor:pointer; text-align:center; transition: all 0.15s;">
-                     <span style="color:#137547;">R3</span> <span style="font-size:10px; color:#64748b; font-weight:500;">(6)</span>
-                 </button>
-                 <button class="region-tab-btn" id="tab-btn-4" onclick="selectRegion(4, true)" 
-                         style="background:#f8fafc; border:2px solid #cbd5e1; border-radius:8px; padding:6px 4px; font-size:12px; font-weight:700; cursor:pointer; text-align:center; transition: all 0.15s;">
-                     <span style="color:#D97706;">R4</span> <span style="font-size:10px; color:#64748b; font-weight:500;">(12)</span>
-                 </button>
-                 <button class="region-tab-btn" id="tab-btn-5" onclick="selectRegion(5, true)" 
-                         style="background:#f8fafc; border:2px solid #cbd5e1; border-radius:8px; padding:6px 4px; font-size:12px; font-weight:700; cursor:pointer; text-align:center; transition: all 0.15s;">
-                     <span style="color:#5B21B6;">R5</span> <span style="font-size:10px; color:#64748b; font-weight:500;">(6)</span>
-                 </button>
+                 {region_tabs}
              </div>
          </div>
 
@@ -465,10 +468,11 @@ window.addEventListener('DOMContentLoaded', function() {{
             '  </span>' +
             '</div>' +
             '<div style="font-size:11px; color:#0f766e; font-weight:700; margin-bottom:8px;">🚚 ' + meta.lotr_route + '</div>' +
-            '<div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:4px; font-size:11px; background:#ffffff; padding:6px; border-radius:6px; border:1px solid #e2e8f0; text-align:center; margin-bottom:8px;">' +
+            '<div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:4px; font-size:11px; background:#ffffff; padding:6px; border-radius:6px; border:1px solid #e2e8f0; text-align:center; margin-bottom:8px;">' +
             '  <div><b>Hotels:</b> ' + hotelCount + '</div>' +
-            '  <div><b>Hexagons:</b> ' + hexCount + '</div>' +
+            '  <div><b>Hexes:</b> ' + hexCount + '</div>' +
             '  <div><b>Tier:</b> ' + (meta.tier === "Urban Core" ? "Core" : "Corridor") + '</div>' +
+            '  <div><b>Status:</b> ' + (meta.route_status || "Known") + '</div>' +
             '</div>' +
             '<button onclick="zoomToRegion(' + regId + ')" style="width:100%; background:#ffffff; color:#0f172a; border:1px solid #0f172a; border-radius:6px; padding:5px 0; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px;">' +
             '  <span>🔍</span> Focus Region on Map' +
@@ -597,6 +601,7 @@ window.addEventListener('DOMContentLoaded', function() {{
         var regionName = meta ? meta.name : ("Region " + regionId);
         var regionCode = meta ? meta.code : ("R" + regionId);
         var lotrRoute = meta ? meta.lotr_route : "N/A";
+        var routeStatus = meta ? meta.route_status : "Known";
         var regColor = meta ? meta.color : "#334155";
         
         var boundary = h3.cellToBoundary(hexId);
@@ -641,7 +646,8 @@ window.addEventListener('DOMContentLoaded', function() {{
                         "<hr style='margin:4px 0 8px 0;'>" +
                         "<b>Assigned Region:</b> <span style='color:" + regColor + "; font-weight:bold; font-size:13px;'>" + regionName + "</span><br>" +
                         "<b>Code:</b> <span style='background:#f1f5f9; padding:2px 5px; border-radius:4px; font-weight:bold;'>" + regionCode + "</span><br>" +
-                        "<b>LinenGrass Route:</b> <span style='color:#0f766e; font-weight:600;'>{r_route}</span><br>" +
+                        "<b>LinenGrass Route:</b> <span style='color:#0f766e; font-weight:600;'>" + lotrRoute + "</span><br>" +
+                        "<b>Route Status:</b> " + routeStatus + "<br>" +
                         "<b>Coordinates:</b> " + lat.toFixed(5) + ", " + lon.toFixed(5) + "<br>" +
                         "<b>Nearest Hotel:</b> " + nearestHotel.name + " (" + minDist.toFixed(2) + " km away, " + nearestHotel.region_code + ")<br>" +
                         "<b>Dist to Center:</b> " + distCenter + " km" +
@@ -658,6 +664,7 @@ window.addEventListener('DOMContentLoaded', function() {{
             "    <div style='font-size:10px; text-transform:uppercase; font-weight:700; color:#64748b;'>IDENTIFIED REGION</div>" +
             "    <div style='font-size:15px; font-weight:800; color:" + regColor + "; margin-top:2px;'>" + regionName + "</div>" +
             "    <div style='font-size:11px; color:#0f766e; font-weight:700; margin-top:1px;'>🚚 " + lotrRoute + "</div>" +
+            "    <div style='font-size:10px; color:#64748b; font-weight:700; margin-top:1px;'>Status: " + routeStatus + "</div>" +
             "    <div style='margin-top:3px;'>" + footprintBadge + "</div>" +
             "  </div>" +
             "  <span style='background:" + regColor + "; color:white; font-size:12px; font-weight:700; padding:3px 10px; border-radius:12px;'>" +

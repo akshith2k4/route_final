@@ -1,12 +1,12 @@
 """
-Step 4: Build Master 6-Region Hex Map
+Step 4: Build Master 6-Region Hex Map (LOTR-aligned)
 Extends the 6 urban regions strictly along active highway corridors to the farthest active hotels:
-- Region 0 (Southeast): Koramangala, HSR, BTM & Hosur Rd / E-City (42 hotels)
-- Region 1 (Central): CBD, Indiranagar & MG Road (17 hotels)
-- Region 2 (North): Hebbal, Manyata & Airport corridor / NH 44 (17 hotels)
+- Region 0 (Southeast): Koramangala, HSR & Hosur Rd / E-City (27 hotels)
+- Region 1 (Central / Inner East): CBD, Indiranagar, MG Road & Domlur (17 hotels)
+- Region 2 (North): Hebbal, Nagawara, Manyata, Hennur & Airport corridor (17 hotels)
 - Region 3 (East): Whitefield & Marathahalli (6 hotels)
-- Region 4 (Southwest): JP Nagar, Jayanagar & Kanakapura Rd (12 hotels)
-- Region 5 (Northwest/West): Yeshwanthpur (HQ), Rajajinagar & Magadi Rd (6 hotels)
+- Region 4 (South): JP Nagar, Jayanagar, BTM & Bannerghatta Rd (27 hotels)
+- Region 5 (West): Yeshwanthpur (HQ), Rajajinagar, Peenya & Magadi Rd (6 hotels)
 
 No artificial 50km countryside hexagons — only active operational footprint.
 """
@@ -52,9 +52,12 @@ except Exception as e:
                 bbmp_hexes.add(h3.latlng_to_cell(lat, lon, 7))
     print(f"Manual fill BBMP hexes: {len(bbmp_hexes)}")
 
-# Base 8 centroids merged 6->0 and 7->4
+# Base 8 centroids merged into the 6 LOTR zones:
+#   0 (BTM/Hulimavu/Bannerghatta) + 4 (JP Nagar/Jayanagar) + 7 (Kanakapura) -> R4 South
+#   6 (Koramangala/HSR) -> R0 South-East
+#   1 Central, 2 North, 3 East, 5 West keep their IDs.
 BASE_8_CENTROIDS = [
-    (12.897545, 77.600871), # 0: BTM / Hulimavu
+    (12.897545, 77.600871), # 0: BTM / Hulimavu / Bannerghatta
     (12.975317, 77.605515), # 1: Central / CBD
     (13.046299, 77.626499), # 2: North / Hebbal
     (12.973642, 77.718538), # 3: East / Whitefield
@@ -63,7 +66,7 @@ BASE_8_CENTROIDS = [
     (12.923476, 77.629603), # 6: Koramangala / HSR
     (12.877906, 77.548851), # 7: Kanakapura / Uttarahalli
 ]
-MERGE_MAP = {6: 0, 7: 4}
+MERGE_MAP = {0: 4, 6: 0, 7: 4}
 
 hex_to_region = {}
 for h in bbmp_hexes:
@@ -75,6 +78,16 @@ for h in bbmp_hexes:
 # UK COMFORTS (13.1219, 77.6311) fixed to Region 2 (North)
 uk_hex = h3.latlng_to_cell(13.121868, 77.631093, 7)
 hex_to_region[uk_hex] = 2
+
+# Domlur is part of the LOTR Central / Inner East zone, but its H3 cell centre
+# falls on the Koramangala/HSR side of the Voronoi boundary. Pin it to R1.
+domlur_hex = h3.latlng_to_cell(12.960873, 77.638700, 7)
+hex_to_region[domlur_hex] = 1
+
+# EKAA KEYS (HSR Layout) sits on the R0/R4 hex boundary. Keep its cell in R0
+# so the hotel label and the lookup result agree.
+ekaa_hex = h3.latlng_to_cell(12.8900, 77.6399, 7)
+hex_to_region[ekaa_hex] = 0
 
 print(f"Initial BBMP urban hexagons: {len(hex_to_region)}")
 

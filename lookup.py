@@ -75,6 +75,7 @@ def get_hotel_region(lat: float, lon: float, resolution: int = 7) -> dict:
     region_name = meta.get("name", f"Region {region_id}")
     short_name = meta.get("short_name", region_name)
     tier = meta.get("tier", "Operational Route")
+    route_status = meta.get("route_status", "Known")
     lotr_route = meta.get("lotr_route", "N/A")
     key_areas = meta.get("key_areas", "")
 
@@ -103,6 +104,7 @@ def get_hotel_region(lat: float, lon: float, resolution: int = 7) -> dict:
         "region_name": region_name,
         "short_name": short_name,
         "lotr_route": lotr_route,
+        "route_status": route_status,
         "key_areas": key_areas,
         "tier": tier,
         "in_operational_footprint": in_operational_footprint,
@@ -122,6 +124,7 @@ def print_result(res: dict):
     print(f"Region Code:           {res['region_code']}")
     print(f"Assigned Region:       {res['region_name']}")
     print(f"LinenGrass Route:      {res['lotr_route']}")
+    print(f"Route Status:          {res['route_status']}")
     print(f"Operational Tier:      {res['tier']}")
     print(f"Key Localities:        {res['key_areas']}")
     print(f"H3 Hexagon ID (Res 7): {res['hexagon_id']}")
