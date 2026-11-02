@@ -1,212 +1,124 @@
 {
   "0": {
     "id": 0,
-    "code": "Urban-R0",
-    "name": "South: BTM Layout & Hulimavu",
-    "short_name": "BTM & Hulimavu",
-    "tier": "Urban Core (Inside BBMP)",
-    "lotr_route": "LOTR Route 5 (South)",
+    "code": "R0",
+    "name": "South-East: Koramangala, HSR, BTM & Electronic City",
+    "short_name": "Koramangala, HSR, BTM & E-City",
+    "tier": "Urban & Highway Corridor",
+    "lotr_route": "LOTR Route 4 (Southeast) & Route 5 (South)",
     "color": "#C0392B",
-    "key_areas": "BTM Layout, Hulimavu, Inner Bannerghatta Road, Arekere"
+    "key_areas": "Koramangala, HSR Layout, BTM Layout, Hulimavu, Sarjapur Rd (Inner), Electronic City Phase 1 & 2, Bommasandra, Hebbagodi, Attibele",
+    "areas_list": [
+      "Koramangala (Blocks 1–8)",
+      "HSR Layout (Sectors 1–7)",
+      "BTM Layout (1st & 2nd Stage)",
+      "Madiwala & Silk Board Junction",
+      "Hulimavu & Bannerghatta Road (Inner)",
+      "Arekere & Panduranga Nagar",
+      "Inner Sarjapur Road & Kasavanahalli",
+      "Electronic City Phase 1",
+      "Electronic City Phase 2",
+      "Bommasandra Industrial Area",
+      "Hebbagodi & Veerasandra",
+      "Attibele & TN Border Highway Corridor"
+    ]
   },
   "1": {
     "id": 1,
-    "code": "Urban-R1",
+    "code": "R1",
     "name": "Central: CBD, Indiranagar & MG Road",
     "short_name": "CBD & Indiranagar",
-    "tier": "Urban Core (Inside BBMP)",
+    "tier": "Urban Core",
     "lotr_route": "LOTR Route 2 (Central)",
     "color": "#1A365D",
-    "key_areas": "MG Road, Indiranagar, Shivajinagar, Richmond Road, Ulsoor, Lavelle Road"
+    "key_areas": "MG Road, Indiranagar, Shivajinagar, Richmond Road, Ulsoor, Lavelle Road",
+    "areas_list": [
+      "CBD / MG Road & Brigade Road",
+      "Indiranagar (100ft Road & 12th Main)",
+      "Richmond Road & Richmond Town",
+      "Lavelle Road & UB City",
+      "Shivajinagar & Commercial Street",
+      "Ulsoor & Halasuru Lake",
+      "Domlur & Victoria Layout",
+      "Residency Road & Museum Road"
+    ]
   },
   "2": {
     "id": 2,
-    "code": "Urban-R2",
-    "name": "North: Hebbal & Manyata Tech Park",
-    "short_name": "Hebbal & Manyata",
-    "tier": "Urban Core (Inside BBMP)",
+    "code": "R2",
+    "name": "North: Hebbal, Manyata & Airport Corridor",
+    "short_name": "Hebbal, Manyata & Airport (NH 44)",
+    "tier": "Urban & Highway Corridor",
     "lotr_route": "LOTR Route 1 (North)",
     "color": "#1E5F74",
-    "key_areas": "Hebbal, Manyata Tech Park, Nagawara, Kempapura, Sahakar Nagar"
+    "key_areas": "Hebbal, Manyata Tech Park, Nagawara, Kempapura, Sahakar Nagar, Yelahanka, NH 44 Airport Highway, Devanahalli",
+    "areas_list": [
+      "Hebbal Flyover & Outer Ring Road (North)",
+      "Manyata Tech Park & Nagawara",
+      "Kempapura & Hebbal Kempapura",
+      "Sahakar Nagar & Kodigehalli",
+      "Yelahanka Old & New Town",
+      "Jakkur & Kogilu Cross",
+      "NH 44 Bellary Highway Ribbon",
+      "Devanahalli & Airport City Approach"
+    ]
   },
   "3": {
     "id": 3,
-    "code": "Urban-R3",
+    "code": "R3",
     "name": "East: Whitefield & Marathahalli",
     "short_name": "Whitefield & Marathahalli",
-    "tier": "Urban Core (Inside BBMP)",
+    "tier": "Urban Core",
     "lotr_route": "LOTR Route 3 (East)",
     "color": "#137547",
-    "key_areas": "Whitefield, Marathahalli, Brookefield, Outer Ring Road (East), Mahadevapura"
+    "key_areas": "Whitefield, Marathahalli, Brookefield, Outer Ring Road (East), Mahadevapura",
+    "areas_list": [
+      "Whitefield & ITPL Main Road",
+      "Marathahalli & Marathahalli Bridge",
+      "Brookefield & Kundalahalli",
+      "Mahadevapura & KR Puram Border",
+      "Outer Ring Road (East Tech Corridor)",
+      "Varthur Road (Inner) & Palm Meadows",
+      "Kadugodi & Hope Farm Junction"
+    ]
   },
   "4": {
     "id": 4,
-    "code": "Urban-R4",
-    "name": "South-West: JP Nagar & Jayanagar",
-    "short_name": "JP Nagar & Jayanagar",
-    "tier": "Urban Core (Inside BBMP)",
+    "code": "R4",
+    "name": "South-West: JP Nagar, Jayanagar & Kanakapura Rd",
+    "short_name": "JP Nagar, Jayanagar & Kanakapura",
+    "tier": "Urban Core",
     "lotr_route": "LOTR Route 5 (South)",
     "color": "#D97706",
-    "key_areas": "JP Nagar (all phases), Jayanagar, Banashankari, South End Circle"
+    "key_areas": "JP Nagar (all phases), Jayanagar, Banashankari, Kanakapura Road (Inner), Konanakunte, Uttarahalli",
+    "areas_list": [
+      "JP Nagar (Phases 1 through 9)",
+      "Jayanagar (Blocks 1–9 & 4th Block Complex)",
+      "Banashankari (Stages 1, 2 & 3)",
+      "Kanakapura Road (Inner Corridor)",
+      "Konanakunte & Yelachenahalli",
+      "Uttarahalli & Chikkalasandra",
+      "Padmanabhanagar & Kumaraswamy Layout"
+    ]
   },
   "5": {
     "id": 5,
-    "code": "Urban-R5",
-    "name": "North-West: Yeshwanthpur (HQ) & Rajajinagar",
-    "short_name": "Yeshwanthpur & Rajajinagar",
-    "tier": "Urban Core (Inside BBMP)",
+    "code": "R5",
+    "name": "North-West: Yeshwanthpur (HQ), Rajajinagar & Magadi Rd",
+    "short_name": "Yeshwanthpur, Rajajinagar & Magadi Rd",
+    "tier": "Urban & Highway Corridor",
     "lotr_route": "LOTR Route 6 (West)",
     "color": "#5B21B6",
-    "key_areas": "Yeshwanthpur (LinenGrass HQ), Rajajinagar, Malleshwaram, Peenya, Mathikere"
-  },
-  "6": {
-    "id": 6,
-    "code": "Urban-R6",
-    "name": "South-East: Koramangala & HSR Layout",
-    "short_name": "Koramangala & HSR",
-    "tier": "Urban Core (Inside BBMP)",
-    "lotr_route": "LOTR Route 4 (Southeast)",
-    "color": "#C2410C",
-    "key_areas": "Koramangala (Blocks 1-8), HSR Layout (Sectors 1-7), Inner Sarjapur Road, Bellandur"
-  },
-  "7": {
-    "id": 7,
-    "code": "Urban-R7",
-    "name": "Far South: Kanakapura Road & Uttarahalli",
-    "short_name": "Kanakapura Road & Uttarahalli",
-    "tier": "Urban Core (Inside BBMP)",
-    "lotr_route": "LOTR Route 5 (South)",
-    "color": "#0284C7",
-    "key_areas": "Kanakapura Road (South), Konanakunte, Uttarahalli, NICE Road Junction"
-  },
-  "10": {
-    "id": 10,
-    "code": "Outer-R10",
-    "name": "Outer North-West: Doddaballapur Corridor (SH 9)",
-    "short_name": "Doddaballapur Corridor",
-    "tier": "Outer Highway Corridor (BMR)",
-    "lotr_route": "LOTR Route 1 (North Outer)",
-    "color": "#0D9488",
-    "key_areas": "SH 9 Highway, Doddaballapur Industrial Area, Rajanukunte"
-  },
-  "11": {
-    "id": 11,
-    "code": "Outer-R11",
-    "name": "Outer North: Devanahalli Airport Corridor (NH 44)",
-    "short_name": "Devanahalli Airport (NH 44)",
-    "tier": "Outer Highway Corridor (BMR)",
-    "lotr_route": "LOTR Route 1 (North Outer)",
-    "color": "#1D4ED8",
-    "key_areas": "NH 44 Airport Highway, Devanahalli, KIA Airport City, Bagalur"
-  },
-  "12": {
-    "id": 12,
-    "code": "Outer-R12",
-    "name": "Outer North-East: Budigere Cross Corridor",
-    "short_name": "Budigere Cross Corridor",
-    "tier": "Outer Highway Corridor (BMR)",
-    "lotr_route": "LOTR Route 3 (East Outer)",
-    "color": "#047857",
-    "key_areas": "Budigere Cross, Mandur, New Airport Link Road"
-  },
-  "13": {
-    "id": 13,
-    "code": "Outer-R13",
-    "name": "Outer East: Hoskote Industrial Corridor (NH 75)",
-    "short_name": "Hoskote Industrial Corridor",
-    "tier": "Outer Highway Corridor (BMR)",
-    "lotr_route": "LOTR Route 3 (East Outer)",
-    "color": "#7C3AED",
-    "key_areas": "NH 75 Old Madras Road, Hoskote Industrial Area, Whitefield Outskirts"
-  },
-  "14": {
-    "id": 14,
-    "code": "Outer-R14",
-    "name": "Outer South-East: Sarjapur Outskirts",
-    "short_name": "Sarjapur Outskirts",
-    "tier": "Outer Highway Corridor (BMR)",
-    "lotr_route": "LOTR Route 4 (Southeast Outer)",
-    "color": "#BE185D",
-    "key_areas": "Sarjapur Town, Dommasandra, Carmelaram Outer, Gunjur"
-  },
-  "15": {
-    "id": 15,
-    "code": "Outer-R15",
-    "name": "Outer South: Hosur Inter-State Corridor (NH 44)",
-    "short_name": "Hosur Inter-State Corridor",
-    "tier": "Outer Highway Corridor (BMR)",
-    "lotr_route": "LOTR Route 4 (Southeast Outer)",
-    "color": "#3F6212",
-    "key_areas": "NH 44 Border, Chandapura, Attibele Border, Hosur Industrial Belt"
-  },
-  "16": {
-    "id": 16,
-    "code": "Outer-R16",
-    "name": "Outer South: Anekal Town Corridor",
-    "short_name": "Anekal Town Corridor",
-    "tier": "Outer Highway Corridor (BMR)",
-    "lotr_route": "LOTR Route 5 (South Outer)",
-    "color": "#15803D",
-    "key_areas": "Anekal Town, Bannerghatta National Park Outer, Jigani"
-  },
-  "17": {
-    "id": 17,
-    "code": "Outer-R17",
-    "name": "Outer South-West: Kanakapura Outskirts (NH 209)",
-    "short_name": "Kanakapura Outskirts",
-    "tier": "Outer Highway Corridor (BMR)",
-    "lotr_route": "LOTR Route 5 (South Outer)",
-    "color": "#A16207",
-    "key_areas": "NH 209 Highway, Kaggalipura, Harohalli Industrial Area"
-  },
-  "18": {
-    "id": 18,
-    "code": "Outer-R18",
-    "name": "Outer South-West: Mysore Road (Bidadi / Wonderla)",
-    "short_name": "Mysore Road (Bidadi)",
-    "tier": "Outer Highway Corridor (BMR)",
-    "lotr_route": "LOTR Route 6 (West Outer)",
-    "color": "#991B1B",
-    "key_areas": "Mysore Road, Kengeri Outer, Bidadi Industrial Area, Wonderla Corridor"
-  },
-  "19": {
-    "id": 19,
-    "code": "Outer-R19",
-    "name": "Outer West: Magadi Road Corridor",
-    "short_name": "Magadi Road Corridor",
-    "tier": "Outer Highway Corridor (BMR)",
-    "lotr_route": "LOTR Route 6 (West Outer)",
-    "color": "#831843",
-    "key_areas": "Magadi Main Road, Tavarekere, Gollarahatti, Machohalli"
-  },
-  "20": {
-    "id": 20,
-    "code": "Outer-R20",
-    "name": "Outer North-West: Tumkur Road / Nelamangala (NH 48)",
-    "short_name": "Tumkur Road / Nelamangala",
-    "tier": "Outer Highway Corridor (BMR)",
-    "lotr_route": "LOTR Route 6 (West Outer)",
-    "color": "#854D0E",
-    "key_areas": "NH 48 Highway, Nelamangala Toll, Madavara (BIEC), Dobbaspet"
-  },
-  "21": {
-    "id": 21,
-    "code": "Outer-R21",
-    "name": "Outer North-West: Hesaraghatta & Doddaballapur Rural",
-    "short_name": "Hesaraghatta & Rural NW",
-    "tier": "Outer Highway Corridor (BMR)",
-    "lotr_route": "LOTR Route 1 (North Outer)",
-    "color": "#475569",
-    "key_areas": "Hesaraghatta Lake Corridor, Nelamangala-Doddaballapur Link Road"
-  },
-  "22": {
-    "id": 22,
-    "code": "Outer-R22",
-    "name": "Outer South: Electronic City & Attibele (Hosur Rd)",
-    "short_name": "Electronic City & Attibele",
-    "tier": "Outer Highway Corridor (BMR)",
-    "lotr_route": "LOTR Route 4 (Southeast Outer)",
-    "color": "#EA580C",
-    "key_areas": "Electronic City Phase 1 & 2, Bommasandra, Hebbagodi, Veerasandra, Attibele"
+    "key_areas": "Yeshwanthpur (LinenGrass HQ), Rajajinagar, Malleshwaram, Peenya, Mathikere, Magadi Road Corridor",
+    "areas_list": [
+      "Yeshwanthpur (LinenGrass Central Facility)",
+      "Rajajinagar (Blocks 1–6 & Industrial Town)",
+      "Malleshwaram (1st to 18th Cross)",
+      "Peenya Industrial Area (Stages 1–4)",
+      "Mathikere & MS Ramaiah Enclave",
+      "Nandini Layout & Mahalakshmi Layout",
+      "Magadi Main Road Ribbon",
+      "Tavarekere & Machohalli Outer Reach"
+    ]
   }
 }

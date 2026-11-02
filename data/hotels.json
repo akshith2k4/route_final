@@ -39,7 +39,7 @@
     "name": "BRIXTON LUXE",
     "lat": 12.9100494,
     "lon": 77.6285587,
-    "region": 6
+    "region": 0
   },
   {
     "name": "CASA PICCOSA E-CITY",
@@ -63,13 +63,13 @@
     "name": "EKAA KEYS",
     "lat": 12.889960624073392,
     "lon": 77.63988996143055,
-    "region": 6
+    "region": 0
   },
   {
     "name": "EYRIE NEST",
     "lat": 12.920801867885244,
     "lon": 77.62011922451589,
-    "region": 6
+    "region": 0
   },
   {
     "name": "FELICITY",
@@ -87,7 +87,7 @@
     "name": "FORTUNE INN",
     "lat": 12.934115076131924,
     "lon": 77.61553749782881,
-    "region": 6
+    "region": 0
   },
   {
     "name": "FORTUNE STAY",
@@ -99,7 +99,7 @@
     "name": "FORTY 1 HOSPITALITY",
     "lat": 12.938583523729942,
     "lon": 77.62746906225262,
-    "region": 6
+    "region": 0
   },
   {
     "name": "FOUNTAIN TREE",
@@ -117,7 +117,7 @@
     "name": "GOLDEN INN ROOMS",
     "lat": 12.92430295225655,
     "lon": 77.61961020499115,
-    "region": 6
+    "region": 0
   },
   {
     "name": "GOLDEN VISTA",
@@ -129,7 +129,7 @@
     "name": "HOLIDAY VILLAGE",
     "lat": 12.867151344442213,
     "lon": 77.5431314086749,
-    "region": 7
+    "region": 4
   },
   {
     "name": "HOTEL ERACREST",
@@ -207,7 +207,7 @@
     "name": "NISARGA HOTEL",
     "lat": 12.8952116,
     "lon": 77.517758,
-    "region": 7
+    "region": 4
   },
   {
     "name": "OCEAN SUITES",
@@ -237,7 +237,7 @@
     "name": "OCTAVE HOTEL AND SPA - SARJAPUR ROAD",
     "lat": 12.916952417894635,
     "lon": 77.67266607967734,
-    "region": 6
+    "region": 0
   },
   {
     "name": "OCTAVE HOTEL AND SPA - JP NAGAR",
@@ -267,7 +267,7 @@
     "name": "OCTAVE STUDIO HOTEL - KORAMANGLA STU",
     "lat": 12.937115209078758,
     "lon": 77.6147480778158,
-    "region": 6
+    "region": 0
   },
   {
     "name": "OLIVE HULIMAVU HOTEL",
@@ -321,7 +321,7 @@
     "name": "S V B R HOTEL",
     "lat": 12.876148893590262,
     "lon": 77.57607029377178,
-    "region": 7
+    "region": 4
   },
   {
     "name": "SAI SUITES INN",
@@ -339,7 +339,7 @@
     "name": "SK COMFORTS",
     "lat": 12.873113787121051,
     "lon": 77.55844350828022,
-    "region": 7
+    "region": 4
   },
   {
     "name": "SM COMFORTS BTM",
@@ -351,7 +351,7 @@
     "name": "SM COMFORTS HSR",
     "lat": 12.921198857688456,
     "lon": 77.65254695346336,
-    "region": 6
+    "region": 0
   },
   {
     "name": "SM INTERNATIONAL",
@@ -369,7 +369,7 @@
     "name": "SM STAY INN KORAMANGALA",
     "lat": 12.94139414529427,
     "lon": 77.61731362156272,
-    "region": 6
+    "region": 0
   },
   {
     "name": "SRI SAI COMFORTS",
@@ -429,13 +429,13 @@
     "name": "THE GRAND KRISHNA ROOMS",
     "lat": 12.923610457751144,
     "lon": 77.61853397761958,
-    "region": 6
+    "region": 0
   },
   {
     "name": "THE MOCANA BANYAN",
     "lat": 12.935810470158824,
     "lon": 77.63133721618155,
-    "region": 6
+    "region": 0
   },
   {
     "name": "TRUP GLOBAL KEMPAPUR NEW",
@@ -483,7 +483,7 @@
     "name": "Wandr - HSR Layout",
     "lat": 12.90763295053291,
     "lon": 77.63795867226504,
-    "region": 6
+    "region": 0
   },
   {
     "name": "Wandr - Indiranagar",
@@ -495,7 +495,7 @@
     "name": "Wandr - Kormangala",
     "lat": 12.932783769287962,
     "lon": 77.62391994143022,
-    "region": 6
+    "region": 0
   },
   {
     "name": "Wandr - Richmond Road",
@@ -513,90 +513,90 @@
     "name": "WESTERN KEYS HOTEL",
     "lat": 12.917835225006607,
     "lon": 77.62384166505534,
-    "region": 6
+    "region": 0
   },
   {
     "name": "AVORA TREE SUITES",
     "lat": 13.162422300418788,
     "lon": 77.63423548264127,
-    "region": 11
+    "region": 2
   },
   {
     "name": "CELEBRITY SUITES",
     "lat": 12.846903836851048,
     "lon": 77.65082778962515,
-    "region": 22
+    "region": 0
   },
   {
     "name": "CELESTIAL SUITES",
     "lat": 12.837313006421398,
     "lon": 77.64338471447797,
-    "region": 22
+    "region": 0
   },
   {
     "name": "CLOVER A RIVIDO HOTELS",
     "lat": 12.779343938688198,
     "lon": 77.63942316011055,
-    "region": 22
+    "region": 0
   },
   {
     "name": "EAST PARK PREMIUM",
     "lat": 12.845778366062548,
     "lon": 77.68275878616696,
-    "region": 22
+    "region": 0
   },
   {
     "name": "EAST PARK RIO",
     "lat": 12.832840371605554,
     "lon": 77.68840220931652,
-    "region": 22
+    "region": 0
   },
   {
     "name": "GLOBAL STAY",
     "lat": 12.901416449139354,
     "lon": 77.70994498666208,
-    "region": 22
+    "region": 0
   },
   {
     "name": "GOLDEN STAY",
     "lat": 12.779835909770046,
     "lon": 77.63492994659211,
-    "region": 22
+    "region": 0
   },
   {
     "name": "GOLDEN SUITES",
     "lat": 12.851286219878972,
     "lon": 77.6735352596468,
-    "region": 22
+    "region": 0
   },
   {
     "name": "HOTEL VERTEX",
     "lat": 12.85651327956371,
     "lon": 77.67527104817403,
-    "region": 22
+    "region": 0
   },
   {
     "name": "INVENTREE E-CITY",
     "lat": 12.845012364135295,
     "lon": 77.66537419417524,
-    "region": 22
+    "region": 0
   },
   {
     "name": "MANDALA RESORTS",
     "lat": 12.965214565256893,
     "lon": 77.36128797833476,
-    "region": 19
+    "region": 5
   },
   {
     "name": "NIRANTARA RESORT",
     "lat": 12.825843260537598,
     "lon": 77.64917449252366,
-    "region": 22
+    "region": 0
   },
   {
     "name": "V.B.H INN",
     "lat": 12.784460393550335,
     "lon": 77.65806119177002,
-    "region": 22
+    "region": 0
   }
 ]

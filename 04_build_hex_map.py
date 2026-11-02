@@ -1,46 +1,23 @@
 """
-Step 4: Full Hex Map — Urban 8 regions + Outer corridors (including R22 Hosur-Rd-E-City and UK Comforts fix)
+Step 4: Build Master 6-Region Hex Map
+Extends the 6 urban regions strictly along active highway corridors to the farthest active hotels:
+- Region 0 (Southeast): Koramangala, HSR, BTM & Hosur Rd / E-City (42 hotels)
+- Region 1 (Central): CBD, Indiranagar & MG Road (17 hotels)
+- Region 2 (North): Hebbal, Manyata & Airport corridor / NH 44 (17 hotels)
+- Region 3 (East): Whitefield & Marathahalli (6 hotels)
+- Region 4 (Southwest): JP Nagar, Jayanagar & Kanakapura Rd (12 hotels)
+- Region 5 (Northwest/West): Yeshwanthpur (HQ), Rajajinagar & Magadi Rd (6 hotels)
+
+No artificial 50km countryside hexagons — only active operational footprint.
 """
 import pandas as pd
 import geopandas as gpd
 import h3
 import joblib
+import json
 import numpy as np
 from shapely.geometry import Point
 from math import radians, sin, cos, atan2, sqrt
-
-# ---- Load data ----
-df_urban = pd.read_csv('hotels_urban_clustered.csv')
-df_outer = pd.read_csv('hotels_outer_clustered.csv')
-gdf = gpd.read_file('bbmp.geojson')
-if gdf.crs != "EPSG:4326":
-    gdf = gdf.to_crs("EPSG:4326")
-
-centroids_df = pd.read_csv('urban_centroids.csv')
-urban_centroids = [(r['lat'], r['lon']) for _, r in centroids_df.iterrows()]
-n_urban = len(urban_centroids)
-
-corridor_ids_df = pd.read_csv('corridor_ids.csv')
-if 'Unnamed: 0' in corridor_ids_df.columns:
-    corridor_to_id = corridor_ids_df.set_index('Unnamed: 0')['id'].to_dict()
-else:
-    corridor_to_id = corridor_ids_df.set_index('name')['id'].to_dict()
-
-CORRIDOR_TOWNS = {
-    'SH9-Doddaballapur':  (13.29, 77.54),
-    'NH44-Airport':       (13.20, 77.71),
-    'Budigere-NE':        (13.15, 77.78),
-    'Hoskote-East':       (13.10, 77.85),
-    'Sarjapur-SE':        (12.86, 77.78),
-    'Hosur-SE':           (12.78, 77.77),
-    'Anekal-South':       (12.71, 77.69),
-    'Kanakapura-SW':      (12.75, 77.40),
-    'Mysore-SW':          (12.80, 77.38),
-    'Magadi-West':        (12.96, 77.30),
-    'NH48-Tumkur':        (13.10, 77.38),
-    'NW-Doddaballapur':   (13.15, 77.40),
-    'Hosur-Rd-E-City':    (12.84, 77.67),
-}
 
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371
@@ -48,92 +25,127 @@ def haversine(lat1, lon1, lat2, lon2):
     a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
     return 2 * R * atan2(sqrt(a), sqrt(1-a))
 
-# ---- URBAN HEXAGONS (inside BBMP) ----
 print("=" * 80)
-print("URBAN HEXAGONS (BBMP boundary)")
+print("BUILDING 6-REGION HEXAGON OPERATIONAL FOOTPRINT")
 print("=" * 80)
+
+# 1. Load Data
+df_urban = pd.read_csv('hotels_urban_clustered.csv')
+df_outer = pd.read_csv('hotels_outer_clustered.csv')
+
+gdf = gpd.read_file('bbmp.geojson')
+if gdf.crs != "EPSG:4326":
+    gdf = gdf.to_crs("EPSG:4326")
 
 bbmp_union = gdf.union_all() if hasattr(gdf, 'union_all') else gdf.unary_union
 
+# 2. BBMP Urban Core Hexagons (res=7)
 bbmp_hexes = set()
 try:
     bbmp_hexes = set(h3.geo_to_cells(bbmp_union.__geo_interface__, res=7))
-    print(f"Polyfill method: {len(bbmp_hexes)} hexagons")
+    print(f"Polyfill BBMP hexes: {len(bbmp_hexes)}")
 except Exception as e:
-    print(f"Polyfill fallback ({e})...")
     min_lon, min_lat, max_lon, max_lat = bbmp_union.bounds
     for lat in np.arange(min_lat, max_lat, 0.01):
         for lon in np.arange(min_lon, max_lon, 0.01):
             if bbmp_union.contains(Point(lon, lat)):
                 bbmp_hexes.add(h3.latlng_to_cell(lat, lon, 7))
-    print(f"Manual fill: {len(bbmp_hexes)} hexagons")
+    print(f"Manual fill BBMP hexes: {len(bbmp_hexes)}")
 
-# Assign each BBMP hex → nearest urban centroid
-bbmp_hex_to_region = {}
+# Base 8 centroids merged 6->0 and 7->4
+BASE_8_CENTROIDS = [
+    (12.897545, 77.600871), # 0: BTM / Hulimavu
+    (12.975317, 77.605515), # 1: Central / CBD
+    (13.046299, 77.626499), # 2: North / Hebbal
+    (12.973642, 77.718538), # 3: East / Whitefield
+    (12.926320, 77.575699), # 4: JP Nagar / Jayanagar
+    (13.031606, 77.560270), # 5: West / Yeshwanthpur
+    (12.923476, 77.629603), # 6: Koramangala / HSR
+    (12.877906, 77.548851), # 7: Kanakapura / Uttarahalli
+]
+MERGE_MAP = {6: 0, 7: 4}
+
+hex_to_region = {}
 for h in bbmp_hexes:
     hlat, hlon = h3.cell_to_latlng(h)
-    nearest_idx = min(range(n_urban),
-                      key=lambda i: haversine(hlat, hlon, *urban_centroids[i]))
-    bbmp_hex_to_region[h] = int(centroids_df.iloc[nearest_idx]['region'])
+    base_r = min(range(len(BASE_8_CENTROIDS)),
+                 key=lambda i: haversine(hlat, hlon, *BASE_8_CENTROIDS[i]))
+    hex_to_region[h] = MERGE_MAP.get(base_r, base_r)
 
-# Fix UK COMFORTS (13.1219, 77.6311) boundary hexagon -> Urban R2
+# UK COMFORTS (13.1219, 77.6311) fixed to Region 2 (North)
 uk_hex = h3.latlng_to_cell(13.121868, 77.631093, 7)
-bbmp_hex_to_region[uk_hex] = 2
-print(f"✅ UK COMFORTS hexagon {uk_hex} mapped to Urban-R2")
+hex_to_region[uk_hex] = 2
 
-print(f"Total urban hexagons: {len(bbmp_hex_to_region)}")
+print(f"Initial BBMP urban hexagons: {len(hex_to_region)}")
 
-# ---- OUTER HEXAGONS (outside BBMP, within 50km) ----
-print("\n" + "=" * 80)
-print("OUTER HEXAGONS (BMR 50km radius, outside BBMP)")
-print("=" * 80)
+# 3. Extend corridors ONLY up to the active outer hotels
+corridor_hex_count = 0
+for _, r in df_outer.iterrows():
+    hotel_hex = h3.latlng_to_cell(r['lat'], r['lon'], 7)
+    reg = int(r['region_outer'])
+    
+    # Find closest hex currently in this region to connect from
+    matching_hexes = [h for h, rg in hex_to_region.items() if rg == reg]
+    hlat, hlon = r['lat'], r['lon']
+    closest_h = min(matching_hexes, key=lambda x: haversine(hlat, hlon, *h3.cell_to_latlng(x)))
+    
+    # Contiguous grid path from region boundary to hotel
+    path = h3.grid_path_cells(closest_h, hotel_hex)
+    for ph in path:
+        if ph not in hex_to_region:
+            hex_to_region[ph] = reg
+            corridor_hex_count += 1
+            
+    # Buffer 1-ring around hotel location
+    for neighbor in h3.grid_disk(hotel_hex, 1):
+        if neighbor not in hex_to_region:
+            hex_to_region[neighbor] = reg
+            corridor_hex_count += 1
 
-BANGALORE_CENTER = (12.9716, 77.5946)
-BMR_RADIUS_KM = 50
+print(f"Added {corridor_hex_count} corridor/hotel hexagons.")
+print(f"Total hexagons in 6-region operational footprint: {len(hex_to_region)}")
 
-outer_hex_to_region = {}
-count = 0
-for lat in np.arange(12.4, 13.6, 0.015):
-    for lon in np.arange(77.0, 78.2, 0.015):
-        if haversine(*BANGALORE_CENTER, lat, lon) <= BMR_RADIUS_KM:
-            h = h3.latlng_to_cell(lat, lon, 7)
-            if h in bbmp_hex_to_region:
-                continue  # Already urban
-            # Nearest corridor town
-            nearest_c = min(CORRIDOR_TOWNS.keys(),
-                            key=lambda c: haversine(lat, lon, *CORRIDOR_TOWNS[c]))
-            outer_hex_to_region[h] = corridor_to_id[nearest_c]
-            count += 1
-
-print(f"Outer hexagons: {len(outer_hex_to_region)}")
-
-# ---- COMBINE ----
-full_hex_map = {**bbmp_hex_to_region, **outer_hex_to_region}
-
-print("\n" + "=" * 80)
-print("FINAL HEX MAP")
-print("=" * 80)
-print(f"Urban hexagons (BBMP):     {len(bbmp_hex_to_region)}")
-print(f"Outer hexagons (BMR):      {len(outer_hex_to_region)}")
-print(f"Total hex → region:        {len(full_hex_map)}")
-
-# Distribution check
+# 4. Distribution Breakdown
 from collections import Counter
-urban_dist = Counter(bbmp_hex_to_region.values())
-outer_dist = Counter(outer_hex_to_region.values())
+dist = Counter(hex_to_region.values())
+print("\nHexagons per region:")
+for r in sorted(dist.keys()):
+    print(f"  Region {r}: {dist[r]} hexagons")
 
-print("\nUrban hexagons per region:")
-for r in sorted(urban_dist.keys()):
-    print(f"  R{r} (urban): {urban_dist[r]} hexagons")
+# 5. Centroids Calculation
+all_hotels = []
+for _, r in df_urban.iterrows():
+    reg = int(r['region_urban'])
+    if r['name'] == 'UK COMFORTS':
+        reg = 2
+    all_hotels.append({'name': r['name'], 'lat': float(r['lat']), 'lon': float(r['lon']), 'region': reg})
 
-print("\nOuter hexagons per corridor:")
-for r in sorted(outer_dist.keys()):
-    cname = [c for c, cid in corridor_to_id.items() if cid == r]
-    cname = cname[0] if cname else f'R{r}'
-    print(f"  R{r} ({cname}): {outer_dist[r]} hexagons")
+for _, r in df_outer.iterrows():
+    all_hotels.append({'name': r['name'], 'lat': float(r['lat']), 'lon': float(r['lon']), 'region': int(r['region_outer'])})
 
-# ---- SAVE ----
-joblib.dump(full_hex_map, 'hex_map_final.pkl')
-joblib.dump(corridor_to_id, 'corridor_to_id_final.pkl')
-print(f"\n✅ Saved hex_map_final.pkl")
-print(f"✅ Saved corridor_to_id_final.pkl")
+df_all = pd.DataFrame(all_hotels)
+centroids_df = df_all.groupby('region')[['lat', 'lon']].mean().reset_index()
+counts_df = df_all.groupby('region')['name'].count().reset_index().rename(columns={'name': 'count'})
+centroids_df = centroids_df.merge(counts_df, on='region')
+centroids_df.to_csv('urban_centroids.csv', index=False)
+print("\nSaved updated urban_centroids.csv:")
+print(centroids_df)
+
+# 6. Save Artifacts
+joblib.dump(hex_to_region, 'hex_map_final.pkl')
+joblib.dump({}, 'corridor_to_id_final.pkl')
+
+with open('data/hex_map.json', 'w') as f:
+    json.dump(hex_to_region, f)
+
+with open('data/corridor_to_id.json', 'w') as f:
+    json.dump({}, f)
+
+with open('data/hotels.json', 'w') as f:
+    json.dump(all_hotels, f, indent=2)
+
+print("\n✅ Successfully built and saved:")
+print("  - hex_map_final.pkl & data/hex_map.json")
+print("  - corridor_to_id_final.pkl & data/corridor_to_id.json (cleared outer corridors)")
+print("  - data/hotels.json (100 hotels mapped to 6 regions)")
+print("  - urban_centroids.csv")

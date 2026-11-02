@@ -1,14 +1,7 @@
 const h3 = require('h3-js');
 const hexMap = require('../data/hex_map.json');
-const corridorToId = require('../data/corridor_to_id.json');
 const hotels = require('../data/hotels.json');
-
 const regionMetadata = require('../data/region_metadata.json');
-
-const idToCorridor = {};
-for (const [name, id] of Object.entries(corridorToId)) {
-  idToCorridor[id] = name;
-}
 
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371;
@@ -49,48 +42,40 @@ module.exports = (req, res) => {
     });
   }
 
-  // 1. Calculate H3 Hexagon
+  // 1. Calculate H3 Hexagon (Res 7)
   const hexId = h3.latLngToCell(lat, lon, 7);
 
   // 2. Lookup Region
   let regionId = hexMap[hexId];
   let lookupType = "exact";
+  let inOperationalFootprint = true;
 
   if (regionId === undefined) {
-    lookupType = "outside_50km_bmr";
+    inOperationalFootprint = false;
+    // Find nearest hex in operational footprint
+    let minGridDist = 999999;
+    let nearestHex = null;
+    const hexKeys = Object.keys(hexMap);
+    for (const h of hexKeys) {
+      const gdist = h3.gridDistance(h, hexId);
+      if (gdist < minGridDist) {
+        minGridDist = gdist;
+        nearestHex = h;
+      }
+    }
+    regionId = nearestHex ? hexMap[nearestHex] : 0;
+    lookupType = `outside_footprint (nearest: ${minGridDist} hexes away)`;
   }
 
-  const isUrban = (regionId !== undefined && regionId < 10);
   const meta = (regionId !== undefined && regionMetadata[String(regionId)]) ? regionMetadata[String(regionId)] : null;
 
-  let regionCode = "UNMAPPED";
-  let regionName = "Outside BMR 50km";
-  let shortName = "Outside BMR";
-  let lotrRoute = "N/A";
-  let keyAreas = "";
-  let tier = "Unmapped / Outside 50km";
-  let color = "#334155";
-
-  if (meta) {
-    regionCode = meta.code;
-    regionName = meta.name;
-    shortName = meta.short_name;
-    lotrRoute = meta.lotr_route;
-    keyAreas = meta.key_areas;
-    tier = meta.tier;
-    color = meta.color;
-  } else if (regionId !== undefined) {
-    if (isUrban) {
-      regionCode = `Urban-R${regionId}`;
-      regionName = `Urban Region ${regionId}`;
-      tier = "Urban Core (Inside BBMP)";
-    } else {
-      const cname = idToCorridor[regionId] || `Corridor ${regionId}`;
-      regionCode = `Outer-R${regionId}`;
-      regionName = `R${regionId}: ${cname}`;
-      tier = "Outer Highway Corridor (BMR)";
-    }
-  }
+  let regionCode = meta ? meta.code : `R${regionId}`;
+  let regionName = meta ? meta.name : `Region ${regionId}`;
+  let shortName = meta ? meta.short_name : regionName;
+  let lotrRoute = meta ? meta.lotr_route : "N/A";
+  let keyAreas = meta ? meta.key_areas : "";
+  let tier = meta ? meta.tier : "Operational Route";
+  let color = meta ? meta.color : "#334155";
 
   // 3. Hexagon Boundary
   const boundary = h3.cellToBoundary(hexId);
@@ -108,7 +93,8 @@ module.exports = (req, res) => {
       nearestHotel = {
         name: h.name,
         distance_km: parseFloat(d.toFixed(2)),
-        region_id: h.region
+        region_id: h.region,
+        region_code: `R${h.region}`
       };
     }
   }
@@ -124,6 +110,7 @@ module.exports = (req, res) => {
     key_areas: keyAreas,
     tier: tier,
     color: color,
+    in_operational_footprint: inOperationalFootprint,
     hexagon_id: hexId,
     hexagon_resolution: 7,
     lookup_type: lookupType,
