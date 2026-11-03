@@ -8,7 +8,7 @@
     "route_status": "Known",
     "lotr_route": "LOTR Route 3 (Southeast) — Electronic City & Sarjapur Rd",
     "color": "#EF4444",
-    "key_areas": "Koramangala, HSR Layout, Madiwala, Hosur Road, Electronic City Phase 1 & 2, Bommasandra, Hebbagodi, Attibele, Sarjapur Road, Doddakannelli, Carmelaram, Kodathi, Dommasandra, Sompura, Sarjapura",
+    "key_areas": "Koramangala, HSR Layout, Madiwala, Hosur Road, Electronic City Phase 1 & 2, Bommasandra, Hebbagodi, Attibele, Sarjapur Road, Doddakannelli, Carmelaram, Kodathi, Dommasandra, Sompura, Sarjapura, The International School Bangalore (TISB)",
     "areas_list": [
       "Koramangala (Blocks 1–8)",
       "HSR Layout (Sectors 1–7)",
@@ -23,6 +23,7 @@
       "Doddakannelli & Carmelaram",
       "Kodathi & RGA Tech Park Corridor",
       "Dommasandra & Sompura Gate",
+      "The International School Bangalore (TISB) & Varthur-Sarjapur Ribbon",
       "Sarjapura Town & Outer SE Ribbon"
     ]
   },

@@ -124,6 +124,7 @@ test_locations = [
     (12.7800, 77.6400, 'Attibele Highway Corridor'),
     (12.8600, 77.7800, 'Sarjapur Road / Town Corridor'),
     (12.8750, 77.7550, 'Dommasandra / Sarjapur Road'),
+    (12.8934, 77.7552, 'The International School Bangalore (TISB)'),
     (13.1600, 77.6350, 'Devanahalli Airport Highway'),
     (12.9650, 77.3650, 'Magadi Road Outer Reach'),
     (12.7000, 77.2000, 'Far Out Ramanagara (Outside Ops)'),
