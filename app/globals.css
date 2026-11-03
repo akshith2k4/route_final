@@ -13,7 +13,7 @@
   --green: #2d5b42;
   --green-soft: #eaf2ea;
   --cream: #fbf7ec;
-  --map-bg: #e9e3d6;
+  --map-bg: #f5f2eb;
   --danger: #a23a2f;
   --focus: #3b6b50;
   --font-mono: "SFMono-Regular", "SF Mono", ui-monospace, "Cascadia Mono",
@@ -1153,9 +1153,8 @@ a {
 }
 
 .leaflet-tile-pane {
-  filter: grayscale(0.92) sepia(0.14) saturate(0.36) brightness(1.07)
-    contrast(0.85);
-  opacity: 0.62;
+  filter: grayscale(0.35) brightness(1.03) contrast(0.96);
+  opacity: 0.85;
 }
 
 .leaflet-control-attribution {
@@ -1185,9 +1184,9 @@ a {
 
 /* Region labels ----------------------------------------------------------- */
 
-.region-label-marker {
-  border: 0;
-  background: transparent;
+.region-label-marker,
+.region-label {
+  display: none !important;
 }
 
 .region-label {
@@ -1260,16 +1259,7 @@ a {
 /* Map tooltips ------------------------------------------------------------ */
 
 .leaflet-tooltip.coverage-tooltip {
-  max-width: 250px;
-  padding: 8px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 8px;
-  background: var(--ink);
-  box-shadow: 0 8px 24px rgba(24, 36, 30, 0.25);
-  color: var(--cream);
-  font-size: 11px;
-  line-height: 1.35;
-  white-space: normal;
+  display: none !important;
 }
 
 .leaflet-tooltip.coverage-tooltip::before,

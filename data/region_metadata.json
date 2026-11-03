@@ -7,7 +7,7 @@
     "tier": "Urban & Highway Corridor",
     "route_status": "Known",
     "lotr_route": "LOTR Route 3 (Southeast) — Electronic City & Sarjapur Rd",
-    "color": "#C0392B",
+    "color": "#EF4444",
     "key_areas": "Koramangala, HSR Layout, Madiwala, Hosur Road, Electronic City Phase 1 & 2, Bommasandra, Hebbagodi, Attibele, Sarjapur Road, Doddakannelli, Carmelaram, Kodathi, Dommasandra, Sompura, Sarjapura",
     "areas_list": [
       "Koramangala (Blocks 1–8)",
@@ -34,7 +34,7 @@
     "tier": "Urban Core",
     "route_status": "Proposed",
     "lotr_route": "Proposed — Central / Inner East",
-    "color": "#1A365D",
+    "color": "#2563EB",
     "key_areas": "MG Road, Indiranagar, Shivajinagar, Richmond Road, Ulsoor, Domlur, Majestic, Lavelle Road",
     "areas_list": [
       "CBD / MG Road & Brigade Road",
@@ -56,7 +56,7 @@
     "tier": "Urban & Highway Corridor",
     "route_status": "Known",
     "lotr_route": "LOTR Route 1 (North & West) — Nagavara & Yeshwanthpur",
-    "color": "#1E5F74",
+    "color": "#0891B2",
     "key_areas": "Hebbal, Nagawara, Manyata Tech Park, Hennur, Kempapura, Sahakar Nagar, Yelahanka, NH 44 Airport Highway, Devanahalli, Yeshwanthpur (LinenGrass HQ), Rajajinagar, Peenya, Vijayanagar, Malleshwaram, Mathikere, Magadi Road Corridor",
     "areas_list": [
       "Hebbal Flyover & Outer Ring Road (North)",
@@ -87,7 +87,7 @@
     "tier": "Urban Core",
     "route_status": "Known",
     "lotr_route": "LOTR Route 2 (East) — Whitefield",
-    "color": "#137547",
+    "color": "#10B981",
     "key_areas": "Whitefield, Marathahalli, KR Puram, Brookefield, Mahadevapura, Outer Ring Road (East), Varthur, Kadugodi",
     "areas_list": [
       "Whitefield & ITPL Main Road",
@@ -107,7 +107,7 @@
     "tier": "Urban Core",
     "route_status": "Known",
     "lotr_route": "LOTR Route 4 (South) — Jayanagar",
-    "color": "#D97706",
+    "color": "#F59E0B",
     "key_areas": "Jayanagar, JP Nagar, BTM Layout, Bannerghatta Road, Hulimavu, Banashankari, Kanakapura Road (Inner), Konanakunte, Uttarahalli",
     "areas_list": [
       "Jayanagar (Blocks 1–9 & 4th Block Complex)",

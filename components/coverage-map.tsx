@@ -184,32 +184,13 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
           bounds.extend(latLngs);
           allBounds.extend(latLngs);
 
-          const hotelCount = hotelCounts.get(regionId) ?? 0;
-          const tooltip = `
-            <div class="coverage-tooltip__code">${escapeHtml(meta.code)} · ${escapeHtml(meta.tier)}</div>
-            <div class="coverage-tooltip__name">${escapeHtml(meta.short_name)}</div>
-            <div class="coverage-tooltip__route">${escapeHtml(meta.lotr_route)}</div>
-            <div class="coverage-tooltip__meta">
-              <span>${hotelCount} hotels</span>
-              <span>${meta.areas_list.length} localities</span>
-            </div>
-          `;
-
           const polygon = L.polygon(latLngs, {
             color: meta.color,
-            weight: 0.55,
-            opacity: 0.2,
+            weight: 0.8,
+            opacity: 0.45,
             fillColor: meta.color,
-            fillOpacity: 0.18,
+            fillOpacity: 0.35,
             className: "hex-poly",
-          });
-
-          polygon.bindTooltip(tooltip, {
-            className: "coverage-tooltip",
-            direction: "auto",
-            sticky: true,
-            opacity: 1,
-            offset: [0, -2],
           });
 
           polygon.on("mouseover", () => {
@@ -243,9 +224,9 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
             );
 
             const outline = L.polygon(rings, {
-              color: "#24352B",
-              weight: 1.4,
-              opacity: 0.55,
+              color: "#111827",
+              weight: 2.2,
+              opacity: 0.9,
               fill: false,
               interactive: false,
               dashArray:
@@ -258,40 +239,6 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
           }
 
           boundaryLayersRef.current.set(regionId, outlines);
-        }
-
-        for (const meta of currentRegions) {
-          const center = REGION_LABEL_POINTS[meta.id];
-          if (!center) continue;
-
-          const marker = L.marker([center.lat, center.lon], {
-            icon: L.divIcon({
-              className: "region-label-marker",
-              html: `
-                <span class="region-label" data-region="${meta.id}">
-                  <span class="region-label__dot" style="--c:${meta.color}"></span>
-                  <span class="region-label__code">${escapeHtml(meta.code)}</span>
-                  <span class="region-label__name">${escapeHtml(REGION_MAP_LABELS[meta.id] ?? meta.short_name)}</span>
-                </span>
-              `,
-              iconSize: [0, 0],
-              iconAnchor: [0, 0],
-            }),
-            keyboard: true,
-            title: `${meta.code} · ${meta.short_name}`,
-          }).addTo(map);
-
-          marker.on("click", () => {
-            callbacksRef.current.onSelectRegion(meta.id, true);
-          });
-          marker.on("mouseover", () => {
-            callbacksRef.current.onHoverRegion(meta.id);
-          });
-          marker.on("mouseout", () => {
-            callbacksRef.current.onHoverRegion(null);
-          });
-
-          regionLabelMarkersRef.current.set(meta.id, marker);
         }
 
         const hotelLayer = L.layerGroup().addTo(map);
@@ -404,18 +351,14 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
         const isHovered = hoveredRegion === regionId;
         const hasSelection = selectedRegion !== null;
 
-        let fillOpacity = hasSelection ? (isSelected ? 0.32 : 0.1) : 0.18;
-        let strokeOpacity = isSelected ? 0.52 : 0.2;
-        let weight = isSelected ? 1 : 0.55;
+        let fillOpacity = hasSelection ? (isSelected ? 0.48 : 0.20) : 0.35;
+        let strokeOpacity = isSelected ? 0.75 : hasSelection ? 0.30 : 0.45;
+        let weight = isSelected ? 1.4 : 0.8;
 
-        if (isHovered) {
-          fillOpacity = hasSelection
-            ? isSelected
-              ? 0.37
-              : 0.17
-            : 0.27;
-          strokeOpacity = 0.42;
-          weight = 0.9;
+        if (isHovered && !isSelected) {
+          fillOpacity = hasSelection ? 0.30 : 0.44;
+          strokeOpacity = 0.65;
+          weight = 1.1;
         }
 
         for (const layer of layers) {
@@ -430,27 +373,17 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
 
         for (const layer of layers) {
           layer.setStyle({
-            weight: isSelected ? 2.5 : isHovered ? 2 : 1.4,
+            color: "#111827",
+            weight: isSelected ? 3.2 : isHovered ? 2.6 : 2.2,
             opacity: isSelected
-              ? 0.9
+              ? 1
               : isHovered
-                ? 0.72
+                ? 0.95
                 : hasSelection
-                  ? 0.38
-                  : 0.55,
+                  ? 0.6
+                  : 0.9,
           });
         }
-      }
-
-      for (const [regionId, marker] of regionLabelMarkersRef.current) {
-        const element = marker
-          .getElement()
-          ?.querySelector<HTMLElement>(".region-label");
-        element?.classList.toggle("is-active", selectedRegion === regionId);
-        element?.classList.toggle(
-          "is-hovered",
-          hoveredRegion === regionId && selectedRegion !== regionId,
-        );
       }
     }, [status, selectedRegion, hoveredRegion]);
 
@@ -510,7 +443,7 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
       const meta = dataRef.current.regions.find(
         (region) => region.id === pinned.regionId,
       );
-      const color = meta?.color ?? "#C0392B";
+      const color = meta?.color ?? "#EF4444";
       const group = L.layerGroup().addTo(map);
 
       L.circle([pinned.lat, pinned.lon], {
