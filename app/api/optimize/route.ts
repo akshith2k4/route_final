@@ -15,11 +15,13 @@ export async function POST(req: Request) {
       hotelSettings,
       vehicles,
       shiftSettings,
+      objective,
     }: {
       hotels: Hotel[];
       hotelSettings: Record<string, StudioHotelSetting>;
       vehicles: StudioVehicle[];
       shiftSettings: StudioShiftSetting;
+      objective?: "fastest_turnaround" | "shortest_distance" | "balanced" | "minimize_fleet";
     } = body;
 
     if (!hotels || !Array.isArray(hotels) || hotels.length === 0) {
@@ -41,6 +43,7 @@ export async function POST(req: Request) {
       hotelSettings,
       vehicles,
       shiftSettings,
+      objective,
     });
 
     return NextResponse.json({

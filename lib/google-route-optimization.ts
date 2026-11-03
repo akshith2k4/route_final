@@ -145,16 +145,24 @@ export type GoogleOptimizationResult = {
   warnings: string[];
 };
 
+export type OptimizationObjective =
+  | "fastest_turnaround"
+  | "shortest_distance"
+  | "balanced"
+  | "minimize_fleet";
+
 export async function callGoogleOptimizeTours({
   hotels,
   hotelSettings,
   vehicles,
   shiftSettings,
+  objective = "balanced",
 }: {
   hotels: Hotel[];
   hotelSettings: Record<string, StudioHotelSetting>;
   vehicles: StudioVehicle[];
   shiftSettings: StudioShiftSetting;
+  objective?: OptimizationObjective;
 }): Promise<GoogleOptimizationResult> {
   const { token, projectId } = await getGoogleAccessToken();
 
@@ -227,7 +235,33 @@ export async function callGoogleOptimizeTours({
     };
   });
 
-  // 4. Build Google Vehicles
+  // 4. Build Google Vehicles with Objective Cost Weights
+  let costPerHour = 100.0;
+  let costPerKilometer = 10.0;
+  let costPerTraveledHour = 0.0;
+  let fixedCost = 0.0;
+
+  if (objective === "fastest_turnaround") {
+    // Prioritize fastest return to Yeshwanthpur HQ and avoiding traffic congestion
+    costPerHour = 1000.0;
+    costPerTraveledHour = 500.0;
+    costPerKilometer = 1.0;
+  } else if (objective === "shortest_distance") {
+    // Prioritize minimal road kilometers and fuel savings
+    costPerHour = 10.0;
+    costPerTraveledHour = 0.0;
+    costPerKilometer = 100.0;
+  } else if (objective === "minimize_fleet") {
+    // Prioritize consolidating loads to keep spare vans at HQ
+    costPerHour = 100.0;
+    costPerKilometer = 10.0;
+    fixedCost = 3000.0;
+  } else {
+    // Balanced hybrid default
+    costPerHour = 100.0;
+    costPerKilometer = 10.0;
+  }
+
   const googleVehicles = activeVehicles.map((v) => {
     const vehicleObj: any = {
       label: `${v.label} (R${v.region_id} - ${v.sector})`,
@@ -237,9 +271,16 @@ export async function callGoogleOptimizeTours({
       loadLimits: {
         space: { maxLoad: String(v.max_load) },
       },
-      costPerHour: 100.0,
-      costPerKilometer: 10.0,
+      costPerHour,
+      costPerKilometer,
     };
+
+    if (costPerTraveledHour > 0) {
+      vehicleObj.costPerTraveledHour = costPerTraveledHour;
+    }
+    if (fixedCost > 0) {
+      vehicleObj.fixedCost = fixedCost;
+    }
 
     if (shiftSettings.lunchBreakEnabled) {
       const lunchStart = shiftSettings.lunchWindowStart || "12:30";

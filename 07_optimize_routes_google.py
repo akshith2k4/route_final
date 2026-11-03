@@ -162,6 +162,30 @@ def main():
     shift_start = f"{shift_date}T07:00:00+05:30"
     shift_end = f"{shift_date}T17:00:00+05:30"
 
+    # Parse objective
+    objective = "balanced"
+    for arg in sys.argv:
+        if arg.startswith("--objective="):
+            objective = arg.split("=")[1]
+        elif arg == "--fastest":
+            objective = "fastest_turnaround"
+
+    if objective == "fastest_turnaround":
+        cost_per_hour = 1000.0
+        cost_per_travel_hour = 500.0
+        cost_per_km = 1.0
+        print("🎯 Objective: FASTEST TURNAROUND (Minimize Shift Time & Avoid Traffic)")
+    elif objective == "shortest_distance":
+        cost_per_hour = 10.0
+        cost_per_travel_hour = 0.0
+        cost_per_km = 100.0
+        print("🎯 Objective: SHORTEST DISTANCE (Minimize Kilometers & Fuel)")
+    else:
+        cost_per_hour = 100.0
+        cost_per_travel_hour = 0.0
+        cost_per_km = 10.0
+        print("🎯 Objective: BALANCED HYBRID (10:1 Ratio)")
+
     all_van_routes = []
     manifest_rows = []
 
@@ -187,15 +211,18 @@ def main():
         # Prepare Vehicles
         vehicles = []
         for v in config["vans"]:
-            vehicles.append({
+            v_dict = {
                 "label": v["label"],
                 "startLocation": DEPOT,
                 "endLocation": DEPOT,
                 "startTimeWindows": [{"startTime": shift_start, "endTime": shift_end}],
                 "loadLimits": {"space": {"maxLoad": str(v["max_load"])}},
-                "costPerHour": 100.0,
-                "costPerKilometer": 10.0
-            })
+                "costPerHour": cost_per_hour,
+                "costPerKilometer": cost_per_km
+            }
+            if cost_per_travel_hour > 0:
+                v_dict["costPerTraveledHour"] = cost_per_travel_hour
+            vehicles.append(v_dict)
 
         req_body = {
             "model": {

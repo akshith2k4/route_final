@@ -5044,4 +5044,103 @@ a {
   border-color: #5eead4;
 }
 
+/* Studio Objectives */
+.studio-objective-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.studio-objective-card {
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1.5px solid var(--line);
+  background: var(--paper);
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.studio-objective-card:hover {
+  border-color: var(--muted);
+  background: var(--paper-strong);
+}
+
+.studio-objective-card--active {
+  border-color: var(--ink);
+  background: var(--paper-strong);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.studio-objective-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.studio-objective-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.studio-objective-badge--speed {
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+.studio-objective-badge--distance {
+  background: rgba(21, 128, 61, 0.1);
+  color: #15803d;
+  border: 1px solid rgba(21, 128, 61, 0.2);
+}
+
+.studio-objective-badge--balanced {
+  background: rgba(30, 58, 138, 0.1);
+  color: #1e3a8a;
+  border: 1px solid rgba(30, 58, 138, 0.2);
+}
+
+.studio-objective-badge--fleet {
+  background: rgba(180, 83, 9, 0.1);
+  color: #b45309;
+  border: 1px solid rgba(180, 83, 9, 0.2);
+}
+
+.studio-objective-card b {
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.studio-objective-card p {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.35;
+}
+
+.studio-footer-objective-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  padding: 3px 8px;
+  border-radius: 5px;
+  margin-left: 8px;
+}
+
+
 

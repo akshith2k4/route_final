@@ -51,6 +51,7 @@ import {
   runStudioOptimization,
   type OptimizationResult,
 } from "../lib/studio-optimizer";
+import { type OptimizationObjective } from "../lib/google-route-optimization";
 
 type StudioPanelProps = {
   hotels: Hotel[];
@@ -99,6 +100,9 @@ export default function StudioPanel({
   const [shiftSettings, setShiftSettings] = useState<StudioShiftSetting>(
     DEFAULT_SHIFT_SETTINGS,
   );
+
+  // 3b. Optimization Objective
+  const [objective, setObjective] = useState<OptimizationObjective>("fastest_turnaround");
 
   // 4. Hotel Settings State
   const [hotelSettings, setHotelSettings] = useState<
@@ -366,6 +370,7 @@ export default function StudioPanel({
           hotelSettings,
           vehicles,
           shiftSettings,
+          objective,
         }),
       });
 
@@ -1123,6 +1128,75 @@ export default function StudioPanel({
                   </div>
                 )}
               </div>
+
+              {/* Optimization Objective Strategy */}
+              <div className="studio-config-card">
+                <div className="studio-config-card__header">
+                  <Zap size={16} className="studio-icon-lunch" style={{ color: "var(--accent, #dc2626)" }} />
+                  <div>
+                    <h4 className="studio-config-card__title">
+                      Optimization Objective & Strategy
+                    </h4>
+                    <p className="studio-config-card__desc">
+                      Configure the algorithmic cost function that Google Cloud prioritizes during tour generation.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="studio-objective-grid">
+                  <button
+                    type="button"
+                    className={`studio-objective-card ${objective === "fastest_turnaround" ? "studio-objective-card--active" : ""}`}
+                    onClick={() => setObjective("fastest_turnaround")}
+                  >
+                    <div className="studio-objective-card__head">
+                      <span className="studio-objective-badge studio-objective-badge--speed">⚡ Speed Priority</span>
+                      {objective === "fastest_turnaround" && <Check size={14} />}
+                    </div>
+                    <b>Fastest Turnaround</b>
+                    <p>Heavily penalizes shift time and slow traffic crawling. Vans avoid bottlenecks and return to HQ as early as possible.</p>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`studio-objective-card ${objective === "shortest_distance" ? "studio-objective-card--active" : ""}`}
+                    onClick={() => setObjective("shortest_distance")}
+                  >
+                    <div className="studio-objective-card__head">
+                      <span className="studio-objective-badge studio-objective-badge--distance">🛣️ Fuel Priority</span>
+                      {objective === "shortest_distance" && <Check size={14} />}
+                    </div>
+                    <b>Shortest Road Distance</b>
+                    <p>Minimizes total kilometers driven across Bangalore to reduce diesel/battery consumption, even if taking local roads.</p>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`studio-objective-card ${objective === "balanced" ? "studio-objective-card--active" : ""}`}
+                    onClick={() => setObjective("balanced")}
+                  >
+                    <div className="studio-objective-card__head">
+                      <span className="studio-objective-badge studio-objective-badge--balanced">⚖️ 10:1 Ratio</span>
+                      {objective === "balanced" && <Check size={14} />}
+                    </div>
+                    <b>Balanced Hybrid</b>
+                    <p>Standard cost weighting ($100/hr total shift time and $10/km distance). Balances speed against driving distance.</p>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`studio-objective-card ${objective === "minimize_fleet" ? "studio-objective-card--active" : ""}`}
+                    onClick={() => setObjective("minimize_fleet")}
+                  >
+                    <div className="studio-objective-card__head">
+                      <span className="studio-objective-badge studio-objective-badge--fleet">🚐 Fleet Consolidation</span>
+                      {objective === "minimize_fleet" && <Check size={14} />}
+                    </div>
+                    <b>Minimum Fleet Size</b>
+                    <p>Adds a fixed dispatch penalty per van ($3,000) so Google packs loads into fewer vehicles, keeping backup vans at HQ.</p>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -1566,6 +1640,12 @@ export default function StudioPanel({
           <span>
             {selectedHotelsCount} hotels · {totalDemandBags} bags · {activeVehiclesCount}{" "}
             active vans
+          </span>
+          <span className="studio-footer-objective-tag">
+            {objective === "fastest_turnaround" && "⚡ Fastest Turnaround"}
+            {objective === "shortest_distance" && "🛣️ Shortest Distance"}
+            {objective === "balanced" && "⚖️ Balanced Hybrid"}
+            {objective === "minimize_fleet" && "🚐 Minimize Fleet"}
           </span>
         </div>
         <button
