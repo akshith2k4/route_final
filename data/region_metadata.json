@@ -2,24 +2,28 @@
   "0": {
     "id": 0,
     "code": "R0",
-    "name": "South-East: Electronic City, Hosur Rd, Koramangala & HSR",
-    "short_name": "Koramangala, HSR & E-City",
+    "name": "South-East: Electronic City, Hosur Rd, Koramangala, HSR & Sarjapur Rd",
+    "short_name": "Koramangala, HSR, E-City & Sarjapur Rd",
     "tier": "Urban & Highway Corridor",
     "route_status": "Known",
-    "lotr_route": "LOTR Route 3 (Southeast) — Electronic City",
+    "lotr_route": "LOTR Route 3 (Southeast) — Electronic City & Sarjapur Rd",
     "color": "#C0392B",
-    "key_areas": "Koramangala, HSR Layout, Madiwala, Hosur Road, Electronic City Phase 1 & 2, Bommasandra, Hebbagodi, Attibele",
+    "key_areas": "Koramangala, HSR Layout, Madiwala, Hosur Road, Electronic City Phase 1 & 2, Bommasandra, Hebbagodi, Attibele, Sarjapur Road, Doddakannelli, Carmelaram, Kodathi, Dommasandra, Sompura, Sarjapura",
     "areas_list": [
       "Koramangala (Blocks 1–8)",
       "HSR Layout (Sectors 1–7)",
       "Madiwala & Silk Board Junction",
-      "Inner Sarjapur Road & Kasavanahalli",
       "Hosur Road & Bommanahalli",
       "Electronic City Phase 1",
       "Electronic City Phase 2",
       "Bommasandra Industrial Area",
       "Hebbagodi & Veerasandra",
-      "Attibele & TN Border Highway Corridor"
+      "Attibele & TN Border Highway Corridor",
+      "Sarjapur Road & Kasavanahalli",
+      "Doddakannelli & Carmelaram",
+      "Kodathi & RGA Tech Park Corridor",
+      "Dommasandra & Sompura Gate",
+      "Sarjapura Town & Outer SE Ribbon"
     ]
   },
   "1": {
@@ -47,13 +51,13 @@
   "2": {
     "id": 2,
     "code": "R2",
-    "name": "North: Hebbal, Nagawara, Manyata & Hennur",
-    "short_name": "Hebbal, Nagawara, Manyata & Hennur",
+    "name": "North & West: Hebbal, Yeshwanthpur (HQ), Manyata, Rajajinagar & Peenya",
+    "short_name": "Hebbal, Yeshwanthpur, Manyata & Peenya",
     "tier": "Urban & Highway Corridor",
     "route_status": "Known",
-    "lotr_route": "LOTR Route 1 (North) — Nagavara",
+    "lotr_route": "LOTR Route 1 (North & West) — Nagavara & Yeshwanthpur",
     "color": "#1E5F74",
-    "key_areas": "Hebbal, Nagawara, Manyata Tech Park, Hennur, Kempapura, Sahakar Nagar, Yelahanka, NH 44 Airport Highway, Devanahalli",
+    "key_areas": "Hebbal, Nagawara, Manyata Tech Park, Hennur, Kempapura, Sahakar Nagar, Yelahanka, NH 44 Airport Highway, Devanahalli, Yeshwanthpur (LinenGrass HQ), Rajajinagar, Peenya, Vijayanagar, Malleshwaram, Mathikere, Magadi Road Corridor",
     "areas_list": [
       "Hebbal Flyover & Outer Ring Road (North)",
       "Manyata Tech Park & Nagawara",
@@ -63,7 +67,16 @@
       "Yelahanka Old & New Town",
       "Jakkur & Kogilu Cross",
       "NH 44 Bellary Highway Ribbon",
-      "Devanahalli & Airport City Approach"
+      "Devanahalli & Airport City Approach",
+      "Yeshwanthpur (LinenGrass Central Facility)",
+      "Rajajinagar (Blocks 1–6 & Industrial Town)",
+      "Peenya Industrial Area (Stages 1–4)",
+      "Vijayanagar & Govindarajanagar",
+      "Malleshwaram (1st to 18th Cross)",
+      "Mathikere & MS Ramaiah Enclave",
+      "Nandini Layout & Mahalakshmi Layout",
+      "Magadi Main Road Ribbon",
+      "Tavarekere & Machohalli Outer Reach"
     ]
   },
   "3": {
@@ -107,28 +120,6 @@
       "Konanakunte & Yelachenahalli",
       "Uttarahalli & Chikkalasandra",
       "Padmanabhanagar & Kumaraswamy Layout"
-    ]
-  },
-  "5": {
-    "id": 5,
-    "code": "R5",
-    "name": "West: Yeshwanthpur (HQ), Rajajinagar, Peenya & Magadi Rd",
-    "short_name": "Yeshwanthpur, Rajajinagar & Peenya",
-    "tier": "Urban & Highway Corridor",
-    "route_status": "Proposed",
-    "lotr_route": "Proposed — West",
-    "color": "#5B21B6",
-    "key_areas": "Yeshwanthpur (LinenGrass HQ), Rajajinagar, Peenya, Vijayanagar, Malleshwaram, Mathikere, Magadi Road Corridor",
-    "areas_list": [
-      "Yeshwanthpur (LinenGrass Central Facility)",
-      "Rajajinagar (Blocks 1–6 & Industrial Town)",
-      "Peenya Industrial Area (Stages 1–4)",
-      "Vijayanagar & Govindarajanagar",
-      "Malleshwaram (1st to 18th Cross)",
-      "Mathikere & MS Ramaiah Enclave",
-      "Nandini Layout & Mahalakshmi Layout",
-      "Magadi Main Road Ribbon",
-      "Tavarekere & Machohalli Outer Reach"
     ]
   }
 }

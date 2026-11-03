@@ -3,13 +3,12 @@ LinenGrass Route Lookup Engine: Given GPS Lat and Lon, returns Region ID,
 Region Name, LinenGrass Route, H3 Hexagon ID, Distance to Bangalore Center,
 and Nearest Known Hotel.
 
-Strictly 6 Operational Regions (LOTR Schematic Aligned):
-- R0: South-East (Koramangala, HSR, BTM & E-City)
+Strictly 5 Operational Regions (LOTR Schematic Aligned):
+- R0: South-East (Electronic City, Hosur Rd, Koramangala, HSR & Sarjapur Rd)
 - R1: Central (CBD, Indiranagar & MG Road)
-- R2: North (Hebbal, Manyata & Airport NH 44)
+- R2: North & West (Hebbal, Manyata, Yeshwanthpur HQ, Peenya & Airport NH 44)
 - R3: East (Whitefield & Marathahalli)
-- R4: South-West (JP Nagar, Jayanagar & Kanakapura Rd)
-- R5: North-West (Yeshwanthpur HQ, Rajajinagar & Magadi Rd)
+- R4: South (JP Nagar, Jayanagar, BTM & Bannerghatta Rd)
 
 Usage:
   # CLI single lookup:

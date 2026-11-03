@@ -2,11 +2,12 @@
 Step 2: Urban Clustering — 86 BBMP hotels ni K=4-14 metrics tho evaluate chey.
 
 The KMeans step uses the historical 8-cluster solution, then merges it into the
-6 LOTR zones used by the map:
+5 LOTR zones used by the map:
   - old cluster 0 (BTM / Hulimavu / Bannerghatta) -> R4 South
+  - old cluster 5 (Yeshwanthpur / Rajajinagar)     -> R2 North & West
   - old cluster 6 (Koramangala / HSR)              -> R0 South-East
   - old cluster 7 (Kanakapura / Uttarahalli)       -> R4 South
-All other clusters keep their IDs (1 Central, 2 North, 3 East, 5 West).
+All other clusters keep their IDs (1 Central, 2 North & West, 3 East, 4 South).
 """
 import pandas as pd
 import numpy as np
@@ -84,15 +85,49 @@ print(f"   Silhouette: {best['sil']:.3f} (higher better, max 1.0)")
 print(f"   Davies-Bouldin: {best['db']:.3f} (lower better, min 0.0)")
 print(f"   Region sizes: min={best['min']}, max={best['max']}")
 
-# ---- Merge 8 KMeans clusters into 6 LOTR zones ----
-# South      = old 0 (BTM/Hulimavu/Bannerghatta) + old 4 (JP Nagar/Jayanagar) + old 7 (Kanakapura)
-# South-East = old 6 (Koramangala/HSR)
-# Others keep their IDs: 1 Central, 2 North, 3 East, 5 West.
-MERGE_MAP = {0: 4, 6: 0, 7: 4}
-df_urban['region_urban'] = [MERGE_MAP.get(int(x), int(x)) for x in best['labels']]
+# ---- Base 8 centroids and merge map into 5 LOTR zones ----
+BASE_8_CENTROIDS = [
+    (12.897545, 77.600871), # 0: BTM / Hulimavu / Bannerghatta -> R4
+    (12.975317, 77.605515), # 1: Central / CBD -> R1
+    (13.046299, 77.626499), # 2: North / Hebbal -> R2
+    (12.973642, 77.718538), # 3: East / Whitefield -> R3
+    (12.926320, 77.575699), # 4: JP Nagar / Jayanagar -> R4
+    (13.031606, 77.560270), # 5: West / Yeshwanthpur -> R2
+    (12.923476, 77.629603), # 6: Koramangala / HSR -> R0
+    (12.877906, 77.548851), # 7: Kanakapura / Uttarahalli -> R4
+]
+MERGE_MAP = {0: 4, 5: 2, 6: 0, 7: 4}
+
+import os
+from math import radians, sin, cos, atan2, sqrt
+
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371
+    dlat = radians(lat2 - lat1); dlon = radians(lon2 - lon1)
+    a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
+    return 2 * R * atan2(sqrt(a), sqrt(1-a))
+
+existing_assignments = {}
+if os.path.exists('hotels_urban_clustered.csv'):
+    prev_df = pd.read_csv('hotels_urban_clustered.csv')
+    existing_assignments = dict(zip(prev_df['name'], prev_df['region_urban']))
+
+assigned_regions = []
+for _, r in df_urban.iterrows():
+    name = r['name']
+    if name in existing_assignments:
+        assigned_regions.append(int(existing_assignments[name]))
+    else:
+        base_r = min(range(len(BASE_8_CENTROIDS)),
+                     key=lambda i: haversine(r['lat'], r['lon'], *BASE_8_CENTROIDS[i]))
+        final_reg = MERGE_MAP.get(base_r, base_r)
+        print(f"✨ Newly Added Hotel: {name} -> Assigned to Region {final_reg}")
+        assigned_regions.append(final_reg)
+
+df_urban['region_urban'] = assigned_regions
 
 print("\n" + "=" * 90)
-print(f"FINAL URBAN DISTRIBUTION (K={best['k']} → 6 LOTR zones)")
+print(f"FINAL URBAN DISTRIBUTION (K={best['k']} → 5 LOTR zones)")
 print("=" * 90)
 
 for i in sorted(df_urban['region_urban'].unique()):

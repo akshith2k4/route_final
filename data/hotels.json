@@ -33,7 +33,7 @@
     "name": "BRINDAVANA STAY",
     "lat": 13.06106834163723,
     "lon": 77.53110547783504,
-    "region": 5
+    "region": 2
   },
   {
     "name": "BRIXTON LUXE",
@@ -261,7 +261,7 @@
     "name": "OCTAVE ROYAL OPERA",
     "lat": 13.020862887228876,
     "lon": 77.55539375127218,
-    "region": 5
+    "region": 2
   },
   {
     "name": "OCTAVE STUDIO HOTEL - KORAMANGLA STU",
@@ -303,7 +303,7 @@
     "name": "RAJ RESIDENCY",
     "lat": 13.014324967242322,
     "lon": 77.57387104473435,
-    "region": 5
+    "region": 2
   },
   {
     "name": "REGENTA PALACE",
@@ -411,7 +411,7 @@
     "name": "THALASSA SPA",
     "lat": 13.033029745827209,
     "lon": 77.56926245289007,
-    "region": 5
+    "region": 2
   },
   {
     "name": "THE CHANCERY HOTELS",
@@ -465,7 +465,7 @@
     "name": "URBAN NEST",
     "lat": 13.028746121110697,
     "lon": 77.57171557530822,
-    "region": 5
+    "region": 2
   },
   {
     "name": "VP INTERNATIONAL",
@@ -514,6 +514,18 @@
     "lat": 12.917835225006607,
     "lon": 77.62384166505534,
     "region": 0
+  },
+  {
+    "name": "Hyatt Centric Whitefield Bengaluru",
+    "lat": 12.995082111188838,
+    "lon": 77.68829159878129,
+    "region": 3
+  },
+  {
+    "name": "Kingston palace",
+    "lat": 12.929799180238698,
+    "lon": 77.58591758394394,
+    "region": 4
   },
   {
     "name": "AVORA TREE SUITES",
@@ -585,7 +597,7 @@
     "name": "MANDALA RESORTS",
     "lat": 12.965214565256893,
     "lon": 77.36128797833476,
-    "region": 5
+    "region": 2
   },
   {
     "name": "NIRANTARA RESORT",

@@ -1,8 +1,9 @@
 """
 Step 3: Outer Corridors — 14 BBMP-external hotels assigned directly to parent operational regions:
-- Hosur-Rd-E-City (12 hotels) -> Region 0 (South-East: Koramangala, HSR & E-City)
-- NH44-Airport (1 hotel) -> Region 2 (North: Hebbal, Manyata & Airport NH 44)
-- Magadi-West (1 hotel) -> Region 5 (West: Yeshwanthpur HQ & Magadi Rd)
+- Hosur-Rd-E-City (11 hotels) -> Region 0 (South-East: Electronic City, Hosur Rd, Koramangala & HSR)
+- Sarjapur-SE (1 hotel: GLOBAL STAY) -> Region 0 (South-East: Sarjapur Rd up to Sarjapura)
+- NH44-Airport (1 hotel) -> Region 2 (North & West: Hebbal, Manyata & Airport NH 44)
+- Magadi-West (1 hotel) -> Region 2 (North & West: Yeshwanthpur HQ & Magadi Rd)
 """
 import pandas as pd
 from math import radians, sin, cos, atan2, sqrt
@@ -20,16 +21,16 @@ if len(df_outer) == 0:
     exit()
 
 CORRIDOR_TOWNS = {
-    'NH44-Airport':       (13.20, 77.71),   # Assigned to Region 2 (North)
-    'Sarjapur-SE':        (12.86, 77.78),   # Assigned to Region 0 (South-East)
-    'Magadi-West':        (12.96, 77.30),   # Assigned to Region 5 (North-West)
-    'Hosur-Rd-E-City':    (12.84, 77.67),   # Assigned to Region 0 (South-East)
+    'NH44-Airport':       (13.20, 77.71),   # Assigned to Region 2 (North & West)
+    'Sarjapur-SE':        (12.88, 77.75),   # Dommasandra / Sarjapur Rd -> Region 0 (South-East)
+    'Magadi-West':        (12.96, 77.30),   # Assigned to Region 2 (North & West)
+    'Hosur-Rd-E-City':    (12.84, 77.67),   # Electronic City / Hosur Rd -> Region 0 (South-East)
 }
 
 corridor_to_parent_region = {
     'NH44-Airport': 2,
     'Sarjapur-SE': 0,
-    'Magadi-West': 5,
+    'Magadi-West': 2,
     'Hosur-Rd-E-City': 0,
 }
 

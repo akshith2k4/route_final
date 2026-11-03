@@ -1,17 +1,16 @@
 """
-Step 6: High-Definition LinenGrass 6-Region Operational Map with Interactive Area Explorer Box
+Step 6: High-Definition LinenGrass 5-Region Operational Map with Interactive Area Explorer Box
 Features:
-- Exact 6 LinenGrass Operational Regions (LOTR schematic aligned)
-- Continuous highway corridor ribbons extending out to outer hotels (Airport NH44, Hosur Rd/E-City, Magadi Rd)
+- Exact 5 LinenGrass Operational Regions (LOTR schematic aligned)
+- Continuous highway corridor ribbons extending out to outer hotels (Airport NH44, Hosur Rd/E-City, Sarjapur Rd up to Sarjapura, Magadi Rd)
 - Interactive Right-Hand Region & Area Explorer Box:
-  - Click any region tab (R0-R5) to view all covered localities and areas
+  - Click any region tab (R0-R4) to view all covered localities and areas
   - Click any hexagon on the map to automatically view its region & areas
   - Scrollable hotel list with click-to-focus on map
   - "Focus Region on Map" smooth camera pan
 - Top-Center Coordinate Search Bar:
   - Enter coordinates -> highlights hex, drops pin, and syncs right area explorer
 - Floating Legend (Bottom-Left)
-- BBMP City Limits Boundary
 - Layer Controls (Bottom-Right)
 """
 import folium
@@ -26,7 +25,7 @@ from shapely.geometry import Polygon, mapping
 from shapely.ops import unary_union
 
 print("=" * 80)
-print("GENERATING LINENGRASS 6-REGION HIGH-DEFINITION MAP WITH AREA EXPLORER")
+print("GENERATING LINENGRASS 5-REGION HIGH-DEFINITION MAP WITH AREA EXPLORER")
 print("=" * 80)
 
 # 1. Load Data
@@ -43,7 +42,7 @@ COLOR_PALETTE = {int(k): v['color'] for k, v in REGION_METADATA.items()}
 
 # Precompute region bounding boxes for smooth map zooming
 region_bounds = {}
-for r in range(6):
+for r in sorted([int(k) for k in REGION_METADATA.keys()]):
     lats = [h['lat'] for h in hotels if h['region'] == r]
     lons = [h['lon'] for h in hotels if h['region'] == r]
     for hex_id, reg in hex_map.items():
@@ -67,7 +66,7 @@ m = folium.Map(
 
 
 # 3. HEXAGONS (WITH CRISP BORDERS & PROPER REGION LABELS)
-hex_group = folium.FeatureGroup(name="6 Operational Regions (Hexagons)", show=True)
+hex_group = folium.FeatureGroup(name="5 Operational Regions (Hexagons)", show=True)
 region_hex_polys = {}
 
 for h, r in hex_map.items():
@@ -220,7 +219,7 @@ hotels_group.add_to(m)
 
 # 7. FLOATING LEGEND (BOTTOM-LEFT)
 legend_rows = ""
-for r in range(6):
+for r in sorted([int(k) for k in REGION_METADATA.keys()]):
     meta = REGION_METADATA[str(r)]
     count = sum(1 for h in hotels if h['region'] == r)
     status = meta.get('route_status', 'Known')
@@ -242,7 +241,7 @@ legend_html = f"""
      border:2px solid #0f172a; border-radius: 12px; padding: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.22);">
      
      <div style="font-weight: 800; font-size: 14px; margin-bottom: 2px; color: #0f172a;">LinenGrass Route System</div>
-     <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">6 LOTR-Aligned Zones · 4 Known + 2 Proposed · 100 Hotels</div>
+     <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">5 LOTR-Aligned Zones · 4 Known + 1 Proposed · 100 Hotels</div>
      
      <div style="margin-bottom: 8px; font-size: 11px; color: #475569;">
          <span style="border-bottom: 3px solid #000000; padding-bottom: 2px;">━━</span> <b>Region Boundaries</b>
@@ -268,7 +267,7 @@ region_bounds_json = json.dumps(region_bounds)
 
 # 10. INTERACTIVE RIGHT-HAND REGION & AREA EXPLORER BOX + TOP SEARCH BAR
 region_tabs = ""
-for r in range(6):
+for r in sorted([int(k) for k in REGION_METADATA.keys()]):
     meta = REGION_METADATA[str(r)]
     count = sum(1 for h in hotels if h['region'] == r)
     region_tabs += (
@@ -344,12 +343,12 @@ explorer_and_search_html = f"""
      <!-- Panel Content Body (Scrollable) -->
      <div id="explorer-body" style="padding: 14px; overflow-y: auto; flex: 1;">
          
-         <!-- Region Switcher Tabs (6 Buttons) -->
+         <!-- Region Switcher Tabs (5 Buttons) -->
          <div style="margin-bottom: 12px;">
              <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">
                  Select Operational Region:
              </div>
-             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+             <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;">
                  {region_tabs}
              </div>
          </div>
@@ -434,7 +433,9 @@ window.addEventListener('DOMContentLoaded', function() {{
         var regColor = meta.color || "#0f172a";
         
         // 1. Update Tab Buttons styling
-        for (var i = 0; i < 6; i++) {{
+        var regKeys = Object.keys(regionMeta).map(Number);
+        for (var idx = 0; idx < regKeys.length; idx++) {{
+            var i = regKeys[idx];
             var btn = document.getElementById('tab-btn-' + i);
             if (btn) {{
                 if (i === regId) {{

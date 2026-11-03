@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 .DS_Store
 .vercel
+gcp_service_account.json

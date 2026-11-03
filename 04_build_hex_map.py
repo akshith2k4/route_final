@@ -1,12 +1,11 @@
 """
-Step 4: Build Master 6-Region Hex Map (LOTR-aligned)
-Extends the 6 urban regions strictly along active highway corridors to the farthest active hotels:
-- Region 0 (Southeast): Koramangala, HSR & Hosur Rd / E-City (27 hotels)
+Step 4: Build Master 5-Region Hex Map (LOTR-aligned)
+Extends the 5 urban regions strictly along active highway corridors to the farthest active hotels:
+- Region 0 (Southeast): Koramangala, HSR, Hosur Rd / E-City & Sarjapur Rd up to Sarjapura (27 hotels)
 - Region 1 (Central / Inner East): CBD, Indiranagar, MG Road & Domlur (17 hotels)
-- Region 2 (North): Hebbal, Nagawara, Manyata, Hennur & Airport corridor (17 hotels)
+- Region 2 (North & West): Hebbal, Nagawara, Manyata, Hennur, Yeshwanthpur HQ, Peenya, Airport corridor & Magadi Rd (23 hotels)
 - Region 3 (East): Whitefield & Marathahalli (6 hotels)
 - Region 4 (South): JP Nagar, Jayanagar, BTM & Bannerghatta Rd (27 hotels)
-- Region 5 (West): Yeshwanthpur (HQ), Rajajinagar, Peenya & Magadi Rd (6 hotels)
 
 No artificial 50km countryside hexagons — only active operational footprint.
 """
@@ -26,7 +25,7 @@ def haversine(lat1, lon1, lat2, lon2):
     return 2 * R * atan2(sqrt(a), sqrt(1-a))
 
 print("=" * 80)
-print("BUILDING 6-REGION HEXAGON OPERATIONAL FOOTPRINT")
+print("BUILDING 5-REGION HEXAGON OPERATIONAL FOOTPRINT")
 print("=" * 80)
 
 # 1. Load Data
@@ -52,10 +51,11 @@ except Exception as e:
                 bbmp_hexes.add(h3.latlng_to_cell(lat, lon, 7))
     print(f"Manual fill BBMP hexes: {len(bbmp_hexes)}")
 
-# Base 8 centroids merged into the 6 LOTR zones:
+# Base 8 centroids merged into the 5 LOTR zones:
 #   0 (BTM/Hulimavu/Bannerghatta) + 4 (JP Nagar/Jayanagar) + 7 (Kanakapura) -> R4 South
+#   2 (Hebbal/Manyata) + 5 (West/Yeshwanthpur) -> R2 North & West
 #   6 (Koramangala/HSR) -> R0 South-East
-#   1 Central, 2 North, 3 East, 5 West keep their IDs.
+#   1 Central, 3 East keep their IDs.
 BASE_8_CENTROIDS = [
     (12.897545, 77.600871), # 0: BTM / Hulimavu / Bannerghatta
     (12.975317, 77.605515), # 1: Central / CBD
@@ -66,7 +66,7 @@ BASE_8_CENTROIDS = [
     (12.923476, 77.629603), # 6: Koramangala / HSR
     (12.877906, 77.548851), # 7: Kanakapura / Uttarahalli
 ]
-MERGE_MAP = {0: 4, 6: 0, 7: 4}
+MERGE_MAP = {0: 4, 5: 2, 6: 0, 7: 4}
 
 hex_to_region = {}
 for h in bbmp_hexes:
@@ -75,7 +75,7 @@ for h in bbmp_hexes:
                  key=lambda i: haversine(hlat, hlon, *BASE_8_CENTROIDS[i]))
     hex_to_region[h] = MERGE_MAP.get(base_r, base_r)
 
-# UK COMFORTS (13.1219, 77.6311) fixed to Region 2 (North)
+# UK COMFORTS (13.1219, 77.6311) fixed to Region 2 (North & West)
 uk_hex = h3.latlng_to_cell(13.121868, 77.631093, 7)
 hex_to_region[uk_hex] = 2
 
@@ -91,7 +91,7 @@ hex_to_region[ekaa_hex] = 0
 
 print(f"Initial BBMP urban hexagons: {len(hex_to_region)}")
 
-# 3. Extend corridors ONLY up to the active outer hotels
+# 3. Extend corridors ONLY up to active outer hotels
 corridor_hex_count = 0
 for _, r in df_outer.iterrows():
     hotel_hex = h3.latlng_to_cell(r['lat'], r['lon'], 7)
@@ -115,8 +115,26 @@ for _, r in df_outer.iterrows():
             hex_to_region[neighbor] = reg
             corridor_hex_count += 1
 
+# 3b. Extend Route 0 along Sarjapur Road corridor up to Sarjapura town
+sarjapur_pt = (12.8600, 77.7800)  # Sarjapura town / SE terminus
+sarjapur_hex = h3.latlng_to_cell(sarjapur_pt[0], sarjapur_pt[1], 7)
+
+matching_hexes_r0 = [h for h, rg in hex_to_region.items() if rg == 0]
+closest_h_r0 = min(matching_hexes_r0, key=lambda x: haversine(sarjapur_pt[0], sarjapur_pt[1], *h3.cell_to_latlng(x)))
+
+path_sarjapur = h3.grid_path_cells(closest_h_r0, sarjapur_hex)
+for ph in path_sarjapur:
+    if ph not in hex_to_region:
+        hex_to_region[ph] = 0
+        corridor_hex_count += 1
+
+for neighbor in h3.grid_disk(sarjapur_hex, 1):
+    if neighbor not in hex_to_region:
+        hex_to_region[neighbor] = 0
+        corridor_hex_count += 1
+
 print(f"Added {corridor_hex_count} corridor/hotel hexagons.")
-print(f"Total hexagons in 6-region operational footprint: {len(hex_to_region)}")
+print(f"Total hexagons in 5-region operational footprint: {len(hex_to_region)}")
 
 # 4. Distribution Breakdown
 from collections import Counter
@@ -160,5 +178,5 @@ with open('data/hotels.json', 'w') as f:
 print("\n✅ Successfully built and saved:")
 print("  - hex_map_final.pkl & data/hex_map.json")
 print("  - corridor_to_id_final.pkl & data/corridor_to_id.json (cleared outer corridors)")
-print("  - data/hotels.json (100 hotels mapped to 6 regions)")
+print(f"  - data/hotels.json ({len(all_hotels)} hotels mapped to 5 regions)")
 print("  - urban_centroids.csv")
