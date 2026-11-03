@@ -41,15 +41,17 @@ import {
   type HexMap,
   type Hotel,
   type RegionMeta,
+  type StudioDepot,
 } from "../lib/coverage";
 
 type CoverageMapProps = {
-  workspace: "coverage" | "dispatch";
+  workspace: "coverage" | "dispatch" | "studio";
   regions: RegionMeta[];
   hotels: Hotel[];
   hexMap: HexMap;
   routes?: DispatchRoute[];
   depot?: FleetDepot;
+  depots?: StudioDepot[];
   selectedRouteIndex?: number | null;
   selectedStopNumber?: number | null;
   selectedRegion: number | null;
@@ -97,6 +99,7 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
       hexMap,
       routes = [],
       depot,
+      depots = [],
       selectedRouteIndex = null,
       selectedStopNumber = null,
       selectedRegion,
@@ -462,36 +465,60 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
 
       dispatchGroup.clearLayers();
 
-      if (workspace !== "dispatch" || !routes || !routes.length) {
+      if ((workspace !== "dispatch" && workspace !== "studio") || !routes || !routes.length) {
         return;
       }
 
-      // 1. Add Yeshwanthpur Central Laundry HQ Depot Marker
-      if (depot) {
-        const depotMarker = L.marker([depot.latitude, depot.longitude], {
+      // 1. Add Depot Markers (HQ and Satellite Hubs)
+      const depotsToRender =
+        depots && depots.length > 0
+          ? depots
+          : depot
+            ? [
+                {
+                  id: "depot-hq",
+                  name: depot.name,
+                  latitude: depot.latitude,
+                  longitude: depot.longitude,
+                  isPrimary: true,
+                },
+              ]
+            : [];
+
+      depotsToRender.forEach((d) => {
+        const isHQ = d.isPrimary || d.id === "depot-yeshwanthpur";
+        const badgeLabel = isHQ
+          ? "HQ"
+          : d.name.includes("Whitefield")
+            ? "WF"
+            : d.name.includes("Electronic")
+              ? "EC"
+              : "JN";
+
+        const depotMarker = L.marker([d.latitude, d.longitude], {
           icon: L.divIcon({
             className: "dispatch-depot-marker",
             html: `
-              <div class="depot-pin">
+              <div class="depot-pin ${isHQ ? "depot-pin--hq" : "depot-pin--hub"}">
                 <span class="depot-pin__pulse"></span>
-                <span class="depot-pin__badge">HQ</span>
+                <span class="depot-pin__badge">${badgeLabel}</span>
               </div>
             `,
             iconSize: [32, 32],
             iconAnchor: [16, 16],
           }),
-          zIndexOffset: 2000,
+          zIndexOffset: isHQ ? 2000 : 1900,
         });
 
         depotMarker.bindTooltip(
           `<div class="depot-leaflet-tooltip">
-            <b>${escapeHtml(depot.name)}</b>
-            <span>Central Laundry HQ · Fleet Origin & Terminus</span>
+            <b>${escapeHtml(d.name)}</b>
+            <span>${isHQ ? "Central Laundry HQ · Fleet Origin & Terminus" : "Regional Satellite Logistics Hub"}</span>
           </div>`,
           { direction: "top", offset: [0, -16], className: "depot-leaflet-tooltip" }
         );
         depotMarker.addTo(dispatchGroup);
-      }
+      });
 
       // 2. Add Route Polylines
       const hasRouteSelection = selectedRouteIndex !== null && selectedRouteIndex !== undefined;
@@ -595,7 +622,7 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
           });
         });
       }
-    }, [status, workspace, routes, depot, selectedRouteIndex, selectedStopNumber]);
+    }, [status, workspace, routes, depot, depots, selectedRouteIndex, selectedStopNumber]);
 
     useEffect(() => {
       if (status !== "ready") return;
@@ -919,12 +946,18 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
         ) : (
           <div className="map-legend map-legend--dispatch" aria-label="Dispatch legend">
             <div className="map-legend__head">
-              <span>Fleet dispatch</span>
-              <span className="map-legend__res">10 Vans</span>
+              <span>{workspace === "studio" ? "Studio solver" : "Fleet dispatch"}</span>
+              <span className="map-legend__res">
+                {workspace === "studio" ? `${routes.length} active vans` : "10 Vans"}
+              </span>
             </div>
             <div className="dispatch-legend__depot">
               <span className="depot-legend-dot" />
-              <span>Yeshwanthpur HQ Central Laundry</span>
+              <span>
+                {workspace === "studio" && depots && depots.length > 1
+                  ? `${depots.length} logistics depots assigned`
+                  : "Yeshwanthpur HQ Central Laundry"}
+              </span>
             </div>
             {routes.slice(0, 5).map((route, idx) => (
               <button
@@ -943,8 +976,8 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
               </button>
             ))}
             <div className="map-legend__foot">
-              <span>102 properties</span>
-              <span>100% delivered</span>
+              <span>{routes.reduce((acc, r) => acc + r.total_hotels, 0)} stops total</span>
+              <span>{workspace === "studio" ? "Simulated plan" : "100% delivered"}</span>
             </div>
           </div>
         )}

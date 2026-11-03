@@ -23,7 +23,9 @@ import CoverageMap, {
   type CoverageMapHandle,
 } from "./coverage-map";
 import DispatchPanel from "./dispatch-panel";
+import StudioPanel from "./studio-panel";
 import {
+  DEFAULT_DEPOTS,
   REGION_MAP_LABELS,
   formatDistance,
   hotelKey,
@@ -36,6 +38,7 @@ import {
   type HexMap,
   type Hotel,
   type RegionMeta,
+  type StudioDepot,
 } from "../lib/coverage";
 
 type CoverageAppProps = {
@@ -44,6 +47,7 @@ type CoverageAppProps = {
   hexMap: HexMap;
   routes?: DispatchRoute[];
   depot?: FleetDepot;
+  initialWorkspace?: "coverage" | "dispatch" | "studio";
 };
 
 type Tab = "regions" | "hotels";
@@ -67,6 +71,7 @@ export default function CoverageApp({
   hexMap,
   routes = [],
   depot,
+  initialWorkspace = "coverage",
 }: CoverageAppProps) {
   const regions = useMemo(
     () => [...regionData].sort((a, b) => a.id - b.id),
@@ -103,7 +108,22 @@ export default function CoverageApp({
     [regions],
   );
 
-  const [activeWorkspace, setActiveWorkspace] = useState<"coverage" | "dispatch">("coverage");
+  const [activeWorkspace, setActiveWorkspace] = useState<
+    "coverage" | "dispatch" | "studio"
+  >(initialWorkspace);
+  const [simulatedRoutes, setSimulatedRoutes] = useState<DispatchRoute[]>(routes);
+  const [simulatedDepots, setSimulatedDepots] = useState<StudioDepot[]>(DEFAULT_DEPOTS);
+
+  const handleApplySimulatedRoutes = useCallback(
+    (newRoutes: DispatchRoute[], newDepots: StudioDepot[]) => {
+      setSimulatedRoutes(newRoutes);
+      setSimulatedDepots(newDepots);
+      setSelectedRouteIndex(null);
+      setSelectedStopNumber(null);
+    },
+    [],
+  );
+
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number | null>(null);
   const [selectedStopNumber, setSelectedStopNumber] = useState<number | null>(null);
   const [selectedRegionFilter, setSelectedRegionFilter] = useState<number | null>(null);
@@ -359,13 +379,26 @@ export default function CoverageApp({
             Dispatch
             <span className="topnav__live-pill">Live plan</span>
           </button>
+          <button
+            type="button"
+            className={`topnav__item ${activeWorkspace === "studio" ? "topnav__item--active" : ""}`}
+            onClick={() => setActiveWorkspace("studio")}
+          >
+            Studio
+            <span className="topnav__studio-pill">Custom plan</span>
+          </button>
         </nav>
 
         <div className="topbar__actions">
           <div className="topbar-stat">
             <span className="topbar-stat__dot" />
             <span>
-              {activeWorkspace === "dispatch" ? (
+              {activeWorkspace === "studio" ? (
+                <>
+                  <b>{simulatedRoutes.length}</b> custom routes ·{" "}
+                  <b>{simulatedRoutes.reduce((acc, r) => acc + r.total_hotels, 0)}</b> stops
+                </>
+              ) : activeWorkspace === "dispatch" ? (
                 <>
                   <b>{routes.length}</b> vehicles · <b>{hotels.length}</b> stops
                 </>
@@ -396,8 +429,9 @@ export default function CoverageApp({
             regions={regions}
             hotels={hotels}
             hexMap={hexMap}
-            routes={routes}
+            routes={activeWorkspace === "studio" ? simulatedRoutes : routes}
             depot={depot}
+            depots={activeWorkspace === "studio" ? simulatedDepots : undefined}
             selectedRouteIndex={selectedRouteIndex}
             selectedStopNumber={selectedStopNumber}
             selectedRegion={selectedRegion}
@@ -420,12 +454,27 @@ export default function CoverageApp({
         <aside
           className="panel"
           aria-label={
-            activeWorkspace === "dispatch"
-              ? "Fleet dispatch management"
-              : "Coverage explorer"
+            activeWorkspace === "studio"
+              ? "Optimizer studio custom solver"
+              : activeWorkspace === "dispatch"
+                ? "Fleet dispatch management"
+                : "Coverage explorer"
           }
         >
-          {activeWorkspace === "dispatch" ? (
+          {activeWorkspace === "studio" ? (
+            <StudioPanel
+              hotels={hotels}
+              regions={regions}
+              routes={simulatedRoutes}
+              onApplySimulatedRoutes={handleApplySimulatedRoutes}
+              onSelectRoute={handleSelectRoute}
+              onSelectStop={handleSelectStop}
+              onFocusRoute={handleFocusRoute}
+              onFocusStop={handleFocusStop}
+              selectedRouteIndex={selectedRouteIndex}
+              selectedStopNumber={selectedStopNumber}
+            />
+          ) : activeWorkspace === "dispatch" ? (
             <DispatchPanel
               routes={routes}
               depot={

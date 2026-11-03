@@ -23,6 +23,9 @@ export type Hotel = {
   region: number;
   stop_mins: number;
   load: number;
+  locality?: string;
+  bags_normal?: number;
+  bags?: number;
 };
 
 export type HexMap = Record<string, number>;
@@ -51,21 +54,27 @@ export type DispatchStop = {
   departure_time: string;
   stop_mins: number;
   load_bags: number;
+  address_locality?: string;
 };
 
 export type DispatchRoute = {
+  route_id?: string;
+  vehicle_id?: number;
   region_id: number;
   region_name: string;
   vehicle_label: string;
   color: string;
   nominal_cap: number;
+  nominal_capacity?: number;
   max_load: number;
-  departure_hq: string;
-  return_hq: string;
+  max_load_90pct?: number;
+  departure_hq?: string;
+  return_hq?: string;
   total_hotels: number;
   total_dist_km: number;
   total_drive_mins: number;
   total_service_mins: number;
+  shift_duration_mins?: number;
   total_bags: number;
   capacity_utilization_pct: number;
   stops: DispatchStop[];
@@ -77,6 +86,232 @@ export type FleetDepot = {
   latitude: number;
   longitude: number;
 };
+
+export type StudioDepot = {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  isPrimary?: boolean;
+};
+
+export const DEFAULT_DEPOTS: StudioDepot[] = [
+  {
+    id: "depot-yeshwanthpur",
+    name: "Yeshwanthpur Central Laundry (HQ)",
+    latitude: 13.017275,
+    longitude: 77.546578,
+    isPrimary: true,
+  },
+  {
+    id: "depot-whitefield",
+    name: "Whitefield Satellite Depot (East)",
+    latitude: 12.973642,
+    longitude: 77.718538,
+  },
+  {
+    id: "depot-ecity",
+    name: "Electronic City Logistics Hub (South-East)",
+    latitude: 12.845,
+    longitude: 77.665,
+  },
+  {
+    id: "depot-jayanagar",
+    name: "Jayanagar Logistics Hub (South)",
+    latitude: 12.92632,
+    longitude: 77.575699,
+  },
+];
+
+export type StudioVehicle = {
+  id: number;
+  label: string;
+  region_id: number;
+  region_name: string;
+  sector: string;
+  color: string;
+  enabled: boolean;
+  nominal_capacity: number;
+  max_load: number;
+  depot_id: string;
+  departure_time: string;
+  return_time: string;
+};
+
+export type HotelPriority = "VIP" | "High" | "Normal" | "Flexible";
+
+export type StudioHotelSetting = {
+  name: string;
+  selected: boolean;
+  timeWindowEnabled: boolean;
+  earliestArrival: string;
+  latestArrival: string;
+  priority: HotelPriority;
+  customBags?: number;
+  customStopMins?: number;
+};
+
+export type StudioShiftSetting = {
+  earliestDeparture: string;
+  latestReturn: string;
+  lunchBreakEnabled: boolean;
+  lunchDurationMins: number;
+  lunchWindowStart: string;
+  lunchWindowEnd: string;
+};
+
+export const DEFAULT_SHIFT_SETTINGS: StudioShiftSetting = {
+  earliestDeparture: "07:00",
+  latestReturn: "17:00",
+  lunchBreakEnabled: true,
+  lunchDurationMins: 45,
+  lunchWindowStart: "12:30",
+  lunchWindowEnd: "14:00",
+};
+
+export const DEFAULT_STUDIO_VEHICLES: StudioVehicle[] = [
+  {
+    id: 1,
+    label: "Vehicle 1",
+    region_id: 0,
+    region_name: "South-East",
+    sector: "Hosur Rd & E-City",
+    nominal_capacity: 40,
+    max_load: 36,
+    color: "#dc2626",
+    enabled: true,
+    depot_id: "depot-ecity",
+    departure_time: "07:00",
+    return_time: "17:00",
+  },
+  {
+    id: 2,
+    label: "Vehicle 2",
+    region_id: 0,
+    region_name: "South-East",
+    sector: "Sarjapur Rd & HSR",
+    nominal_capacity: 40,
+    max_load: 36,
+    color: "#f87171",
+    enabled: true,
+    depot_id: "depot-ecity",
+    departure_time: "07:00",
+    return_time: "17:00",
+  },
+  {
+    id: 8,
+    label: "Vehicle 8",
+    region_id: 1,
+    region_name: "Central / Inner East",
+    sector: "High Capacity CBD",
+    nominal_capacity: 70,
+    max_load: 63,
+    color: "#1e3a8a",
+    enabled: true,
+    depot_id: "depot-yeshwanthpur",
+    departure_time: "07:00",
+    return_time: "17:00",
+  },
+  {
+    id: 5,
+    label: "Vehicle 5",
+    region_id: 1,
+    region_name: "Central / Inner East",
+    sector: "Indiranagar & Domlur",
+    nominal_capacity: 35,
+    max_load: 31,
+    color: "#3b82f6",
+    enabled: true,
+    depot_id: "depot-yeshwanthpur",
+    departure_time: "07:00",
+    return_time: "17:00",
+  },
+  {
+    id: 7,
+    label: "Vehicle 7",
+    region_id: 2,
+    region_name: "North & West",
+    sector: "Hebbal & Airport NH44",
+    nominal_capacity: 40,
+    max_load: 36,
+    color: "#0f766e",
+    enabled: true,
+    depot_id: "depot-yeshwanthpur",
+    departure_time: "07:00",
+    return_time: "17:00",
+  },
+  {
+    id: 3,
+    label: "Vehicle 3",
+    region_id: 2,
+    region_name: "North & West",
+    sector: "Yeshwanthpur & Magadi Rd",
+    nominal_capacity: 35,
+    max_load: 31,
+    color: "#14b8a6",
+    enabled: true,
+    depot_id: "depot-yeshwanthpur",
+    departure_time: "07:00",
+    return_time: "17:00",
+  },
+  {
+    id: 4,
+    label: "Vehicle 4",
+    region_id: 3,
+    region_name: "East",
+    sector: "Whitefield & ITPL",
+    nominal_capacity: 20,
+    max_load: 18,
+    color: "#15803d",
+    enabled: true,
+    depot_id: "depot-whitefield",
+    departure_time: "07:00",
+    return_time: "17:00",
+  },
+  {
+    id: 6,
+    label: "Vehicle 6",
+    region_id: 3,
+    region_name: "East",
+    sector: "Marathahalli & Brookefield",
+    nominal_capacity: 20,
+    max_load: 18,
+    color: "#22c55e",
+    enabled: true,
+    depot_id: "depot-whitefield",
+    departure_time: "07:00",
+    return_time: "17:00",
+  },
+  {
+    id: 9,
+    label: "Vehicle 9",
+    region_id: 4,
+    region_name: "South",
+    sector: "Jayanagar & BTM Layout",
+    nominal_capacity: 40,
+    max_load: 36,
+    color: "#b45309",
+    enabled: true,
+    depot_id: "depot-jayanagar",
+    departure_time: "07:00",
+    return_time: "17:00",
+  },
+  {
+    id: 10,
+    label: "Vehicle 10",
+    region_id: 4,
+    region_name: "South",
+    sector: "JP Nagar & Bannerghatta",
+    nominal_capacity: 40,
+    max_load: 36,
+    color: "#f59e0b",
+    enabled: true,
+    depot_id: "depot-jayanagar",
+    departure_time: "07:00",
+    return_time: "17:00",
+  },
+];
+
 
 export function formatMins(mins: number): string {
   if (!mins || mins <= 0) return "0m";
