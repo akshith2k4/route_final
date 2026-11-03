@@ -8,7 +8,7 @@
     "route_status": "Known",
     "lotr_route": "LOTR Route 3 (Southeast) — Electronic City & Sarjapur Rd",
     "color": "#EF4444",
-    "key_areas": "Koramangala, HSR Layout, Madiwala, Hosur Road, Electronic City Phase 1 & 2, Bommasandra, Hebbagodi, Attibele, Sarjapur Road, Doddakannelli, Carmelaram, Kodathi, Dommasandra, Sompura, Sarjapura, The International School Bangalore (TISB)",
+    "key_areas": "Koramangala, HSR Layout, Madiwala, Hosur Road, Electronic City Phase 1 & 2, Bommasandra, Hebbagodi, Attibele, Sarjapur Road, Doddakannelli, Carmelaram, Kodathi, Dommasandra, Sompura, Sarjapura, The International School Bangalore (TISB), Heggondahalli, Chambenahalli",
     "areas_list": [
       "Koramangala (Blocks 1–8)",
       "HSR Layout (Sectors 1–7)",
@@ -24,6 +24,7 @@
       "Kodathi & RGA Tech Park Corridor",
       "Dommasandra & Sompura Gate",
       "The International School Bangalore (TISB) & Varthur-Sarjapur Ribbon",
+      "Heggondahalli & Chambenahalli (Sarjapur Corridor)",
       "Sarjapura Town & Outer SE Ribbon"
     ]
   },
@@ -58,7 +59,7 @@
     "route_status": "Known",
     "lotr_route": "LOTR Route 1 (North & West) — Nagavara & Yeshwanthpur",
     "color": "#0891B2",
-    "key_areas": "Hebbal, Nagawara, Manyata Tech Park, Hennur, Kempapura, Sahakar Nagar, Yelahanka, NH 44 Airport Highway, Devanahalli, Yeshwanthpur (LinenGrass HQ), Rajajinagar, Peenya, Vijayanagar, Malleshwaram, Mathikere, Magadi Road Corridor",
+    "key_areas": "Hebbal, Nagawara, Manyata Tech Park, Hennur, Kempapura, Sahakar Nagar, Yelahanka, NH 44 Airport Highway, Devanahalli, Yeshwanthpur (LinenGrass HQ), Rajajinagar, Peenya, Vijayanagar, Malleshwaram, Mathikere, Magadi Main Road",
     "areas_list": [
       "Hebbal Flyover & Outer Ring Road (North)",
       "Manyata Tech Park & Nagawara",
@@ -76,8 +77,7 @@
       "Malleshwaram (1st to 18th Cross)",
       "Mathikere & MS Ramaiah Enclave",
       "Nandini Layout & Mahalakshmi Layout",
-      "Magadi Main Road Ribbon",
-      "Tavarekere & Machohalli Outer Reach"
+      "Magadi Main Road (Peenya West)"
     ]
   },
   "3": {

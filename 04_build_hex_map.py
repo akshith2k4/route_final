@@ -135,12 +135,17 @@ for neighbor in h3.grid_disk(sarjapur_hex, 1):
         hex_to_region[neighbor] = 0
         corridor_hex_count += 1
 
-# 3c. Extend Route 0 (South-East) up to The International School Bangalore (TISB) on Varthur-Sarjapur Road
-tisb_pt = (12.893372, 77.755164)  # The International School Bangalore (TISB)
-tisb_hex = h3.latlng_to_cell(tisb_pt[0], tisb_pt[1], 7)
-if tisb_hex not in hex_to_region:
-    hex_to_region[tisb_hex] = 0
-    corridor_hex_count += 1
+# 3c. Extend Route 0 (South-East) across the whole Sarjapura Road & Varthur-Sarjapur corridor
+sarjapur_road_pts = [
+    (12.893372, 77.755164),  # The International School Bangalore (TISB)
+    (12.910497, 77.753659),  # Heggondahalli / Varthur-Sarjapur Road
+    (12.895443, 77.770276),  # Chambenahalli / Neriga Road
+]
+for pt in sarjapur_road_pts:
+    cell = h3.latlng_to_cell(pt[0], pt[1], 7)
+    if cell not in hex_to_region:
+        hex_to_region[cell] = 0
+        corridor_hex_count += 1
 
 print(f"Added {corridor_hex_count} corridor/hotel hexagons.")
 print(f"Total hexagons in 5-region operational footprint: {len(hex_to_region)}")

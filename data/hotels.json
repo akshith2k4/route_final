@@ -200,14 +200,6 @@
     "load": 9
   },
   {
-    "name": "JP CORDIAL",
-    "lat": 12.979250515013746,
-    "lon": 77.57480389083082,
-    "region": 1,
-    "stop_mins": 21,
-    "load": 3
-  },
-  {
     "name": "KALINGA HOSPITALITY",
     "lat": 12.9762259,
     "lon": 77.5760294,
@@ -790,14 +782,6 @@
     "region": 0,
     "stop_mins": 39,
     "load": 1
-  },
-  {
-    "name": "MANDALA RESORTS",
-    "lat": 12.965214565256893,
-    "lon": 77.36128797833476,
-    "region": 2,
-    "stop_mins": 28,
-    "load": 4
   },
   {
     "name": "NIRANTARA RESORT",
