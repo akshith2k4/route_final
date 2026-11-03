@@ -337,112 +337,112 @@ def main():
     manifest_df.to_csv("data/dispatch_manifest.csv", index=False)
     print("✅ Saved data/dispatch_manifest.csv")
 
-    # 6. Generate High-Definition Route Dispatch Map
-    print("\n" + "=" * 85)
-    print("GENERATING INTERACTIVE DISPATCH MAP WITH EXACT GOOGLE ROAD POLYLINES")
-    print("=" * 85)
+    # 6. Generate High-Definition Route Dispatch Map (Optional, Next.js is primary UI)
+    if "--html" in sys.argv:
+        print("\n" + "=" * 85)
+        print("GENERATING INTERACTIVE DISPATCH MAP WITH EXACT GOOGLE ROAD POLYLINES")
+        print("=" * 85)
 
-    dispatch_map = folium.Map(location=[12.9716, 77.5946], zoom_start=11, tiles="OpenStreetMap")
+        dispatch_map = folium.Map(location=[12.9716, 77.5946], zoom_start=11, tiles="OpenStreetMap")
 
-    # LinenGrass HQ Depot Marker
-    folium.Marker(
-        location=[DEPOT["latitude"], DEPOT["longitude"]],
-        icon=folium.Icon(color="darkpurple", icon="industry", prefix="fa"),
-        tooltip=f"🏭 <b>{DEPOT_NAME}</b><br>Central Dispatch Hub",
-        popup=f"<b>{DEPOT_NAME}</b><br>All 9 vans depart and return here."
-    ).add_to(dispatch_map)
+        # LinenGrass HQ Depot Marker
+        folium.Marker(
+            location=[DEPOT["latitude"], DEPOT["longitude"]],
+            icon=folium.Icon(color="darkpurple", icon="industry", prefix="fa"),
+            tooltip=f"🏭 <b>{DEPOT_NAME}</b><br>Central Dispatch Hub",
+            popup=f"<b>{DEPOT_NAME}</b><br>All 9 vans depart and return here."
+        ).add_to(dispatch_map)
 
-    # Add each van's route and stops
-    for route_data in all_van_routes:
-        v_label = route_data["vehicle_label"]
-        color = route_data["color"]
-        stops = route_data["stops"]
-        path = route_data["path_coordinates"]
+        # Add each van's route and stops
+        for route_data in all_van_routes:
+            v_label = route_data["vehicle_label"]
+            color = route_data["color"]
+            stops = route_data["stops"]
+            path = route_data["path_coordinates"]
 
-        van_group = folium.FeatureGroup(name=f"{v_label} ({len(stops)} stops, {route_data['total_dist_km']}km)", show=True)
+            van_group = folium.FeatureGroup(name=f"{v_label} ({len(stops)} stops, {route_data['total_dist_km']}km)", show=True)
 
-        # Draw real road polyline
-        if path:
-            folium.PolyLine(
-                locations=path,
-                color=color,
-                weight=4.0,
-                opacity=0.85,
-                tooltip=f"<b>{v_label}</b>: {route_data['total_dist_km']} km ({len(stops)} stops)"
-            ).add_to(van_group)
+            # Draw real road polyline
+            if path:
+                folium.PolyLine(
+                    locations=path,
+                    color=color,
+                    weight=4.0,
+                    opacity=0.85,
+                    tooltip=f"<b>{v_label}</b>: {route_data['total_dist_km']} km ({len(stops)} stops)"
+                ).add_to(van_group)
 
-        # Draw numbered stop markers
-        for s in stops:
-            popup_html = f"""
-            <div style='font-family: Arial, sans-serif; min-width: 200px;'>
-                <b style='font-size: 13px; color:{color};'>{v_label}</b><br>
-                <div style='font-size: 14px; font-weight: bold; margin-top: 2px;'>Stop #{s['stop_number']}: {s['name']}</div>
-                <hr style='margin: 4px 0 6px 0; border: none; border-top: 1px solid #cbd5e1;'>
-                <b>🕒 Arrival:</b> {s['arrival_time']}<br>
-                <b>⏱ Departure:</b> {s['departure_time']}<br>
-                <b>⏳ Service Stop:</b> {s['stop_mins']} mins<br>
-                <b>📦 Linen Bags:</b> {s['load_bags']} space units
-            </div>
+            # Draw numbered stop markers
+            for s in stops:
+                popup_html = f"""
+                <div style='font-family: Arial, sans-serif; min-width: 200px;'>
+                    <b style='font-size: 13px; color:{color};'>{v_label}</b><br>
+                    <div style='font-size: 14px; font-weight: bold; margin-top: 2px;'>Stop #{s['stop_number']}: {s['name']}</div>
+                    <hr style='margin: 4px 0 6px 0; border: none; border-top: 1px solid #cbd5e1;'>
+                    <b>🕒 Arrival:</b> {s['arrival_time']}<br>
+                    <b>⏱ Departure:</b> {s['departure_time']}<br>
+                    <b>⏳ Service Stop:</b> {s['stop_mins']} mins<br>
+                    <b>📦 Linen Bags:</b> {s['load_bags']} space units
+                </div>
+                """
+                folium.CircleMarker(
+                    location=[s["lat"], s["lon"]],
+                    radius=8,
+                    color="#000000",
+                    weight=1.5,
+                    fill=True,
+                    fill_color=color,
+                    fill_opacity=1.0,
+                    tooltip=f"#{s['stop_number']} {s['name']} (Arr: {s['arrival_time']})",
+                    popup=folium.Popup(popup_html, max_width=280)
+                ).add_to(van_group)
+
+            van_group.add_to(dispatch_map)
+
+        folium.LayerControl(position="topright", collapsed=False).add_to(dispatch_map)
+
+        # Floating Manifest Dashboard (Bottom-Left)
+        dash_rows = ""
+        for r in all_van_routes:
+            dash_rows += f"""
+            <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
+                <td style="padding: 4px 6px;"><span style="color:{r['color']}; font-weight: bold;">●</span> {r['vehicle_label'][:24]}</td>
+                <td style="padding: 4px 6px; text-align:center;"><b>{r['total_hotels']}</b></td>
+                <td style="padding: 4px 6px; text-align:center;"><b>{r['total_bags']}/{r['max_load']}</b> <span style="font-size:9px; color:#64748b;">({r['capacity_utilization_pct']}%)</span></td>
+                <td style="padding: 4px 6px; text-align:right;">{r['total_dist_km']} km</td>
+                <td style="padding: 4px 6px; text-align:right;">{r['departure_hq']}</td>
+                <td style="padding: 4px 6px; text-align:right; font-weight:bold; color:#0f766e;">{r['return_hq']}</td>
+            </tr>
             """
-            # Circle marker with stop number
-            folium.CircleMarker(
-                location=[s["lat"], s["lon"]],
-                radius=8,
-                color="#000000",
-                weight=1.5,
-                fill=True,
-                fill_color=color,
-                fill_opacity=1.0,
-                tooltip=f"#{s['stop_number']} {s['name']} (Arr: {s['arrival_time']})",
-                popup=folium.Popup(popup_html, max_width=280)
-            ).add_to(van_group)
 
-        van_group.add_to(dispatch_map)
-
-    folium.LayerControl(position="topright", collapsed=False).add_to(dispatch_map)
-
-    # Floating Manifest Dashboard (Bottom-Left)
-    dash_rows = ""
-    for r in all_van_routes:
-        dash_rows += f"""
-        <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
-            <td style="padding: 4px 6px;"><span style="color:{r['color']}; font-weight: bold;">●</span> {r['vehicle_label'][:24]}</td>
-            <td style="padding: 4px 6px; text-align:center;"><b>{r['total_hotels']}</b></td>
-            <td style="padding: 4px 6px; text-align:center;"><b>{r['total_bags']}/{r['max_load']}</b> <span style="font-size:9px; color:#64748b;">({r['capacity_utilization_pct']}%)</span></td>
-            <td style="padding: 4px 6px; text-align:right;">{r['total_dist_km']} km</td>
-            <td style="padding: 4px 6px; text-align:right;">{r['departure_hq']}</td>
-            <td style="padding: 4px 6px; text-align:right; font-weight:bold; color:#0f766e;">{r['return_hq']}</td>
-        </tr>
+        dashboard_html = f"""
+        <div style="position: fixed; bottom: 20px; left: 20px; width: 520px; max-height: 440px; overflow-y: auto;
+             background: rgba(255, 255, 255, 0.98); border: 2px solid #0f172a; border-radius: 12px;
+             box-shadow: 0 8px 24px rgba(0,0,0,0.25); z-index: 9999; font-family: -apple-system, sans-serif; padding: 12px;">
+            <div style="font-weight: 800; font-size: 14px; color: #0f172a;">LinenGrass Fleet Dispatch Manifest</div>
+            <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">10 Vehicles · {len(hotels)} Hotels · Real Road Polylines & 90% Capacity Limits</div>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f1f5f9; font-size: 10px; text-transform: uppercase; color: #475569;">
+                        <th style="padding: 4px 6px; text-align: left;">Vehicle</th>
+                        <th style="padding: 4px 6px; text-align: center;">Stops</th>
+                        <th style="padding: 4px 6px; text-align: center;">Load (90% Cap)</th>
+                        <th style="padding: 4px 6px; text-align: right;">Dist</th>
+                        <th style="padding: 4px 6px; text-align: right;">Dep HQ</th>
+                        <th style="padding: 4px 6px; text-align: right;">Ret HQ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {dash_rows}
+                </tbody>
+            </table>
+        </div>
         """
+        dispatch_map.get_root().html.add_child(folium.Element(dashboard_html))
 
-    dashboard_html = f"""
-    <div style="position: fixed; bottom: 20px; left: 20px; width: 520px; max-height: 440px; overflow-y: auto;
-         background: rgba(255, 255, 255, 0.98); border: 2px solid #0f172a; border-radius: 12px;
-         box-shadow: 0 8px 24px rgba(0,0,0,0.25); z-index: 9999; font-family: -apple-system, sans-serif; padding: 12px;">
-        <div style="font-weight: 800; font-size: 14px; color: #0f172a;">LinenGrass Fleet Dispatch Manifest</div>
-        <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">10 Vehicles · 102 Hotels · Real Road Polylines & 90% Capacity Limits</div>
-        <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-                <tr style="background: #f1f5f9; font-size: 10px; text-transform: uppercase; color: #475569;">
-                    <th style="padding: 4px 6px; text-align: left;">Vehicle</th>
-                    <th style="padding: 4px 6px; text-align: center;">Stops</th>
-                    <th style="padding: 4px 6px; text-align: center;">Load (90% Cap)</th>
-                    <th style="padding: 4px 6px; text-align: right;">Dist</th>
-                    <th style="padding: 4px 6px; text-align: right;">Dep HQ</th>
-                    <th style="padding: 4px 6px; text-align: right;">Ret HQ</th>
-                </tr>
-            </thead>
-            <tbody>
-                {dash_rows}
-            </tbody>
-        </table>
-    </div>
-    """
-    dispatch_map.get_root().html.add_child(folium.Element(dashboard_html))
-
-    output_html = "route_dispatch_map.html"
-    dispatch_map.save(output_html)
-    print(f"✅ Generated dispatch map: {output_html}")
+        output_html = "route_dispatch_map.html"
+        dispatch_map.save(output_html)
+        print(f"✅ Generated dispatch map: {output_html}")
     print("=" * 85)
     print("ALL ROUTES SUCCESSFULLY OPTIMIZED!")
     print("=" * 85)

@@ -8,3 +8,4 @@ __pycache__/
 next-env.d.ts
 *.tsbuildinfo
 gcp_service_account.json
+*.html

@@ -1,8 +1,8 @@
 {
   "name": "route_final",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "description": "LinenGrass Field Atlas & Fleet Dispatch Next.js Application",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
