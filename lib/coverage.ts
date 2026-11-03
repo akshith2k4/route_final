@@ -42,6 +42,51 @@ export type ParsedCoordinate =
   | { ok: true; lat: number; lon: number }
   | { ok: false; error: string };
 
+export type DispatchStop = {
+  stop_number: number;
+  name: string;
+  lat: number;
+  lon: number;
+  arrival_time: string;
+  departure_time: string;
+  stop_mins: number;
+  load_bags: number;
+};
+
+export type DispatchRoute = {
+  region_id: number;
+  region_name: string;
+  vehicle_label: string;
+  color: string;
+  nominal_cap: number;
+  max_load: number;
+  departure_hq: string;
+  return_hq: string;
+  total_hotels: number;
+  total_dist_km: number;
+  total_drive_mins: number;
+  total_service_mins: number;
+  total_bags: number;
+  capacity_utilization_pct: number;
+  stops: DispatchStop[];
+  path_coordinates: [number, number][];
+};
+
+export type FleetDepot = {
+  name: string;
+  latitude: number;
+  longitude: number;
+};
+
+export function formatMins(mins: number): string {
+  if (!mins || mins <= 0) return "0m";
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m < 10 ? "0" : ""}${m}m`;
+}
+
 /** Hand-checked visual centres for the five region labels (from urban_centroids.csv). */
 export const REGION_CENTERS: Record<number, { lat: number; lon: number }> = {
   0: { lat: 12.882914605295358, lon: 77.64500513464189 },

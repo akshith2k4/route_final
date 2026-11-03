@@ -22,6 +22,7 @@ import {
 import CoverageMap, {
   type CoverageMapHandle,
 } from "./coverage-map";
+import DispatchPanel from "./dispatch-panel";
 import {
   REGION_MAP_LABELS,
   formatDistance,
@@ -29,6 +30,9 @@ import {
   parseCoordinate,
   resolveCoordinate,
   type CoordinateResult,
+  type DispatchRoute,
+  type DispatchStop,
+  type FleetDepot,
   type HexMap,
   type Hotel,
   type RegionMeta,
@@ -38,6 +42,8 @@ type CoverageAppProps = {
   regions: RegionMeta[];
   hotels: Hotel[];
   hexMap: HexMap;
+  routes?: DispatchRoute[];
+  depot?: FleetDepot;
 };
 
 type Tab = "regions" | "hotels";
@@ -59,6 +65,8 @@ export default function CoverageApp({
   regions: regionData,
   hotels,
   hexMap,
+  routes = [],
+  depot,
 }: CoverageAppProps) {
   const regions = useMemo(
     () => [...regionData].sort((a, b) => a.id - b.id),
@@ -94,6 +102,32 @@ export default function CoverageApp({
       ),
     [regions],
   );
+
+  const [activeWorkspace, setActiveWorkspace] = useState<"coverage" | "dispatch">("coverage");
+  const [selectedRouteIndex, setSelectedRouteIndex] = useState<number | null>(null);
+  const [selectedStopNumber, setSelectedStopNumber] = useState<number | null>(null);
+  const [selectedRegionFilter, setSelectedRegionFilter] = useState<number | null>(null);
+
+  const handleSelectRoute = useCallback((index: number | null) => {
+    setSelectedRouteIndex(index);
+    setSelectedStopNumber(null);
+    if (index !== null) {
+      mapRef.current?.focusRoute(index);
+    }
+  }, []);
+
+  const handleSelectStop = useCallback((stop: DispatchStop) => {
+    setSelectedStopNumber(stop.stop_number);
+    mapRef.current?.focusStop(stop.lat, stop.lon);
+  }, []);
+
+  const handleFocusRoute = useCallback((index: number) => {
+    mapRef.current?.focusRoute(index);
+  }, []);
+
+  const handleFocusStop = useCallback((lat: number, lon: number) => {
+    mapRef.current?.focusStop(lat, lon);
+  }, []);
 
   const [activeTab, setActiveTab] = useState<Tab>("regions");
   const [selectedRegion, setSelectedRegion] = useState<number | null>(
@@ -310,24 +344,36 @@ export default function CoverageApp({
         </button>
 
         <nav className="topnav" aria-label="Primary">
-          <span className="topnav__item topnav__item--active" aria-current="page">
+          <button
+            type="button"
+            className={`topnav__item ${activeWorkspace === "coverage" ? "topnav__item--active" : ""}`}
+            onClick={() => setActiveWorkspace("coverage")}
+          >
             Coverage
-          </span>
-          <span
-            className="topnav__item topnav__item--disabled"
-            aria-disabled="true"
-            title="Dispatch planning is the next workspace"
+          </button>
+          <button
+            type="button"
+            className={`topnav__item ${activeWorkspace === "dispatch" ? "topnav__item--active" : ""}`}
+            onClick={() => setActiveWorkspace("dispatch")}
           >
             Dispatch
-            <span className="topnav__soon">Soon</span>
-          </span>
+            <span className="topnav__live-pill">Live plan</span>
+          </button>
         </nav>
 
         <div className="topbar__actions">
           <div className="topbar-stat">
             <span className="topbar-stat__dot" />
             <span>
-              <b>{hotels.length}</b> hotels mapped
+              {activeWorkspace === "dispatch" ? (
+                <>
+                  <b>{routes.length}</b> vehicles · <b>{hotels.length}</b> stops
+                </>
+              ) : (
+                <>
+                  <b>{hotels.length}</b> hotels mapped
+                </>
+              )}
             </span>
           </div>
           <button
@@ -346,9 +392,14 @@ export default function CoverageApp({
         <section className="map-stage" aria-label="Coverage map">
           <CoverageMap
             ref={mapRef}
+            workspace={activeWorkspace}
             regions={regions}
             hotels={hotels}
             hexMap={hexMap}
+            routes={routes}
+            depot={depot}
+            selectedRouteIndex={selectedRouteIndex}
+            selectedStopNumber={selectedStopNumber}
             selectedRegion={selectedRegion}
             hoveredRegion={hoveredRegion}
             activeHotel={activeHotel}
@@ -356,6 +407,8 @@ export default function CoverageApp({
             hotelsVisible={hotelsVisible}
             onSelectRegion={selectRegion}
             onSelectHotel={selectHotel}
+            onSelectRoute={handleSelectRoute}
+            onSelectStop={handleSelectStop}
             onHoverRegion={setHoveredRegion}
             onToggleHotels={toggleHotels}
             onCloseHotel={() => setActiveHotel(null)}
@@ -364,7 +417,36 @@ export default function CoverageApp({
           />
         </section>
 
-        <aside className="panel" aria-label="Coverage explorer">
+        <aside
+          className="panel"
+          aria-label={
+            activeWorkspace === "dispatch"
+              ? "Fleet dispatch management"
+              : "Coverage explorer"
+          }
+        >
+          {activeWorkspace === "dispatch" ? (
+            <DispatchPanel
+              routes={routes}
+              depot={
+                depot ?? {
+                  name: "LinenGrass HQ (Yeshwanthpur Central Laundry)",
+                  latitude: 13.017275,
+                  longitude: 77.546578,
+                }
+              }
+              regions={regions}
+              selectedRouteIndex={selectedRouteIndex}
+              onSelectRoute={handleSelectRoute}
+              selectedStopNumber={selectedStopNumber}
+              onSelectStop={handleSelectStop}
+              selectedRegionFilter={selectedRegionFilter}
+              onSelectRegionFilter={setSelectedRegionFilter}
+              onFocusRoute={handleFocusRoute}
+              onFocusStop={handleFocusStop}
+            />
+          ) : (
+            <>
           <div className="panel-intro">
             <span className="eyebrow">
               <span className="eyebrow__dot" />
@@ -689,6 +771,8 @@ export default function CoverageApp({
             </span>
             <span>LinenGrass · Ops</span>
           </footer>
+            </>
+          )}
         </aside>
       </main>
 

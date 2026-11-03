@@ -22,6 +22,8 @@ import {
   MapPin,
   Minus,
   Plus,
+  Truck,
+  Building2,
   X,
 } from "lucide-react";
 import {
@@ -30,17 +32,26 @@ import {
   REGION_MAP_LABELS,
   escapeHtml,
   formatDistance,
+  formatMins,
   hotelKey,
   type CoordinateResult,
+  type DispatchRoute,
+  type DispatchStop,
+  type FleetDepot,
   type HexMap,
   type Hotel,
   type RegionMeta,
 } from "../lib/coverage";
 
 type CoverageMapProps = {
+  workspace: "coverage" | "dispatch";
   regions: RegionMeta[];
   hotels: Hotel[];
   hexMap: HexMap;
+  routes?: DispatchRoute[];
+  depot?: FleetDepot;
+  selectedRouteIndex?: number | null;
+  selectedStopNumber?: number | null;
   selectedRegion: number | null;
   hoveredRegion: number | null;
   activeHotel: Hotel | null;
@@ -48,6 +59,8 @@ type CoverageMapProps = {
   hotelsVisible: boolean;
   onSelectRegion: (id: number | null, fly?: boolean) => void;
   onSelectHotel: (hotel: Hotel, fly?: boolean) => void;
+  onSelectRoute?: (index: number | null) => void;
+  onSelectStop?: (stop: DispatchStop) => void;
   onHoverRegion: (id: number | null) => void;
   onToggleHotels: () => void;
   onCloseHotel: () => void;
@@ -58,6 +71,8 @@ type CoverageMapProps = {
 export type CoverageMapHandle = {
   focusRegion: (id: number) => void;
   focusHotel: (hotel: Hotel) => void;
+  focusRoute: (index: number) => void;
+  focusStop: (lat: number, lon: number) => void;
   fitAll: () => void;
   zoomIn: () => void;
   zoomOut: () => void;
@@ -76,9 +91,14 @@ function regionStyle(color: string): CSSProperties {
 const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
   function CoverageMap(
     {
+      workspace = "coverage",
       regions,
       hotels,
       hexMap,
+      routes = [],
+      depot,
+      selectedRouteIndex = null,
+      selectedStopNumber = null,
       selectedRegion,
       hoveredRegion,
       activeHotel,
@@ -86,6 +106,8 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
       hotelsVisible,
       onSelectRegion,
       onSelectHotel,
+      onSelectRoute,
+      onSelectStop,
       onHoverRegion,
       onToggleHotels,
       onCloseHotel,
@@ -105,23 +127,32 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
     const hotelLayerRef = useRef<Leaflet.LayerGroup | null>(null);
     const hotelMarkersRef = useRef(new Map<string, Leaflet.CircleMarker>());
     const pinnedLayerRef = useRef<Leaflet.LayerGroup | null>(null);
+    const dispatchGroupRef = useRef<Leaflet.LayerGroup | null>(null);
     const activeHotelKeyRef = useRef<string | null>(null);
     const [status, setStatus] = useState<MapStatus>("loading");
 
-    const dataRef = useRef({ regions, hotels, hexMap });
+    const dataRef = useRef({ regions, hotels, hexMap, routes, depot, workspace });
     const callbacksRef = useRef({
       onSelectRegion,
       onSelectHotel,
+      onSelectRoute,
+      onSelectStop,
       onHoverRegion,
     });
+
+    useEffect(() => {
+      dataRef.current = { regions, hotels, hexMap, routes, depot, workspace };
+    }, [regions, hotels, hexMap, routes, depot, workspace]);
 
     useEffect(() => {
       callbacksRef.current = {
         onSelectRegion,
         onSelectHotel,
+        onSelectRoute,
+        onSelectStop,
         onHoverRegion,
       };
-    }, [onSelectRegion, onSelectHotel, onHoverRegion]);
+    }, [onSelectRegion, onSelectHotel, onSelectRoute, onSelectStop, onHoverRegion]);
 
     useEffect(() => {
       let cancelled = false;
@@ -292,7 +323,11 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
 
         allBoundsRef.current = allBounds;
 
+        const dispatchGroup = L.layerGroup().addTo(map);
+        dispatchGroupRef.current = dispatchGroup;
+
         map.on("click", (event) => {
+          if (dataRef.current.workspace !== "coverage") return;
           let regionId: number | undefined;
           try {
             const cell = latLngToCell(
@@ -339,6 +374,7 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
         hotelMarkersRef.current.clear();
         hotelLayerRef.current = null;
         pinnedLayerRef.current = null;
+        dispatchGroupRef.current = null;
         allBoundsRef.current = null;
       };
     }, []);
@@ -346,16 +382,30 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
     useEffect(() => {
       if (status !== "ready") return;
 
+      const isDispatch = workspace === "dispatch";
+
       for (const [regionId, layers] of hexLayersRef.current) {
         const isSelected = selectedRegion === regionId;
         const isHovered = hoveredRegion === regionId;
         const hasSelection = selectedRegion !== null;
 
-        let fillOpacity = hasSelection ? (isSelected ? 0.48 : 0.20) : 0.35;
-        let strokeOpacity = isSelected ? 0.75 : hasSelection ? 0.30 : 0.45;
-        let weight = isSelected ? 1.4 : 0.8;
+        let fillOpacity = isDispatch
+          ? 0.12
+          : hasSelection
+            ? isSelected
+              ? 0.48
+              : 0.20
+            : 0.35;
+        let strokeOpacity = isDispatch
+          ? 0.22
+          : isSelected
+            ? 0.75
+            : hasSelection
+              ? 0.30
+              : 0.45;
+        let weight = isDispatch ? 0.6 : isSelected ? 1.4 : 0.8;
 
-        if (isHovered && !isSelected) {
+        if (!isDispatch && isHovered && !isSelected) {
           fillOpacity = hasSelection ? 0.30 : 0.44;
           strokeOpacity = 0.65;
           weight = 1.1;
@@ -374,18 +424,20 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
         for (const layer of layers) {
           layer.setStyle({
             color: "#111827",
-            weight: isSelected ? 3.2 : isHovered ? 2.6 : 2.2,
-            opacity: isSelected
-              ? 1
-              : isHovered
-                ? 0.95
-                : hasSelection
-                  ? 0.6
-                  : 0.9,
+            weight: isDispatch ? 1.6 : isSelected ? 3.2 : isHovered ? 2.6 : 2.2,
+            opacity: isDispatch
+              ? 0.45
+              : isSelected
+                ? 1
+                : isHovered
+                  ? 0.95
+                  : hasSelection
+                    ? 0.6
+                    : 0.9,
           });
         }
       }
-    }, [status, selectedRegion, hoveredRegion]);
+    }, [status, workspace, selectedRegion, hoveredRegion]);
 
     useEffect(() => {
       if (status !== "ready") return;
@@ -393,12 +445,157 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
       const layer = hotelLayerRef.current;
       if (!map || !layer) return;
 
-      if (hotelsVisible) {
+      if (workspace === "coverage" && hotelsVisible) {
         if (!map.hasLayer(layer)) layer.addTo(map);
       } else if (map.hasLayer(layer)) {
         map.removeLayer(layer);
       }
-    }, [status, hotelsVisible]);
+    }, [status, workspace, hotelsVisible]);
+
+    /* Render Dispatch Routes, Depot and Stop Markers */
+    useEffect(() => {
+      if (status !== "ready") return;
+      const map = mapRef.current;
+      const L = leafletRef.current;
+      const dispatchGroup = dispatchGroupRef.current;
+      if (!map || !L || !dispatchGroup) return;
+
+      dispatchGroup.clearLayers();
+
+      if (workspace !== "dispatch" || !routes || !routes.length) {
+        return;
+      }
+
+      // 1. Add Yeshwanthpur Central Laundry HQ Depot Marker
+      if (depot) {
+        const depotMarker = L.marker([depot.latitude, depot.longitude], {
+          icon: L.divIcon({
+            className: "dispatch-depot-marker",
+            html: `
+              <div class="depot-pin">
+                <span class="depot-pin__pulse"></span>
+                <span class="depot-pin__badge">HQ</span>
+              </div>
+            `,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+          }),
+          zIndexOffset: 2000,
+        });
+
+        depotMarker.bindTooltip(
+          `<div class="depot-leaflet-tooltip">
+            <b>${escapeHtml(depot.name)}</b>
+            <span>Central Laundry HQ · Fleet Origin & Terminus</span>
+          </div>`,
+          { direction: "top", offset: [0, -16], className: "depot-leaflet-tooltip" }
+        );
+        depotMarker.addTo(dispatchGroup);
+      }
+
+      // 2. Add Route Polylines
+      const hasRouteSelection = selectedRouteIndex !== null && selectedRouteIndex !== undefined;
+
+      routes.forEach((route, rIdx) => {
+        const isSelected = selectedRouteIndex === rIdx;
+        const polyline = L.polyline(
+          route.path_coordinates.map(([lat, lon]) => [lat, lon] as Leaflet.LatLngTuple),
+          {
+            color: route.color,
+            weight: isSelected ? 5.5 : hasRouteSelection ? 2.2 : 3.5,
+            opacity: isSelected ? 1 : hasRouteSelection ? 0.22 : 0.85,
+            lineJoin: "round",
+            lineCap: "round",
+            className: isSelected
+              ? "dispatch-route-polyline is-selected"
+              : "dispatch-route-polyline",
+          }
+        );
+
+        polyline.on("mouseover", () => {
+          if (selectedRouteIndex !== rIdx) {
+            polyline.setStyle({ weight: 5, opacity: 0.95 });
+            polyline.bringToFront();
+          }
+        });
+
+        polyline.on("mouseout", () => {
+          if (selectedRouteIndex !== rIdx) {
+            polyline.setStyle({
+              weight: hasRouteSelection ? 2.2 : 3.5,
+              opacity: hasRouteSelection ? 0.22 : 0.85,
+            });
+          }
+        });
+
+        polyline.on("click", () => {
+          callbacksRef.current.onSelectRoute?.(rIdx);
+        });
+
+        polyline.addTo(dispatchGroup);
+        if (isSelected) polyline.bringToFront();
+      });
+
+      // 3. Add Stop Markers
+      if (hasRouteSelection && routes[selectedRouteIndex!]) {
+        const activeRoute = routes[selectedRouteIndex!];
+        activeRoute.stops.forEach((stop) => {
+          const isSelectedStop = selectedStopNumber === stop.stop_number;
+          const stopMarker = L.marker([stop.lat, stop.lon], {
+            icon: L.divIcon({
+              className: "dispatch-stop-pin-container",
+              html: `
+                <div class="dispatch-stop-pin ${isSelectedStop ? "is-active" : ""}" style="--c:${activeRoute.color}">
+                  <span>${stop.stop_number}</span>
+                </div>
+              `,
+              iconSize: [26, 26],
+              iconAnchor: [13, 13],
+            }),
+            zIndexOffset: isSelectedStop ? 1600 : 1200,
+          });
+
+          stopMarker.bindTooltip(
+            `<div class="dispatch-stop-leaflet-tooltip">
+              <div class="tooltip-stop-badge" style="background:${activeRoute.color}">STOP #${stop.stop_number}</div>
+              <div class="tooltip-stop-title">${escapeHtml(stop.name)}</div>
+              <div class="tooltip-stop-meta">⏱️ ${stop.arrival_time} - ${stop.departure_time} · ${stop.stop_mins}m on-site</div>
+              <div class="tooltip-stop-load">🧺 ${stop.load_bags} bags pickup</div>
+            </div>`,
+            { direction: "top", offset: [0, -14], className: "stop-leaflet-tooltip" }
+          );
+
+          stopMarker.on("click", () => {
+            callbacksRef.current.onSelectStop?.(stop);
+          });
+
+          stopMarker.addTo(dispatchGroup);
+        });
+      } else {
+        // Draw small clean dots for all stops in all routes
+        routes.forEach((route) => {
+          route.stops.forEach((stop) => {
+            const dot = L.circleMarker([stop.lat, stop.lon], {
+              radius: 4,
+              color: "#ffffff",
+              weight: 1.4,
+              fillColor: route.color,
+              fillOpacity: 0.95,
+            });
+            dot.bindTooltip(
+              `<b>${escapeHtml(stop.name)}</b><br/><span style="color:${route.color};font-weight:600">${route.vehicle_label.split(" (")[0]}</span> · Stop #${stop.stop_number} (${stop.load_bags} bags)`,
+              { direction: "top", offset: [0, -6] }
+            );
+            dot.on("click", () => {
+              const rIdx = routes.indexOf(route);
+              callbacksRef.current.onSelectRoute?.(rIdx);
+              callbacksRef.current.onSelectStop?.(stop);
+            });
+            dot.addTo(dispatchGroup);
+          });
+        });
+      }
+    }, [status, workspace, routes, depot, selectedRouteIndex, selectedStopNumber]);
 
     useEffect(() => {
       if (status !== "ready") return;
@@ -494,6 +691,26 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
           if (!map) return;
           map.flyTo([hotel.lat, hotel.lon], 14.2, { duration: 0.8 });
         },
+        focusRoute(index: number) {
+          const map = mapRef.current;
+          const L = leafletRef.current;
+          const route = dataRef.current.routes?.[index];
+          if (!map || !L || !route || !route.path_coordinates?.length) return;
+          const latLngs = route.path_coordinates.map(
+            ([lat, lon]) => [lat, lon] as Leaflet.LatLngTuple,
+          );
+          const bounds = L.latLngBounds(latLngs);
+          map.flyToBounds(bounds, {
+            padding: [60, 60],
+            maxZoom: 13.5,
+            duration: 0.85,
+          });
+        },
+        focusStop(lat: number, lon: number) {
+          const map = mapRef.current;
+          if (!map) return;
+          map.flyTo([lat, lon], 14.5, { duration: 0.8 });
+        },
         fitAll() {
           const map = mapRef.current;
           const bounds = allBoundsRef.current;
@@ -520,6 +737,8 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
       regions.find((region) => region.id === activeHotel?.region) ?? null;
     const pinnedMeta =
       regions.find((region) => region.id === pinned?.regionId) ?? null;
+    const activeRouteOnMap =
+      selectedRouteIndex !== null && routes ? routes[selectedRouteIndex] : null;
     const isReady = status === "ready";
 
     return (
@@ -557,7 +776,39 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
         )}
 
         <div className="map-context">
-          {selectedMeta ? (
+          {workspace === "dispatch" ? (
+            activeRouteOnMap ? (
+              <>
+                <span
+                  className="map-context__dot"
+                  style={{ backgroundColor: activeRouteOnMap.color }}
+                />
+                <span className="map-context__code">
+                  {activeRouteOnMap.vehicle_label.split(" (")[0]}
+                </span>
+                <span className="map-context__name">
+                  {activeRouteOnMap.vehicle_label.includes(" - ")
+                    ? activeRouteOnMap.vehicle_label.split(" - ")[1].replace(")", "")
+                    : activeRouteOnMap.region_name}
+                </span>
+                <button
+                  type="button"
+                  className="map-context__clear"
+                  onClick={() => onSelectRoute?.(null)}
+                  aria-label="Clear route selection"
+                  title="Show all vehicles"
+                >
+                  <X size={12} />
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="map-context__dot map-context__dot--dispatch" />
+                <span className="map-context__name">Fleet dispatch · 10 vehicles</span>
+                <span className="map-context__count">102 stops · 608 km</span>
+              </>
+            )
+          ) : selectedMeta ? (
             <>
               <span
                 className="map-context__dot"
@@ -632,38 +883,71 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
           </button>
         </div>
 
-        <div className="map-legend" aria-label="Region legend">
-          <div className="map-legend__head">
-            <span>Coverage footprint</span>
-            <span className="map-legend__res">H3 · R7</span>
+        {workspace === "coverage" ? (
+          <div className="map-legend" aria-label="Region legend">
+            <div className="map-legend__head">
+              <span>Coverage footprint</span>
+              <span className="map-legend__res">H3 · R7</span>
+            </div>
+            {regions.map((region) => (
+              <button
+                type="button"
+                key={region.id}
+                className="map-legend__row"
+                data-proposed={region.route_status === "Proposed"}
+                style={regionStyle(region.color)}
+                onClick={() => onSelectRegion(region.id, true)}
+                onMouseEnter={() => onHoverRegion(region.id)}
+                onMouseLeave={() => onHoverRegion(null)}
+                aria-label={`${region.code} ${region.short_name}, ${region.route_status}`}
+              >
+                <span className="map-legend__dot" />
+                <span className="map-legend__code">{region.code}</span>
+                <span className="map-legend__name">
+                  {REGION_MAP_LABELS[region.id] ?? region.short_name}
+                </span>
+                <span className="map-legend__count">
+                  {hotels.filter((hotel) => hotel.region === region.id).length}
+                </span>
+              </button>
+            ))}
+            <div className="map-legend__foot">
+              <span>{hotels.length} hotels</span>
+              <span>R1 is proposed</span>
+            </div>
           </div>
-          {regions.map((region) => (
-            <button
-              type="button"
-              key={region.id}
-              className="map-legend__row"
-              data-proposed={region.route_status === "Proposed"}
-              style={regionStyle(region.color)}
-              onClick={() => onSelectRegion(region.id, true)}
-              onMouseEnter={() => onHoverRegion(region.id)}
-              onMouseLeave={() => onHoverRegion(null)}
-              aria-label={`${region.code} ${region.short_name}, ${region.route_status}`}
-            >
-              <span className="map-legend__dot" />
-              <span className="map-legend__code">{region.code}</span>
-              <span className="map-legend__name">
-                {REGION_MAP_LABELS[region.id] ?? region.short_name}
-              </span>
-              <span className="map-legend__count">
-                {hotels.filter((hotel) => hotel.region === region.id).length}
-              </span>
-            </button>
-          ))}
-          <div className="map-legend__foot">
-            <span>{hotels.length} hotels</span>
-            <span>R1 is proposed</span>
+        ) : (
+          <div className="map-legend map-legend--dispatch" aria-label="Dispatch legend">
+            <div className="map-legend__head">
+              <span>Fleet dispatch</span>
+              <span className="map-legend__res">10 Vans</span>
+            </div>
+            <div className="dispatch-legend__depot">
+              <span className="depot-legend-dot" />
+              <span>Yeshwanthpur HQ Central Laundry</span>
+            </div>
+            {routes.slice(0, 5).map((route, idx) => (
+              <button
+                type="button"
+                key={route.vehicle_label}
+                className="map-legend__row"
+                style={{ "--region": route.color } as CSSProperties}
+                onClick={() => onSelectRoute?.(idx)}
+              >
+                <span className="map-legend__dot" style={{ backgroundColor: route.color }} />
+                <span className="map-legend__code">{route.vehicle_label.split(" (")[0]}</span>
+                <span className="map-legend__name">
+                  {route.vehicle_label.split(" - ")[1]?.split(" / ")[0] ?? `R${route.region_id}`}
+                </span>
+                <span className="map-legend__count">{route.total_hotels} stops</span>
+              </button>
+            ))}
+            <div className="map-legend__foot">
+              <span>102 properties</span>
+              <span>100% delivered</span>
+            </div>
           </div>
-        </div>
+        )}
 
         {activeHotel && activeMeta ? (
           <div className="map-card">
