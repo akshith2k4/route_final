@@ -1,0 +1,110 @@
+{
+  "depot": {
+    "name": "LinenGrass HQ (Yeshwanthpur Central Laundry)",
+    "latitude": 13.017275,
+    "longitude": 77.546578
+  },
+  "safety_buffer_pct": 90,
+  "vehicles": [
+    {
+      "id": 1,
+      "label": "Vehicle 1",
+      "region_id": 0,
+      "region_name": "South-East",
+      "sector": "Hosur Rd & E-City",
+      "nominal_capacity": 40,
+      "max_load_90pct": 36,
+      "color": "#dc2626"
+    },
+    {
+      "id": 2,
+      "label": "Vehicle 2",
+      "region_id": 0,
+      "region_name": "South-East",
+      "sector": "Sarjapur Rd & HSR",
+      "nominal_capacity": 40,
+      "max_load_90pct": 36,
+      "color": "#f87171"
+    },
+    {
+      "id": 8,
+      "label": "Vehicle 8",
+      "region_id": 1,
+      "region_name": "Central / Inner East",
+      "sector": "High Capacity CBD",
+      "nominal_capacity": 70,
+      "max_load_90pct": 63,
+      "color": "#1e3a8a"
+    },
+    {
+      "id": 5,
+      "label": "Vehicle 5",
+      "region_id": 1,
+      "region_name": "Central / Inner East",
+      "sector": "Indiranagar & Domlur",
+      "nominal_capacity": 35,
+      "max_load_90pct": 31,
+      "color": "#3b82f6"
+    },
+    {
+      "id": 7,
+      "label": "Vehicle 7",
+      "region_id": 2,
+      "region_name": "North & West",
+      "sector": "Hebbal & Airport NH44",
+      "nominal_capacity": 40,
+      "max_load_90pct": 36,
+      "color": "#0f766e"
+    },
+    {
+      "id": 3,
+      "label": "Vehicle 3",
+      "region_id": 2,
+      "region_name": "North & West",
+      "sector": "Yeshwanthpur & Magadi Rd",
+      "nominal_capacity": 35,
+      "max_load_90pct": 31,
+      "color": "#14b8a6"
+    },
+    {
+      "id": 4,
+      "label": "Vehicle 4",
+      "region_id": 3,
+      "region_name": "East",
+      "sector": "Whitefield & ITPL",
+      "nominal_capacity": 20,
+      "max_load_90pct": 18,
+      "color": "#15803d"
+    },
+    {
+      "id": 6,
+      "label": "Vehicle 6",
+      "region_id": 3,
+      "region_name": "East",
+      "sector": "Marathahalli & Brookefield",
+      "nominal_capacity": 20,
+      "max_load_90pct": 18,
+      "color": "#22c55e"
+    },
+    {
+      "id": 9,
+      "label": "Vehicle 9",
+      "region_id": 4,
+      "region_name": "South",
+      "sector": "Jayanagar & BTM Layout",
+      "nominal_capacity": 40,
+      "max_load_90pct": 36,
+      "color": "#b45309"
+    },
+    {
+      "id": 10,
+      "label": "Vehicle 10",
+      "region_id": 4,
+      "region_name": "South",
+      "sector": "JP Nagar & Bannerghatta",
+      "nominal_capacity": 40,
+      "max_load_90pct": 36,
+      "color": "#f59e0b"
+    }
+  ]
+}

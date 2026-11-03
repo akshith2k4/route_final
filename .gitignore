@@ -4,4 +4,7 @@ __pycache__/
 *.pyc
 .DS_Store
 .vercel
+.next/
+next-env.d.ts
+*.tsbuildinfo
 gcp_service_account.json

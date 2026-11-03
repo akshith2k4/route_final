@@ -29,8 +29,8 @@ print("BUILDING 5-REGION HEXAGON OPERATIONAL FOOTPRINT")
 print("=" * 80)
 
 # 1. Load Data
-df_urban = pd.read_csv('hotels_urban_clustered.csv')
-df_outer = pd.read_csv('hotels_outer_clustered.csv')
+with open('data/hotels.json', 'r') as f:
+    hotels = json.load(f)
 
 gdf = gpd.read_file('bbmp.geojson')
 if gdf.crs != "EPSG:4326":
@@ -91,29 +91,31 @@ hex_to_region[ekaa_hex] = 0
 
 print(f"Initial BBMP urban hexagons: {len(hex_to_region)}")
 
-# 3. Extend corridors ONLY up to active outer hotels
+# 3. Extend regions along transport ribbons to all hotels
 corridor_hex_count = 0
-for _, r in df_outer.iterrows():
-    hotel_hex = h3.latlng_to_cell(r['lat'], r['lon'], 7)
-    reg = int(r['region_outer'])
+for h in hotels:
+    hotel_hex = h3.latlng_to_cell(h['lat'], h['lon'], 7)
+    reg = int(h['region'])
     
-    # Find closest hex currently in this region to connect from
-    matching_hexes = [h for h, rg in hex_to_region.items() if rg == reg]
-    hlat, hlon = r['lat'], r['lon']
-    closest_h = min(matching_hexes, key=lambda x: haversine(hlat, hlon, *h3.cell_to_latlng(x)))
-    
-    # Contiguous grid path from region boundary to hotel
-    path = h3.grid_path_cells(closest_h, hotel_hex)
-    for ph in path:
-        if ph not in hex_to_region:
-            hex_to_region[ph] = reg
-            corridor_hex_count += 1
-            
-    # Buffer 1-ring around hotel location
-    for neighbor in h3.grid_disk(hotel_hex, 1):
-        if neighbor not in hex_to_region:
-            hex_to_region[neighbor] = reg
-            corridor_hex_count += 1
+    # If hotel hex is not yet in hex_to_region or in a different region, connect it
+    if hotel_hex not in hex_to_region or hex_to_region[hotel_hex] != reg:
+        matching_hexes = [cell for cell, rg in hex_to_region.items() if rg == reg]
+        if matching_hexes:
+            hlat, hlon = h['lat'], h['lon']
+            closest_h = min(matching_hexes, key=lambda x: haversine(hlat, hlon, *h3.cell_to_latlng(x)))
+            path = h3.grid_path_cells(closest_h, hotel_hex)
+            for ph in path:
+                if ph not in hex_to_region:
+                    hex_to_region[ph] = reg
+                    corridor_hex_count += 1
+        
+        # Buffer 1-ring around hotel location
+        for neighbor in h3.grid_disk(hotel_hex, 1):
+            if neighbor not in hex_to_region:
+                hex_to_region[neighbor] = reg
+                corridor_hex_count += 1
+        
+        hex_to_region[hotel_hex] = reg
 
 # 3b. Extend Route 0 along Sarjapur Road corridor up to Sarjapura town
 sarjapur_pt = (12.8600, 77.7800)  # Sarjapura town / SE terminus
@@ -144,17 +146,7 @@ for r in sorted(dist.keys()):
     print(f"  Region {r}: {dist[r]} hexagons")
 
 # 5. Centroids Calculation
-all_hotels = []
-for _, r in df_urban.iterrows():
-    reg = int(r['region_urban'])
-    if r['name'] == 'UK COMFORTS':
-        reg = 2
-    all_hotels.append({'name': r['name'], 'lat': float(r['lat']), 'lon': float(r['lon']), 'region': reg})
-
-for _, r in df_outer.iterrows():
-    all_hotels.append({'name': r['name'], 'lat': float(r['lat']), 'lon': float(r['lon']), 'region': int(r['region_outer'])})
-
-df_all = pd.DataFrame(all_hotels)
+df_all = pd.DataFrame(hotels)
 centroids_df = df_all.groupby('region')[['lat', 'lon']].mean().reset_index()
 counts_df = df_all.groupby('region')['name'].count().reset_index().rename(columns={'name': 'count'})
 centroids_df = centroids_df.merge(counts_df, on='region')
@@ -164,19 +156,12 @@ print(centroids_df)
 
 # 6. Save Artifacts
 joblib.dump(hex_to_region, 'hex_map_final.pkl')
-joblib.dump({}, 'corridor_to_id_final.pkl')
 
 with open('data/hex_map.json', 'w') as f:
     json.dump(hex_to_region, f)
 
-with open('data/corridor_to_id.json', 'w') as f:
-    json.dump({}, f)
-
-with open('data/hotels.json', 'w') as f:
-    json.dump(all_hotels, f, indent=2)
-
 print("\n✅ Successfully built and saved:")
 print("  - hex_map_final.pkl & data/hex_map.json")
-print("  - corridor_to_id_final.pkl & data/corridor_to_id.json (cleared outer corridors)")
-print(f"  - data/hotels.json ({len(all_hotels)} hotels mapped to 5 regions)")
+print(f"  - Verified {len(hotels)} hotels in data/hotels.json")
 print("  - urban_centroids.csv")
+

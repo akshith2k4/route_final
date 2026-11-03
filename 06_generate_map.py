@@ -300,6 +300,12 @@ explorer_and_search_html = f"""
              Find Region
          </button>
          
+         <a href="route_dispatch_regions_map.html" target="_blank" style="text-decoration: none; margin-left: 6px;">
+             <button type="button" style="background: #0f766e; color: #ffffff; border: none; padding: 8px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap;">
+                 🚐 Dispatch Routes
+             </button>
+         </a>
+         
          <button onclick="clearHotelSearch()" title="Clear search"
                  style="background: transparent; color: #64748b; border: none; padding: 4px 8px; font-size: 18px; cursor: pointer; margin-left: 2px;">
              &times;
