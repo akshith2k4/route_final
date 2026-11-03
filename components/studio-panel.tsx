@@ -129,6 +129,8 @@ export default function StudioPanel({
   );
   const [isSimulating, setIsSimulating] = useState(false);
   const [expandedRouteId, setExpandedRouteId] = useState<string | null>(null);
+  const [solverProvider, setSolverProvider] = useState<"google" | "local">("google");
+  const [apiNotice, setApiNotice] = useState<string | null>(null);
 
   // Computed summary metrics
   const selectedHotelsCount = useMemo(() => {
@@ -349,12 +351,50 @@ export default function StudioPanel({
     [],
   );
 
-  // Run Solver Optimization
-  const handleRunOptimization = useCallback(() => {
+  // Run Solver Optimization (Calls Google Cloud Route Optimization API)
+  const handleRunOptimization = useCallback(async () => {
     setIsSimulating(true);
+    setApiNotice(null);
 
     try {
-      const result = runStudioOptimization({
+      // 1. Send configuration to Google Route Optimization API endpoint
+      const res = await fetch("/api/optimize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hotels,
+          hotelSettings,
+          vehicles,
+          shiftSettings,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.ok && data.routes && data.routes.length > 0) {
+        setSolverProvider("google");
+        setSimulationResult({
+          routes: data.routes,
+          unassignedHotels: data.unassignedHotels || [],
+          totalHotelsSelected: data.totalHotelsSelected,
+          totalHotelsAssigned: data.totalHotelsAssigned,
+          totalBagsDemanded: data.totalBagsDemanded,
+          totalFleetCapacity: data.totalFleetCapacity,
+          fleetUtilizationPct: data.fleetUtilizationPct,
+          isFeasible: data.isFeasible,
+          warnings: data.warnings || [],
+        });
+        setActiveTab("simulate");
+        setExpandedRouteId(data.routes[0].route_id ?? data.routes[0].vehicle_label);
+        onApplySimulatedRoutes(data.routes, depots);
+        return;
+      }
+
+      // If Google API returns an error or no routes, fall back to built-in local solver
+      const errMsg = data.error || "Google API response not optimal. Used local fallback.";
+      setApiNotice(errMsg);
+
+      const localResult = runStudioOptimization({
         hotels,
         hotelSettings,
         vehicles,
@@ -362,19 +402,36 @@ export default function StudioPanel({
         shiftSettings,
       });
 
-      setSimulationResult(result);
+      setSolverProvider("local");
+      setSimulationResult(localResult);
       setActiveTab("simulate");
-      if (result.routes.length > 0) {
-        setExpandedRouteId(result.routes[0].route_id ?? result.routes[0].vehicle_label);
+      if (localResult.routes.length > 0) {
+        setExpandedRouteId(
+          localResult.routes[0].route_id ?? localResult.routes[0].vehicle_label,
+        );
       }
+      onApplySimulatedRoutes(localResult.routes, depots);
+    } catch (err: any) {
+      console.warn("Google API call failed, using local solver:", err);
+      setApiNotice(`Network/Google error: ${err.message}. Switched to local fallback.`);
 
-      // Sync simulated routes and active depots with map
-      const activeDepotIds = new Set(
-        vehicles.filter((v) => v.enabled).map((v) => v.depot_id),
-      );
-      const usedDepots = depots.filter((d) => activeDepotIds.has(d.id));
+      const localResult = runStudioOptimization({
+        hotels,
+        hotelSettings,
+        vehicles,
+        depots,
+        shiftSettings,
+      });
 
-      onApplySimulatedRoutes(result.routes, usedDepots);
+      setSolverProvider("local");
+      setSimulationResult(localResult);
+      setActiveTab("simulate");
+      if (localResult.routes.length > 0) {
+        setExpandedRouteId(
+          localResult.routes[0].route_id ?? localResult.routes[0].vehicle_label,
+        );
+      }
+      onApplySimulatedRoutes(localResult.routes, depots);
     } finally {
       setIsSimulating(false);
     }
@@ -457,7 +514,7 @@ export default function StudioPanel({
             disabled={isSimulating || activeVehiclesCount === 0 || selectedHotelsCount === 0}
           >
             <Zap size={14} />
-            <span>{isSimulating ? "Optimizing..." : "Run Optimization"}</span>
+            <span>{isSimulating ? "Optimizing with Google Cloud..." : "Run Optimization (Google Cloud)"}</span>
           </button>
         </div>
 
@@ -1234,7 +1291,11 @@ export default function StudioPanel({
                   disabled={isSimulating}
                 >
                   <Zap size={14} />
-                  <span>Run Custom Optimization</span>
+                  <span>
+                    {isSimulating
+                      ? "Optimizing with Google Cloud..."
+                      : "Run Google Cloud Optimization"}
+                  </span>
                 </button>
               </div>
             ) : (
@@ -1242,17 +1303,29 @@ export default function StudioPanel({
                 {/* Scorecard */}
                 <div className="studio-scorecard">
                   <div className="studio-scorecard__status">
-                    {simulationResult.isFeasible ? (
-                      <div className="studio-status-pill studio-status-pill--success">
-                        <CheckCircle2 size={13} />
-                        <span>Feasible Dispatch Plan</span>
-                      </div>
-                    ) : (
-                      <div className="studio-status-pill studio-status-pill--warning">
-                        <AlertCircle size={13} />
-                        <span>Capacity Overflow Alert</span>
-                      </div>
-                    )}
+                    <div className="studio-status-pills-row">
+                      {simulationResult.isFeasible ? (
+                        <div className="studio-status-pill studio-status-pill--success">
+                          <CheckCircle2 size={13} />
+                          <span>Feasible Dispatch Plan</span>
+                        </div>
+                      ) : (
+                        <div className="studio-status-pill studio-status-pill--warning">
+                          <AlertCircle size={13} />
+                          <span>Capacity Overflow Alert</span>
+                        </div>
+                      )}
+                      {solverProvider === "google" ? (
+                        <div className="studio-provider-badge studio-provider-badge--google">
+                          <span className="studio-provider-dot" />
+                          <span>Google Cloud Route Optimization API</span>
+                        </div>
+                      ) : (
+                        <div className="studio-provider-badge studio-provider-badge--local">
+                          <span>Local Routing Solver</span>
+                        </div>
+                      )}
+                    </div>
                     <button
                       type="button"
                       className="studio-btn-tiny"
@@ -1262,6 +1335,13 @@ export default function StudioPanel({
                       <span>Download Manifest CSV</span>
                     </button>
                   </div>
+
+                  {apiNotice && (
+                    <div className="studio-api-notice">
+                      <AlertCircle size={13} />
+                      <span>{apiNotice}</span>
+                    </div>
+                  )}
 
                   <div className="studio-stats-grid">
                     <div className="studio-stat-cell">
@@ -1495,7 +1575,7 @@ export default function StudioPanel({
           disabled={isSimulating || activeVehiclesCount === 0 || selectedHotelsCount === 0}
         >
           <Zap size={14} />
-          <span>{isSimulating ? "Optimizing..." : "Simulate Plan"}</span>
+          <span>{isSimulating ? "Optimizing with Google Cloud..." : "Run Optimization (Google Cloud)"}</span>
         </button>
       </div>
     </div>
