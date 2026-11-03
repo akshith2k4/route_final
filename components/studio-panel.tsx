@@ -462,7 +462,7 @@ export default function StudioPanel({
         </div>
 
         <p className="studio-header__sub">
-          Manual constraint solver with hotel multi-select, 10-van capacity locking, depot assignments, shift & lunch windows, and priority SLA rules.
+          Manual constraint solver with hotel multi-select, 10-van capacity locking, Yeshwanthpur Central Laundry (HQ) fleet base, shift & lunch windows, and priority SLA rules.
         </p>
 
         {/* Live KPI Metric Chips */}
@@ -516,7 +516,7 @@ export default function StudioPanel({
           onClick={() => setActiveTab("fleet")}
         >
           <Truck size={13} />
-          <span>2. Fleet & Depots</span>
+          <span>2. Fleet (10 Vans)</span>
           <span className="studio-tab__badge">{activeVehiclesCount}</span>
         </button>
 
@@ -738,9 +738,9 @@ export default function StudioPanel({
           <div className="studio-section">
             <div className="studio-section__header">
               <div>
-                <h3 className="studio-section__title">Fleet & Depot Assignment</h3>
+                <h3 className="studio-section__title">Fleet & Vehicle Capacity</h3>
                 <p className="studio-section__desc">
-                  Toggle active vehicles, lock customized capacity buffers, and assign fleet launch depots.
+                  Toggle active vehicles and lock customized capacity buffers. All routes operate out of LinenGrass HQ (Yeshwanthpur Central Laundry).
                 </p>
               </div>
               <div className="studio-actions-group">
@@ -794,25 +794,19 @@ export default function StudioPanel({
 
                     {v.enabled && (
                       <div className="studio-vehicle-card__body">
-                        {/* Depot Selector */}
+                        {/* Single Unified HQ Depot Indicator */}
                         <div className="studio-form-row">
                           <label className="studio-field-label">
                             <MapPin size={11} />
-                            <span>Assigned Depot</span>
+                            <span>Origin & Return Depot</span>
                           </label>
-                          <select
-                            value={v.depot_id}
-                            onChange={(e) =>
-                              handleUpdateVehicleDepot(v.id, e.target.value)
-                            }
-                            className="studio-select"
-                          >
-                            {depots.map((d) => (
-                              <option key={d.id} value={d.id}>
-                                {d.name} {d.isPrimary ? "(HQ)" : ""}
-                              </option>
-                            ))}
-                          </select>
+                          <div className="studio-depot-fixed-badge">
+                            <span className="studio-depot-fixed-dot" />
+                            <span className="studio-depot-fixed-text">
+                              LinenGrass HQ (Yeshwanthpur Central Laundry)
+                            </span>
+                            <span className="studio-depot-hq-tag">Unified HQ</span>
+                          </div>
                         </div>
 
                         {/* Capacity and 90% Safe Max Load Override */}
@@ -1230,7 +1224,7 @@ export default function StudioPanel({
                 <h4>No Custom Plan Computed Yet</h4>
                 <p>
                   Click "Run Optimization" below to cluster the selected {selectedHotelsCount}{" "}
-                  hotels across your {activeVehiclesCount} active vehicles with assigned depots,
+                  hotels across your {activeVehiclesCount} active vehicles operating out of Yeshwanthpur Central Laundry (HQ),
                   shift hours, and priority rules.
                 </p>
                 <button
@@ -1347,7 +1341,7 @@ export default function StudioPanel({
                               {route.vehicle_label}
                             </span>
                             <span className="studio-route-depot-tag">
-                              📍 {assignedDepot.name.split(" ")[0]}
+                              📍 Yeshwanthpur HQ
                             </span>
                           </div>
 

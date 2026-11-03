@@ -4209,6 +4209,48 @@ a {
   border-color: var(--ink);
 }
 
+.studio-depot-fixed-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--bone);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.studio-depot-fixed-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #18241e;
+  border: 1px solid #fbbf24;
+  flex-shrink: 0;
+}
+
+.studio-depot-fixed-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.studio-depot-hq-tag {
+  font-size: 8.5px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #18241e;
+  color: #fbbf24;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
 .studio-capacity-controls {
   display: grid;
   grid-template-columns: 1fr 1fr;

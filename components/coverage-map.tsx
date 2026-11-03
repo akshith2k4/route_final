@@ -953,11 +953,7 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
             </div>
             <div className="dispatch-legend__depot">
               <span className="depot-legend-dot" />
-              <span>
-                {workspace === "studio" && depots && depots.length > 1
-                  ? `${depots.length} logistics depots assigned`
-                  : "Yeshwanthpur HQ Central Laundry"}
-              </span>
+              <span>LinenGrass HQ (Yeshwanthpur Central Laundry)</span>
             </div>
             {routes.slice(0, 5).map((route, idx) => (
               <button
