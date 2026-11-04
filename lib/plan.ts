@@ -6,6 +6,8 @@ export type PlanDepot = {
   name: string;
   lat: number;
   lon: number;
+  /** Compact label for map pins and route badges, e.g. "HQ" or "WH2". */
+  short_name?: string;
 };
 
 export type PlanShift = {
@@ -32,6 +34,8 @@ export type PlanRoute = {
   max_load: number;
   departure_min: number;
   stops: PlanStop[];
+  /** Warehouse this route starts from and returns to. Missing values use the plan's primary depot. */
+  depot_id?: string;
   is_custom?: boolean;
 };
 
@@ -42,7 +46,10 @@ export type Plan = {
   status: "draft" | "published";
   created_at?: string;
   source?: string;
+  /** Primary warehouse, kept for older drafts and consumers. */
   depot: PlanDepot;
+  /** All warehouses a route can be assigned to. */
+  depots?: PlanDepot[];
   shift: PlanShift;
   routes: PlanRoute[];
   unassigned_hotel_ids?: string[];
@@ -95,6 +102,8 @@ export type ComputedRoute = {
   total_service_mins: number;
   total_bags: number;
   capacity_utilization_pct: number;
+  depot_id: string;
+  depot_name: string;
   departure_hq: string;
   return_hq: string;
   return_min: number;
@@ -142,8 +151,107 @@ export type MatrixLookup = {
 const FALLBACK_SPEED_KMH = 24;
 const FALLBACK_ROAD_FACTOR = 1.35;
 
+export const DEFAULT_DEPOT_ID = "depot-yeshwanthpur";
+export const SECOND_DEPOT_ID = "depot-second-warehouse";
+
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+/** All warehouses in a plan, including the legacy primary depot. */
+export function getPlanDepots(plan: Plan): PlanDepot[] {
+  const depots: PlanDepot[] = [];
+  if (plan.depot) depots.push(plan.depot);
+  for (const depot of plan.depots ?? []) {
+    if (!depots.some((candidate) => candidate.id === depot.id)) {
+      depots.push(depot);
+    }
+  }
+  return depots;
+}
+
+/** Resolves a warehouse by id, falling back to the plan's primary depot. */
+export function resolveDepot(plan: Plan, depotId?: string): PlanDepot {
+  const depots = getPlanDepots(plan);
+  const requested = depotId
+    ? depots.find((depot) => depot.id === depotId)
+    : undefined;
+  const primary =
+    depots.find((depot) => depot.id === plan.depot?.id) ?? depots[0];
+  if (!primary) throw new Error("Plan has no warehouse configured");
+  return requested ?? primary;
+}
+
+/** The warehouse id a route actually uses. */
+export function routeDepotId(plan: Plan, route: PlanRoute): string {
+  const depots = getPlanDepots(plan);
+  if (route.depot_id && depots.some((depot) => depot.id === route.depot_id)) {
+    return route.depot_id;
+  }
+  return plan.depot?.id ?? depots[0]?.id ?? DEFAULT_DEPOT_ID;
+}
+
+/** The warehouse a route starts from and returns to. */
+export function routeDepot(plan: Plan, route: PlanRoute): PlanDepot {
+  return resolveDepot(plan, routeDepotId(plan, route));
+}
+
+/** Compact warehouse label for pins and badges. */
+export function depotLabel(depot: PlanDepot): string {
+  return depot.short_name?.trim() || depot.name;
+}
+
+/**
+ * Upgrades a persisted draft to the current warehouse shape. Existing routes
+ * keep their assignment; missing assignments inherit the primary depot, and
+ * warehouses introduced by the current plan are merged into the draft.
+ */
+export function migratePlanDepots(plan: Plan, reference: Plan): Plan {
+  const referenceDepots = getPlanDepots(reference);
+  const referenceById = new Map(
+    referenceDepots.map((depot) => [depot.id, depot]),
+  );
+  const depots: PlanDepot[] = [];
+  for (const depot of getPlanDepots(plan)) {
+    const current = referenceById.get(depot.id);
+    depots.push(
+      current
+        ? {
+            ...depot,
+            name: current.name,
+            lat: current.lat,
+            lon: current.lon,
+            short_name: current.short_name,
+          }
+        : depot,
+    );
+  }
+  for (const depot of referenceDepots) {
+    if (!depots.some((candidate) => candidate.id === depot.id)) {
+      depots.push(depot);
+    }
+  }
+
+  const fallbackId =
+    plan.depot?.id ?? reference.depot?.id ?? depots[0]?.id ?? DEFAULT_DEPOT_ID;
+  const primary =
+    depots.find((depot) => depot.id === plan.depot?.id) ??
+    depots.find((depot) => depot.id === fallbackId) ??
+    depots[0];
+
+  return {
+    ...plan,
+    depot: primary ?? plan.depot,
+    depots,
+    routes: plan.routes.map((route) => ({
+      ...route,
+      depot_id:
+        route.depot_id &&
+        depots.some((depot) => depot.id === route.depot_id)
+          ? route.depot_id
+          : fallbackId,
+    })),
+  };
 }
 
 export function haversineKm(
@@ -276,9 +384,10 @@ export function computeRoute(
   matrixOrLookup: TravelMatrix | MatrixLookup,
 ): ComputedRoute {
   const lookup = "leg" in matrixOrLookup ? matrixOrLookup : createMatrixLookup(matrixOrLookup);
+  const depot = routeDepot(plan, route);
 
   let cursorS = route.departure_min * 60;
-  let previousId = plan.depot.id;
+  let previousId = depot.id;
   let driveS = 0;
   let distanceM = 0;
   let serviceMins = 0;
@@ -315,7 +424,7 @@ export function computeRoute(
     previousId = stop.hotel_id;
   }
 
-  const returnLeg = lookup.leg(previousId, plan.depot.id);
+  const returnLeg = lookup.leg(previousId, depot.id);
   if (returnLeg.estimated) estimatedLegs += 1;
   cursorS += returnLeg.durationS;
   driveS += returnLeg.durationS;
@@ -336,6 +445,8 @@ export function computeRoute(
     total_bags: bags,
     capacity_utilization_pct:
       route.max_load > 0 ? round1((bags / route.max_load) * 100) : 0,
+    depot_id: depot.id,
+    depot_name: depot.name,
     departure_hq: formatClock(route.departure_min),
     return_hq: formatClock(cursorS / 60),
     return_min: Math.round(cursorS / 60),
@@ -533,6 +644,7 @@ export function cheapestInsertionIndex(
 ): number {
   const lookup =
     "leg" in matrixOrLookup ? matrixOrLookup : createMatrixLookup(matrixOrLookup);
+  const depotId = routeDepotId(plan, route);
 
   let bestIndex = route.stops.length;
   let bestDeltaS = Number.POSITIVE_INFINITY;
@@ -540,10 +652,10 @@ export function cheapestInsertionIndex(
 
   for (let index = 0; index <= route.stops.length; index += 1) {
     const previousId =
-      index === 0 ? plan.depot.id : route.stops[index - 1].hotel_id;
+      index === 0 ? depotId : route.stops[index - 1].hotel_id;
     const nextId =
       index === route.stops.length
-        ? plan.depot.id
+        ? depotId
         : route.stops[index].hotel_id;
 
     const base = lookup.leg(previousId, nextId);
@@ -673,6 +785,8 @@ export type CreateRouteInput = {
   capacity: number;
   departure_min?: number;
   color?: string;
+  /** Warehouse this route starts from and returns to. Defaults to the primary depot. */
+  depot_id?: string;
 };
 
 /**
@@ -703,6 +817,10 @@ export function createRoute(plan: Plan, input: CreateRouteInput): Plan {
   }
 
   const routeId = nextCustomRouteId(plan);
+  if (input.depot_id && !getPlanDepots(plan).some((depot) => depot.id === input.depot_id)) {
+    throw new Error(`Unknown warehouse: ${input.depot_id}`);
+  }
+  const depot = resolveDepot(plan, input.depot_id);
   const route: PlanRoute = {
     route_id: routeId,
     route_key: routeId.replace(/-/g, "_"),
@@ -712,6 +830,7 @@ export function createRoute(plan: Plan, input: CreateRouteInput): Plan {
     max_load: Math.max(1, Math.floor(capacity * 0.9)),
     departure_min: departureMin,
     stops: [],
+    depot_id: depot.id,
     is_custom: true,
   };
 
@@ -786,7 +905,11 @@ export function optimizeRouteOrder(
 
   const lookup =
     "leg" in matrixOrLookup ? matrixOrLookup : createMatrixLookup(matrixOrLookup);
-  const optimized = twoOptStops(plan.depot.id, route.stops, lookup);
+  const optimized = twoOptStops(
+    routeDepotId(plan, route),
+    route.stops,
+    lookup,
+  );
   if (sameStopOrder(route.stops, optimized)) return plan;
 
   return {
@@ -797,6 +920,41 @@ export function optimizeRouteOrder(
         : candidate,
     ),
   };
+}
+
+/**
+ * Moves a route to another warehouse. With a matrix, the stop order is also
+ * re-polished with 2-opt from the new start/end point in the same step.
+ */
+export function reassignRouteDepot(
+  plan: Plan,
+  routeId: string,
+  depotId: string,
+  matrixOrLookup?: TravelMatrix | MatrixLookup,
+): Plan {
+  const route = findRoute(plan, routeId);
+  if (!route) throw new Error(`Unknown route: ${routeId}`);
+  if (!getPlanDepots(plan).some((depot) => depot.id === depotId)) {
+    throw new Error(`Unknown warehouse: ${depotId}`);
+  }
+  if (routeDepotId(plan, route) === depotId && route.depot_id === depotId) {
+    return plan;
+  }
+
+  let next: Plan = {
+    ...plan,
+    routes: plan.routes.map((candidate) =>
+      candidate.route_id === routeId
+        ? { ...candidate, depot_id: depotId }
+        : candidate,
+    ),
+  };
+
+  if (matrixOrLookup && route.stops.length >= 3) {
+    next = optimizeRouteOrder(next, routeId, matrixOrLookup);
+  }
+
+  return next;
 }
 
 /**
@@ -862,7 +1020,7 @@ export function addStopsToRoute(
     );
     targetStops.splice(insertIndex, 0, stop);
   }
-  targetStops = twoOptStops(plan.depot.id, targetStops, lookup);
+  targetStops = twoOptStops(routeDepotId(plan, route), targetStops, lookup);
 
   return {
     ...plan,

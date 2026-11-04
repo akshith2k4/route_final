@@ -5044,6 +5044,20 @@ a {
   border-color: #fbbf24;
 }
 
+.depot-pin--second {
+  background: #0f2e3a;
+  border-color: #38bdf8;
+}
+
+.depot-pin--second .depot-pin__pulse {
+  border-color: #38bdf8;
+}
+
+.depot-pin--second .depot-pin__badge {
+  color: #7dd3fc;
+  font-size: 9px;
+}
+
 .depot-pin--hub .depot-pin__badge {
   background: #0f766e;
   border-color: #5eead4;
@@ -5186,6 +5200,50 @@ a {
   font-weight: 400;
   line-height: 1;
   letter-spacing: -0.01em;
+}
+
+.plan-heading__row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.plan-mode-switch {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.plan-mode-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 5px;
+  color: var(--muted);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transition: background 130ms ease, color 130ms ease;
+}
+
+.plan-mode-switch button:hover {
+  color: var(--ink);
+}
+
+.plan-mode-switch button.is-active {
+  background: var(--ink);
+  color: var(--cream);
+}
+
+.plan-mode-switch--sidebar {
+  display: none;
 }
 
 .plan-actions {
@@ -6108,6 +6166,28 @@ a {
   white-space: nowrap;
 }
 
+.plan-statusbar__depots {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 14px;
+  border-left: 1px solid var(--line);
+}
+
+.plan-statusbar__depots > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.plan-statusbar__depots b {
+  color: var(--ink);
+  font-weight: 700;
+}
+
 .plan-statusbar__right {
   display: flex;
   align-items: center;
@@ -6291,6 +6371,209 @@ a {
   vertical-align: 1px;
 }
 
+.plan-route__depot {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 5px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--bone-deep);
+  color: var(--muted);
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+
+.plan-route__depot.is-secondary {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+/* Warehouse board (assignment mode) */
+.plan-sidebar__routes--warehouse {
+  gap: 13px;
+}
+
+.plan-warehouse {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper-strong);
+}
+
+.plan-warehouse__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 1px 2px 7px;
+  border-bottom: 1px solid var(--line);
+}
+
+.plan-warehouse__pin {
+  display: grid;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 7px;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.plan-warehouse__pin.is-primary {
+  background: #fbf2df;
+  color: #8a6425;
+}
+
+.plan-warehouse__title {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.plan-warehouse__title b {
+  overflow: hidden;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-warehouse__title span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8.5px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-warehouse__tag {
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--bone-deep);
+  color: var(--muted);
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.plan-warehouse__routes {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.plan-warehouse__empty {
+  padding: 11px 8px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  color: var(--faint);
+  font-size: 9px;
+  text-align: center;
+}
+
+.plan-warehouse__hint {
+  padding: 0 4px;
+  color: var(--faint);
+  font-size: 8.5px;
+  line-height: 1.45;
+}
+
+.plan-warehouse-route {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  transition: border-color 130ms ease, background 130ms ease;
+}
+
+.plan-warehouse-route:hover {
+  border-color: var(--line-strong);
+  background: var(--paper-strong);
+}
+
+.plan-warehouse-route.is-selected {
+  border-color: #b7c7bb;
+  box-shadow: 0 0 0 1px rgba(45, 91, 66, 0.08);
+}
+
+.plan-warehouse-route__main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  text-align: left;
+}
+
+.plan-warehouse-route__dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(24, 36, 30, 0.045);
+}
+
+.plan-warehouse-route__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.plan-warehouse-route__body b {
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-warehouse-route__body span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-warehouse-route__move {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 3px;
+  height: 23px;
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--paper-strong);
+  color: var(--ink-soft);
+  font-size: 8px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.plan-warehouse-route__move:hover {
+  border-color: #b7c7bb;
+  background: var(--bone);
+}
+
 .plan-route__tools {
   display: flex;
   gap: 4px;
@@ -6405,6 +6688,26 @@ a {
 }
 
 .plan-dialog__field input:focus {
+  border-color: var(--green);
+  background: #fffefb;
+  box-shadow: 0 0 0 3px rgba(45, 91, 66, 0.1);
+}
+
+.plan-dialog__field select {
+  height: 43px;
+  padding: 0 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  outline: none;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 150ms ease, box-shadow 150ms ease,
+    background 150ms ease;
+}
+
+.plan-dialog__field select:focus {
   border-color: var(--green);
   background: #fffefb;
   box-shadow: 0 0 0 3px rgba(45, 91, 66, 0.1);
@@ -6779,6 +7082,10 @@ a {
   .plan-inspector__head {
     padding-right: 44px;
   }
+
+  .plan-statusbar__depots {
+    display: none;
+  }
 }
 
 @media (max-width: 780px) {
@@ -6790,6 +7097,14 @@ a {
   }
 
   .plan-heading {
+    display: none;
+  }
+
+  .plan-mode-switch--sidebar {
+    display: flex;
+  }
+
+  .plan-sidebar__hint {
     display: none;
   }
 

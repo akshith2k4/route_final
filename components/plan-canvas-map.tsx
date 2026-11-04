@@ -11,7 +11,14 @@ import { cellToBoundary, cellsToMultiPolygon } from "h3-js";
 import type * as Leaflet from "leaflet";
 import type { HexMap, RegionMeta } from "../lib/coverage";
 import { escapeHtml } from "../lib/coverage";
-import type { ComputedRoute, Plan } from "../lib/plan";
+import {
+  depotLabel,
+  getPlanDepots,
+  resolveDepot,
+  routeDepotId,
+  type ComputedRoute,
+  type Plan,
+} from "../lib/plan";
 
 const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_ATTRIBUTION =
@@ -232,44 +239,55 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
         dataRef.current;
 
       const allBounds = L.latLngBounds([]);
-      const depotLatLng: Leaflet.LatLngTuple = [
-        currentPlan.depot.lat,
-        currentPlan.depot.lon,
-      ];
-      allBounds.extend(depotLatLng);
+      const depots = getPlanDepots(currentPlan);
+      const depotLatLngById = new Map<string, Leaflet.LatLngTuple>();
 
-      const depotMarker = L.marker(depotLatLng, {
-        icon: L.divIcon({
-          className: "dispatch-depot-marker",
-          html: `
-            <div class="depot-pin depot-pin--hq">
-              <span class="depot-pin__pulse"></span>
-              <span class="depot-pin__badge">HQ</span>
-            </div>
-          `,
-          iconSize: [32, 32],
-          iconAnchor: [16, 16],
-        }),
-        zIndexOffset: 2000,
-      });
-      depotMarker.bindTooltip(
-        `<div class="depot-leaflet-tooltip"><b>${escapeHtml(
-          currentPlan.depot.name,
-        )}</b><span>Fleet origin &amp; terminus</span></div>`,
-        {
-          direction: "top",
-          offset: [0, -16],
-          className: "depot-leaflet-tooltip",
-        },
-      );
-      depotMarker.addTo(depotLayer);
+      for (const [index, depot] of depots.entries()) {
+        const depotLatLng: Leaflet.LatLngTuple = [depot.lat, depot.lon];
+        depotLatLngById.set(depot.id, depotLatLng);
+        allBounds.extend(depotLatLng);
+
+        const isPrimary = index === 0;
+        const depotMarker = L.marker(depotLatLng, {
+          icon: L.divIcon({
+            className: "dispatch-depot-marker",
+            html: `
+              <div class="depot-pin ${isPrimary ? "depot-pin--hq" : "depot-pin--second"}">
+                <span class="depot-pin__pulse"></span>
+                <span class="depot-pin__badge">${escapeHtml(depotLabel(depot))}</span>
+              </div>
+            `,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+          }),
+          zIndexOffset: 2000,
+        });
+        depotMarker.bindTooltip(
+          `<div class="depot-leaflet-tooltip"><b>${escapeHtml(
+            depot.name,
+          )}</b><span>Fleet origin &amp; terminus</span></div>`,
+          {
+            direction: "top",
+            offset: [0, -16],
+            className: "depot-leaflet-tooltip",
+          },
+        );
+        depotMarker.addTo(depotLayer);
+      }
+
+      const primaryDepotLatLng: Leaflet.LatLngTuple = depots[0]
+        ? [depots[0].lat, depots[0].lon]
+        : [currentPlan.depot.lat, currentPlan.depot.lon];
 
       const routeBounds = new Map<string, Leaflet.LatLngBounds>();
 
       for (const route of currentRoutes) {
         const routeBoundsEntry = L.latLngBounds([]);
         routeBounds.set(route.route_id, routeBoundsEntry);
-        routeBoundsEntry.extend(depotLatLng);
+        const routeDepotLatLng =
+          depotLatLngById.get(routeDepotId(currentPlan, route)) ??
+          primaryDepotLatLng;
+        routeBoundsEntry.extend(routeDepotLatLng);
 
         const stopLatLngs = route.stops.map(
           (stop) => [stop.lat, stop.lon] as Leaflet.LatLngTuple,
@@ -282,7 +300,7 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
         const stored = currentGeometries[route.route_id];
         const fallback = !stored || stored.length < 2;
         const latLngs: Leaflet.LatLngTuple[] = fallback
-          ? [depotLatLng, ...stopLatLngs, depotLatLng]
+          ? [routeDepotLatLng, ...stopLatLngs, routeDepotLatLng]
           : stored.map(([lat, lon]) => [lat, lon] as Leaflet.LatLngTuple);
 
         if (latLngs.length < 2) continue;
@@ -306,7 +324,7 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
             route.name,
           )}</b><span>${route.total_hotels} stops · ${route.total_bags} bags · ${
             route.total_dist_km
-          } km</span></div>`,
+          } km · ${escapeHtml(route.depot_name)}</span></div>`,
           { direction: "top", sticky: true, className: "plan-route-tooltip" },
         );
         polyline.on("click", () => {
@@ -391,7 +409,13 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
 
       allBoundsRef.current = allBounds;
 
-      const fitKey = selected ?? "all";
+      const selectedRoute =
+        selected !== null
+          ? currentRoutes.find((route) => route.route_id === selected)
+          : null;
+      const fitKey = selected
+        ? `${selected}:${selectedRoute?.depot_id ?? ""}`
+        : "all";
       if (lastFitKeyRef.current !== fitKey) {
         lastFitKeyRef.current = fitKey;
         const bounds =
@@ -421,7 +445,8 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
           if (!map || !L || !route) return;
 
           const bounds = L.latLngBounds([]);
-          bounds.extend([dataRef.current.plan.depot.lat, dataRef.current.plan.depot.lon]);
+          const depot = resolveDepot(dataRef.current.plan, route.depot_id);
+          bounds.extend([depot.lat, depot.lon]);
           for (const stop of route.stops) bounds.extend([stop.lat, stop.lon]);
           if (bounds.isValid()) {
             map.flyToBounds(bounds, {

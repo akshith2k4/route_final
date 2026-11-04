@@ -23,14 +23,21 @@ if (
 const hotels = JSON.parse(fs.readFileSync(HOTELS_PATH, "utf8"));
 const fleet = JSON.parse(fs.readFileSync(FLEET_PATH, "utf8"));
 
+const fleetDepots =
+  Array.isArray(fleet.depots) && fleet.depots.length > 0
+    ? fleet.depots
+    : [fleet.depot];
+const depotPoints = fleetDepots.map((depot, index) => ({
+  id: depot.id ?? `depot-${index}`,
+  name: depot.name,
+  lat: depot.latitude,
+  lon: depot.longitude,
+  kind: "depot",
+}));
+const primaryDepotId = depotPoints[0].id;
+
 const points = [
-  {
-    id: "depot-yeshwanthpur",
-    name: fleet.depot.name,
-    lat: fleet.depot.latitude,
-    lon: fleet.depot.longitude,
-    kind: "depot",
-  },
+  ...depotPoints,
   ...[...hotels]
     .sort((a, b) => a.id.localeCompare(b.id))
     .map((hotel) => ({
@@ -196,8 +203,12 @@ function calibrateDurationFactor() {
   for (const route of plan.routes) {
     const manual = manualByRoute.get(route.route_id);
     if (!manual) continue;
+    const depotId =
+      route.depot_id && pointIndex.has(route.depot_id)
+        ? route.depot_id
+        : primaryDepotId;
     let rawSeconds = 0;
-    let previousId = plan.depot.id;
+    let previousId = depotId;
     for (const stop of route.stops) {
       const from = pointIndex.get(previousId);
       const to = pointIndex.get(stop.hotel_id);
@@ -206,7 +217,7 @@ function calibrateDurationFactor() {
       previousId = stop.hotel_id;
     }
     const from = pointIndex.get(previousId);
-    const to = pointIndex.get(plan.depot.id);
+    const to = pointIndex.get(depotId);
     if (from !== undefined && to !== undefined) {
       rawSeconds += durations[from][to] ?? 0;
     }

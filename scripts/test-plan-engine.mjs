@@ -3,14 +3,22 @@ import fs from "node:fs";
 import {
   addStopsToRoute,
   computePlan,
+  createMatrixLookup,
   createRoute,
   deleteRoute,
+  depotLabel,
   findStop,
   formatClock,
+  getPlanDepots,
+  migratePlanDepots,
   moveStop,
   optimizeRouteOrder,
   parseClock,
+  reassignRouteDepot,
   reorderStops,
+  routeDepot,
+  routeDepotId,
+  SECOND_DEPOT_ID,
 } from "../lib/plan.ts";
 
 const plan = JSON.parse(fs.readFileSync("data/plan.json", "utf8"));
@@ -35,10 +43,10 @@ assert.equal(
   "expected 387 bags",
 );
 
-assert.equal(matrix.points.length, 102, "expected 102 matrix points");
+assert.equal(matrix.points.length, 103, "expected 103 matrix points");
 assert.equal(matrix.missing_pairs, 0, "matrix should be complete");
-assert.equal(matrix.durations_s.length, 102);
-assert.equal(matrix.distances_m.length, 102);
+assert.equal(matrix.durations_s.length, 103);
+assert.equal(matrix.distances_m.length, 103);
 
 assert.equal(parseClock("06:30 AM"), 390);
 assert.equal(parseClock("07:00 AM"), 420);
@@ -77,6 +85,165 @@ assert.ok(
   computation.issues.filter((issue) => issue.code === "shift_overrun").length >=
     1,
   "expected routes finishing after the 16:30 shift end to be flagged",
+);
+
+// ---------------------------------------------------------------------------
+// Multi-warehouse assignment
+// ---------------------------------------------------------------------------
+
+const depots = getPlanDepots(plan);
+assert.equal(depots.length, 2, "expected two warehouses");
+assert.equal(depots[0].id, plan.depot.id, "primary depot should come first");
+const secondDepot = depots.find((depot) => depot.id === SECOND_DEPOT_ID);
+assert.ok(secondDepot, "expected the Second Warehouse");
+assert.equal(secondDepot.name, "Second Warehouse");
+assert.equal(depotLabel(secondDepot), "WH2");
+assert.equal(
+  plan.routes.every(
+    (route) => routeDepotId(plan, route) === plan.depot.id,
+  ),
+  true,
+  "all baseline routes should start at HQ",
+);
+assert.equal(
+  routeDepot(plan, plan.routes[0]).id,
+  plan.depot.id,
+  "route depot should resolve to HQ by default",
+);
+
+const warehouseTestRoute = plan.routes.find(
+  (route) => route.route_id === "103607",
+);
+assert.ok(warehouseTestRoute);
+const hqComputed = computation.routes.find(
+  (route) => route.route_id === "103607",
+);
+const movedToSecond = reassignRouteDepot(
+  plan,
+  "103607",
+  SECOND_DEPOT_ID,
+  matrix,
+);
+const movedWarehouseRoute = movedToSecond.routes.find(
+  (route) => route.route_id === "103607",
+);
+assert.ok(movedWarehouseRoute);
+assert.equal(
+  movedWarehouseRoute.depot_id,
+  SECOND_DEPOT_ID,
+  "reassignment should persist the warehouse id",
+);
+assert.deepEqual(
+  [...movedWarehouseRoute.stops.map((stop) => stop.hotel_id)].sort(),
+  [...warehouseTestRoute.stops.map((stop) => stop.hotel_id)].sort(),
+  "reassignment must preserve the hotel set",
+);
+assert.equal(
+  plan.routes.find((route) => route.route_id === "103607").depot_id,
+  plan.depot.id,
+  "reassignment must not mutate the original plan",
+);
+
+const movedWarehouseComputed = computePlan(
+  movedToSecond,
+  matrix,
+).routes.find((route) => route.route_id === "103607");
+assert.ok(movedWarehouseComputed);
+assert.equal(movedWarehouseComputed.depot_id, SECOND_DEPOT_ID);
+assert.equal(movedWarehouseComputed.depot_name, "Second Warehouse");
+assert.notEqual(
+  movedWarehouseComputed.total_dist_km,
+  hqComputed.total_dist_km,
+  "distance should be recalculated from the new warehouse",
+);
+
+const matrixIndex = new Map(
+  matrix.points.map((point, index) => [point.id, index]),
+);
+const factor = matrix.duration_factor ?? 1;
+const driveFromDepot = (depotId, stops) => {
+  let seconds = 0;
+  let previousId = depotId;
+  for (const stop of stops) {
+    seconds +=
+      matrix.durations_s[matrixIndex.get(previousId)][
+        matrixIndex.get(stop.hotel_id)
+      ] * factor;
+    previousId = stop.hotel_id;
+  }
+  seconds +=
+    matrix.durations_s[matrixIndex.get(previousId)][
+      matrixIndex.get(depotId)
+    ] * factor;
+  return Math.round(seconds / 60);
+};
+assert.equal(
+  movedWarehouseComputed.total_drive_mins,
+  driveFromDepot(SECOND_DEPOT_ID, movedWarehouseRoute.stops),
+  "the reassigned route must start and end at the Second Warehouse",
+);
+assert.ok(
+  movedWarehouseComputed.total_drive_mins <=
+    driveFromDepot(SECOND_DEPOT_ID, warehouseTestRoute.stops),
+  "reassignment should not worsen the route from the new warehouse",
+);
+
+const returnedToHq = reassignRouteDepot(
+  movedToSecond,
+  "103607",
+  plan.depot.id,
+  matrix,
+);
+assert.equal(
+  returnedToHq.routes.find((route) => route.route_id === "103607").depot_id,
+  plan.depot.id,
+  "routes should be assignable back to HQ",
+);
+
+const legacyDraft = structuredClone(plan);
+delete legacyDraft.depots;
+for (const route of legacyDraft.routes) delete route.depot_id;
+const migratedDraft = migratePlanDepots(legacyDraft, plan);
+assert.equal(
+  getPlanDepots(migratedDraft).length,
+  2,
+  "migration should merge warehouses added after the draft was saved",
+);
+assert.equal(
+  migratedDraft.routes.every(
+    (route) => route.depot_id === plan.depot.id,
+  ),
+  true,
+  "legacy routes should default to HQ",
+);
+
+const secondDraft = structuredClone(legacyDraft);
+secondDraft.routes[0].depot_id = SECOND_DEPOT_ID;
+const migratedSecondDraft = migratePlanDepots(secondDraft, plan);
+assert.equal(
+  migratedSecondDraft.routes[0].depot_id,
+  SECOND_DEPOT_ID,
+  "migration must preserve an explicit warehouse assignment",
+);
+
+assert.throws(
+  () =>
+    createRoute(plan, {
+      name: "Unknown warehouse route",
+      capacity: 40,
+      depot_id: "depot-nowhere",
+    }),
+  /Unknown warehouse/,
+  "routes cannot be created at an unknown warehouse",
+);
+
+console.log("");
+console.log("Warehouse assignment smoke test (Route 7, HQ -> Second Warehouse):");
+console.log(
+  `  drive ${hqComputed.total_drive_mins} min from HQ -> ${movedWarehouseComputed.total_drive_mins} min from WH2`,
+);
+console.log(
+  `  distance ${hqComputed.total_dist_km} km -> ${movedWarehouseComputed.total_dist_km} km`,
 );
 
 console.log("Route comparison (manual Google data vs OSRM recalculation)");
@@ -293,6 +460,22 @@ assert.equal(customRoute.nominal_cap, 40);
 assert.equal(customRoute.max_load, 36, "safe load should be 90% of capacity");
 assert.equal(customRoute.departure_min, 7 * 60);
 assert.equal(customRoute.stops.length, 0, "new routes start empty");
+assert.equal(
+  customRoute.depot_id,
+  plan.depot.id,
+  "new routes should default to HQ",
+);
+
+const secondWarehouseRoute = createRoute(plan, {
+  name: "Route WH2",
+  capacity: 40,
+  depot_id: SECOND_DEPOT_ID,
+});
+assert.equal(
+  secondWarehouseRoute.routes[secondWarehouseRoute.routes.length - 1].depot_id,
+  SECOND_DEPOT_ID,
+  "new routes should accept a warehouse",
+);
 assert.equal(
   plan.routes.length,
   8,

@@ -9,7 +9,8 @@
     "id": "depot-yeshwanthpur",
     "name": "LinenGrass HQ (Yeshwanthpur Central Laundry)",
     "lat": 13.017275,
-    "lon": 77.546578
+    "lon": 77.546578,
+    "short_name": "HQ"
   },
   "shift": {
     "start_min": 390,
@@ -115,7 +116,8 @@
           "service_mins": 21,
           "load_bags": 3
         }
-      ]
+      ],
+      "depot_id": "depot-yeshwanthpur"
     },
     {
       "route_id": "103601",
@@ -279,7 +281,8 @@
           "service_mins": 8,
           "load_bags": 2
         }
-      ]
+      ],
+      "depot_id": "depot-yeshwanthpur"
     },
     {
       "route_id": "103602",
@@ -398,7 +401,8 @@
           "service_mins": 15,
           "load_bags": 3
         }
-      ]
+      ],
+      "depot_id": "depot-yeshwanthpur"
     },
     {
       "route_id": "103603",
@@ -580,7 +584,8 @@
           "service_mins": 21,
           "load_bags": 3
         }
-      ]
+      ],
+      "depot_id": "depot-yeshwanthpur"
     },
     {
       "route_id": "103604",
@@ -609,7 +614,8 @@
           "service_mins": 127,
           "load_bags": 26
         }
-      ]
+      ],
+      "depot_id": "depot-yeshwanthpur"
     },
     {
       "route_id": "103605",
@@ -755,7 +761,8 @@
           "service_mins": 15,
           "load_bags": 3
         }
-      ]
+      ],
+      "depot_id": "depot-yeshwanthpur"
     },
     {
       "route_id": "103606",
@@ -928,7 +935,8 @@
           "service_mins": 15,
           "load_bags": 4
         }
-      ]
+      ],
+      "depot_id": "depot-yeshwanthpur"
     },
     {
       "route_id": "103607",
@@ -1011,8 +1019,25 @@
           "service_mins": 19,
           "load_bags": 3
         }
-      ]
+      ],
+      "depot_id": "depot-yeshwanthpur"
     }
   ],
-  "unassigned_hotel_ids": []
+  "unassigned_hotel_ids": [],
+  "depots": [
+    {
+      "id": "depot-yeshwanthpur",
+      "name": "LinenGrass HQ (Yeshwanthpur Central Laundry)",
+      "lat": 13.017275,
+      "lon": 77.546578,
+      "short_name": "HQ"
+    },
+    {
+      "id": "depot-second-warehouse",
+      "name": "Second Warehouse",
+      "lat": 12.841935860793432,
+      "lon": 77.51688698411317,
+      "short_name": "WH2"
+    }
+  ]
 }

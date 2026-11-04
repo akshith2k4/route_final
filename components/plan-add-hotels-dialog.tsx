@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Check, Plus, Search, X } from "lucide-react";
 import type { RegionMeta } from "../lib/coverage";
-import type { Plan, PlanRoute, PlanStop } from "../lib/plan";
+import { routeDepot, type Plan, type PlanRoute, type PlanStop } from "../lib/plan";
 
 type HotelCandidate = {
   stop: PlanStop;
@@ -108,6 +108,7 @@ export default function PlanAddHotelsDialog({
 
   if (!open || !route) return null;
 
+  const depot = routeDepot(plan, route);
   const selectedCandidates = candidates.filter((candidate) =>
     selected.has(candidate.stop.hotel_id),
   );
@@ -180,8 +181,9 @@ export default function PlanAddHotelsDialog({
         </h2>
         <p className="dialog-lede">
           Selected hotels leave their current routes and join this route with
-          cheapest insertion, then a 2-opt polish. {route.nominal_cap} bag
-          vehicle · safe load {route.max_load} · currently {bagLabel(currentBags)}.
+          cheapest insertion, then a 2-opt polish. Starts and ends at{" "}
+          {depot.name}. {route.nominal_cap} bag vehicle · safe load{" "}
+          {route.max_load} · currently {bagLabel(currentBags)}.
         </p>
 
         <div className="plan-hotel-filters">

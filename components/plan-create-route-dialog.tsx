@@ -2,34 +2,41 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Plus, Route, X } from "lucide-react";
+import { depotLabel, type PlanDepot } from "../lib/plan";
 
 type PlanCreateRouteDialogProps = {
   open: boolean;
   defaultName: string;
+  depots: PlanDepot[];
+  defaultDepotId: string;
   onClose: () => void;
-  onCreate: (name: string, capacity: number) => void;
+  onCreate: (name: string, capacity: number, depotId: string) => void;
 };
 
 export default function PlanCreateRouteDialog({
   open,
   defaultName,
+  depots,
+  defaultDepotId,
   onClose,
   onCreate,
 }: PlanCreateRouteDialogProps) {
   const [name, setName] = useState(defaultName);
   const [capacity, setCapacity] = useState("40");
+  const [depotId, setDepotId] = useState(defaultDepotId);
   const nameRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setName(defaultName);
     setCapacity("40");
+    setDepotId(defaultDepotId);
     const timer = window.setTimeout(() => {
       nameRef.current?.focus();
       nameRef.current?.select();
     }, 40);
     return () => window.clearTimeout(timer);
-  }, [open, defaultName]);
+  }, [open, defaultName, defaultDepotId]);
 
   useEffect(() => {
     if (!open) return;
@@ -69,7 +76,7 @@ export default function PlanCreateRouteDialog({
         onSubmit={(event) => {
           event.preventDefault();
           if (!valid) return;
-          onCreate(name.trim(), capacityValue);
+          onCreate(name.trim(), capacityValue, depotId);
         }}
       >
         <button
@@ -117,6 +124,20 @@ export default function PlanCreateRouteDialog({
           />
         </label>
 
+        <label className="plan-dialog__field">
+          <span>Warehouse</span>
+          <select
+            value={depotId}
+            onChange={(event) => setDepotId(event.target.value)}
+          >
+            {depots.map((depot) => (
+              <option key={depot.id} value={depot.id}>
+                {depot.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <div className="plan-dialog__preview">
           <div>
             <span>Safe load</span>
@@ -127,8 +148,12 @@ export default function PlanCreateRouteDialog({
             <b>07:00 AM</b>
           </div>
           <div>
-            <span>Starts</span>
-            <b>Empty route</b>
+            <span>Starts at</span>
+            <b>
+              {depotLabel(
+                depots.find((depot) => depot.id === depotId) ?? depots[0],
+              )}
+            </b>
           </div>
         </div>
 

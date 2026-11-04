@@ -7,6 +7,19 @@ const DELAY_MS = 400;
 
 const plan = JSON.parse(fs.readFileSync(PLAN_PATH, "utf8"));
 
+const planDepots =
+  Array.isArray(plan.depots) && plan.depots.length > 0
+    ? plan.depots
+    : [plan.depot];
+
+function routeDepot(route) {
+  return (
+    planDepots.find((depot) => depot.id === route.depot_id) ??
+    plan.depot ??
+    planDepots[0]
+  );
+}
+
 function haversineKm(lat1, lon1, lat2, lon2) {
   const radius = 6371;
   const toRad = (value) => (value * Math.PI) / 180;
@@ -45,10 +58,11 @@ function sleep(ms) {
 }
 
 async function fetchGeometry(route) {
+  const depot = routeDepot(route);
   const points = [
-    [plan.depot.lat, plan.depot.lon],
+    [depot.lat, depot.lon],
     ...route.stops.map((stop) => [stop.lat, stop.lon]),
-    [plan.depot.lat, plan.depot.lon],
+    [depot.lat, depot.lon],
   ];
   if (points.length < 3) return null;
 

@@ -4,6 +4,22 @@
     "latitude": 13.017275,
     "longitude": 77.546578
   },
+  "depots": [
+    {
+      "id": "depot-yeshwanthpur",
+      "name": "LinenGrass HQ (Yeshwanthpur Central Laundry)",
+      "latitude": 13.017275,
+      "longitude": 77.546578,
+      "short_name": "HQ"
+    },
+    {
+      "id": "depot-second-warehouse",
+      "name": "Second Warehouse",
+      "latitude": 12.841935860793432,
+      "longitude": 77.51688698411317,
+      "short_name": "WH2"
+    }
+  ],
   "safety_buffer_pct": 90,
   "vehicles": [
     {

@@ -11,6 +11,7 @@ import {
 } from "react";
 import {
   AlertTriangle,
+  ArrowRightLeft,
   Check,
   ChevronDown,
   Clock,
@@ -23,9 +24,11 @@ import {
   Plus,
   Redo2,
   RotateCcw,
+  Route,
   Trash2,
   Undo2,
   Wand2,
+  Warehouse,
   X,
 } from "lucide-react";
 import PlanAddHotelsDialog from "./plan-add-hotels-dialog";
@@ -39,13 +42,18 @@ import {
   computePlan,
   createRoute,
   deleteRoute,
+  depotLabel,
   findStop,
   formatClock,
   formatDuration,
+  getPlanDepots,
+  migratePlanDepots,
   moveStop,
   optimizeRouteOrder,
+  reassignRouteDepot,
   reorderStops,
-  type ComputedRoute,
+  routeDepot,
+  routeDepotId,
   type Plan,
   type PlanIssue,
   type PlanRoute,
@@ -79,12 +87,17 @@ type Toast = {
   tone: "info" | "error";
 };
 
+type PlanMode = "plan" | "warehouse";
+
 function shortRouteName(name: string): string {
   return name.replace(/\s*\(ID:[^)]*\)\s*$/, "").trim();
 }
 
 function routeSignature(route: PlanRoute): string {
-  return route.stops.map((stop) => stop.hotel_id).join("|");
+  return [
+    route.depot_id ?? "",
+    ...route.stops.map((stop) => stop.hotel_id),
+  ].join("|");
 }
 
 function changedRouteIds(previous: Plan, next: Plan): string[] {
@@ -144,6 +157,7 @@ export default function PlanCanvas({
   );
   const [toast, setToast] = useState<Toast | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [mode, setMode] = useState<PlanMode>("plan");
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [createRouteOpen, setCreateRouteOpen] = useState(false);
   const [addHotelsOpen, setAddHotelsOpen] = useState(false);
@@ -158,12 +172,31 @@ export default function PlanCanvas({
   }, [plan]);
 
   const computation = useMemo(() => computePlan(plan, matrix), [plan, matrix]);
+  const depots = useMemo(() => getPlanDepots(plan), [plan]);
   const computedById = useMemo(
     () =>
       new Map(
         computation.routes.map((route) => [route.route_id, route]),
       ),
     [computation.routes],
+  );
+  const depotTotals = useMemo(
+    () =>
+      depots.map((depot) => {
+        const routes = plan.routes.filter(
+          (route) => routeDepotId(plan, route) === depot.id,
+        );
+        return {
+          depot,
+          routeCount: routes.length,
+          bags: routes.reduce(
+            (sum, route) =>
+              sum + (computedById.get(route.route_id)?.total_bags ?? 0),
+            0,
+          ),
+        };
+      }),
+    [computedById, depots, plan],
   );
 
   const selectedRoute =
@@ -233,7 +266,10 @@ export default function PlanCanvas({
           parsed.plan_id === initialPlan.plan_id &&
           Array.isArray(parsed.routes)
         ) {
-          const restored: Plan = { ...parsed, shift: initialPlan.shift };
+          const restored: Plan = migratePlanDepots(
+            { ...parsed, shift: initialPlan.shift },
+            initialPlan,
+          );
           setPlan(restored);
           planRef.current = restored;
           setSelectedRouteId((current) =>
@@ -276,10 +312,11 @@ export default function PlanCanvas({
     });
 
     try {
+      const depot = routeDepot(planRef.current, route);
       const points = [
-        [planRef.current.depot.lat, planRef.current.depot.lon],
+        [depot.lat, depot.lon],
         ...route.stops.map((stop) => [stop.lat, stop.lon]),
-        [planRef.current.depot.lat, planRef.current.depot.lon],
+        [depot.lat, depot.lon],
       ];
       const coords = points
         .map(([lat, lon]) => `${lon.toFixed(6)},${lat.toFixed(6)}`)
@@ -416,6 +453,19 @@ export default function PlanCanvas({
     }
   }, []);
 
+  const changeMode = useCallback(
+    (nextMode: PlanMode) => {
+      if (nextMode === mode) return;
+      setMode(nextMode);
+      setCreateRouteOpen(false);
+      setAddHotelsOpen(false);
+      setDragState(null);
+      setDropTarget(null);
+      setSelectedStopId(null);
+    },
+    [mode],
+  );
+
   const selectRoute = useCallback(
     (routeId: string) => {
       setSelectedRouteId(routeId);
@@ -427,6 +477,10 @@ export default function PlanCanvas({
 
   const selectStop = useCallback(
     (routeId: string, hotelId: string) => {
+      if (mode === "warehouse") {
+        selectRoute(routeId);
+        return;
+      }
       setSelectedRouteId(routeId);
       setSelectedStopId(hotelId);
       const stop = planRef.current.routes
@@ -435,7 +489,7 @@ export default function PlanCanvas({
       if (stop) mapRef.current?.focusStop(stop.lat, stop.lon);
       revealInspector();
     },
-    [revealInspector],
+    [mode, revealInspector, selectRoute],
   );
 
   const handleReorder = useCallback(
@@ -490,10 +544,14 @@ export default function PlanCanvas({
   );
 
   const handleCreateRoute = useCallback(
-    (name: string, capacity: number) => {
+    (name: string, capacity: number, depotId: string) => {
       let next: Plan;
       try {
-        next = createRoute(planRef.current, { name, capacity });
+        next = createRoute(planRef.current, {
+          name,
+          capacity,
+          depot_id: depotId,
+        });
       } catch (error) {
         notify(
           error instanceof Error ? error.message : "Could not create the route.",
@@ -505,15 +563,15 @@ export default function PlanCanvas({
       const created = next.routes[next.routes.length - 1];
       commit(
         next,
-        `Created ${shortRouteName(created.name)} · safe load ${formatBags(
-          created.max_load,
-        )}`,
+        `Created ${shortRouteName(created.name)} at ${
+          depots.find((depot) => depot.id === depotId)?.name ?? "the warehouse"
+        } · safe load ${formatBags(created.max_load)}`,
       );
       setSelectedRouteId(created.route_id);
       setSelectedStopId(null);
       setCreateRouteOpen(false);
     },
-    [commit, notify],
+    [commit, depots, notify],
   );
 
   const handleAddStops = useCallback(
@@ -523,10 +581,6 @@ export default function PlanCanvas({
         (route) => route.route_id === selectedRouteId,
       );
       if (!target) return;
-      if (!target.is_custom) {
-        notify("Hotels can only be added to a custom route.", "error");
-        return;
-      }
 
       let next: Plan;
       try {
@@ -595,6 +649,51 @@ export default function PlanCanvas({
       }
     },
     [commit, initialPlan, notify, selectedRouteId],
+  );
+
+  const handleAssignDepot = useCallback(
+    (routeId: string, depotId: string) => {
+      const current = planRef.current;
+      const route = current.routes.find(
+        (candidate) => candidate.route_id === routeId,
+      );
+      const depot = depots.find((candidate) => candidate.id === depotId);
+      if (!route || !depot) return;
+
+      if (routeDepotId(current, route) === depotId) {
+        setSelectedRouteId(routeId);
+        setSelectedStopId(null);
+        return;
+      }
+
+      const before = computedById.get(routeId);
+      let next: Plan;
+      try {
+        next = reassignRouteDepot(current, routeId, depotId, matrix);
+      } catch (error) {
+        notify(
+          error instanceof Error
+            ? error.message
+            : "Could not move this route to that warehouse.",
+          "error",
+        );
+        return;
+      }
+
+      const after = computePlan(next, matrix).routes.find(
+        (candidate) => candidate.route_id === routeId,
+      );
+      commit(
+        next,
+        `Moved ${shortRouteName(route.name)} to ${depot.name} · ${
+          before ? formatKm(before.total_dist_km) : "—"
+        } → ${after ? formatKm(after.total_dist_km) : "—"}`,
+      );
+      setSelectedRouteId(routeId);
+      setSelectedStopId(null);
+      revealInspector();
+    },
+    [commit, computedById, depots, matrix, notify, revealInspector],
   );
 
   const handleOptimizeRoute = useCallback(
@@ -827,6 +926,35 @@ export default function PlanCanvas({
     ? findStop(plan, dragState.hotelId)?.stop ?? null
     : null;
 
+  const renderModeSwitch = (extraClass = "") => (
+    <div
+      className={`plan-mode-switch ${extraClass}`}
+      role="group"
+      aria-label="Editing mode"
+    >
+      <button
+        type="button"
+        className={mode === "plan" ? "is-active" : ""}
+        onClick={() => changeMode("plan")}
+        aria-pressed={mode === "plan"}
+        title="Edit stops and routes"
+      >
+        <Route size={12} />
+        Plan
+      </button>
+      <button
+        type="button"
+        className={mode === "warehouse" ? "is-active" : ""}
+        onClick={() => changeMode("warehouse")}
+        aria-pressed={mode === "warehouse"}
+        title="Assign routes to warehouses"
+      >
+        <Warehouse size={12} />
+        Warehouse
+      </button>
+    </div>
+  );
+
   return (
     <div className="plan-app">
       <header className="topbar plan-topbar">
@@ -864,7 +992,10 @@ export default function PlanCanvas({
             <span className="eyebrow__dot" />
             Draft plan · {plan.name}
           </span>
-          <h1>Edit the day</h1>
+          <div className="plan-heading__row">
+            <h1>{mode === "plan" ? "Edit the day" : "Assign warehouses"}</h1>
+            {renderModeSwitch()}
+          </div>
         </div>
 
         <div className="plan-actions">
@@ -911,30 +1042,44 @@ export default function PlanCanvas({
             <div>
               <span className="eyebrow">
                 <span className="eyebrow__dot" />
-                {plan.routes.length} routes · {computation.totals.hotels} stops
+                {mode === "plan"
+                  ? `${plan.routes.length} routes · ${computation.totals.hotels} stops`
+                  : `${depots.length} warehouses · ${plan.routes.length} routes`}
               </span>
-              <h2>Route board</h2>
+              <h2>{mode === "plan" ? "Route board" : "Warehouse board"}</h2>
             </div>
             <div className="plan-sidebar__head-tools">
-              <button
-                type="button"
-                className="plan-new-route"
-                onClick={() => setCreateRouteOpen(true)}
-              >
-                <Plus size={12} />
-                New route
-              </button>
-              <span className="plan-sidebar__hint">
-                <GripVertical size={13} />
-                Drag to reorder
-              </span>
+              {mode === "plan" ? (
+                <>
+                  <button
+                    type="button"
+                    className="plan-new-route"
+                    onClick={() => setCreateRouteOpen(true)}
+                  >
+                    <Plus size={12} />
+                    New route
+                  </button>
+                  <span className="plan-sidebar__hint">
+                    <GripVertical size={13} />
+                    Drag to reorder
+                  </span>
+                </>
+              ) : (
+                <span className="plan-sidebar__hint">
+                  <Warehouse size={13} />
+                  Assign routes
+                </span>
+              )}
+              {renderModeSwitch("plan-mode-switch--sidebar")}
             </div>
           </div>
 
-          <div className="plan-sidebar__routes">
-            {plan.routes.map((route) => {
+          {mode === "plan" ? (
+            <div className="plan-sidebar__routes">
+              {plan.routes.map((route) => {
               const computed = computedById.get(route.route_id);
               if (!computed) return null;
+              const depot = routeDepot(plan, route);
               const isSelected = selectedRouteId === route.route_id;
               const isDropRoute = dropTarget?.routeId === route.route_id;
               const isDropBlocked = Boolean(
@@ -986,6 +1131,13 @@ export default function PlanCanvas({
                     <span className="plan-route__title">
                       <b>
                         {shortRouteName(route.name)}
+                        <span
+                          className={`plan-route__depot ${
+                            depot.id === plan.depot.id ? "" : "is-secondary"
+                          }`}
+                        >
+                          {depotLabel(depot)}
+                        </span>
                         {route.is_custom && (
                           <span className="plan-route__tag">Custom</span>
                         )}
@@ -1190,7 +1342,115 @@ export default function PlanCanvas({
                 </section>
               );
             })}
-          </div>
+            </div>
+          ) : (
+            <div className="plan-sidebar__routes plan-sidebar__routes--warehouse">
+              {depots.map((depot) => {
+                const assigned = plan.routes
+                  .map((route) => ({
+                    route,
+                    computed: computedById.get(route.route_id),
+                  }))
+                  .filter(
+                    ({ route }) => routeDepotId(plan, route) === depot.id,
+                  );
+                const stopCount = assigned.reduce(
+                  (sum, { computed }) => sum + (computed?.total_hotels ?? 0),
+                  0,
+                );
+                const bags = assigned.reduce(
+                  (sum, { computed }) => sum + (computed?.total_bags ?? 0),
+                  0,
+                );
+                const otherDepots = depots.filter(
+                  (candidate) => candidate.id !== depot.id,
+                );
+
+                return (
+                  <section className="plan-warehouse" key={depot.id}>
+                    <header className="plan-warehouse__head">
+                      <span
+                        className={`plan-warehouse__pin ${
+                          depot.id === plan.depot.id ? "is-primary" : ""
+                        }`}
+                      >
+                        <Warehouse size={14} />
+                      </span>
+                      <span className="plan-warehouse__title">
+                        <b>{depot.name}</b>
+                        <span>
+                          {assigned.length} route
+                          {assigned.length === 1 ? "" : "s"} · {stopCount} stops ·{" "}
+                          {bags} bags
+                        </span>
+                      </span>
+                      <span className="plan-warehouse__tag">
+                        {depotLabel(depot)}
+                      </span>
+                    </header>
+
+                    <div className="plan-warehouse__routes">
+                      {assigned.length === 0 ? (
+                        <div className="plan-warehouse__empty">
+                          No routes assigned yet.
+                        </div>
+                      ) : (
+                        assigned.map(({ route, computed }) => (
+                          <div
+                            key={route.route_id}
+                            className={`plan-warehouse-route ${
+                              selectedRouteId === route.route_id
+                                ? "is-selected"
+                                : ""
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              className="plan-warehouse-route__main"
+                              onClick={() => selectRoute(route.route_id)}
+                            >
+                              <span
+                                className="plan-warehouse-route__dot"
+                                style={{ background: route.color }}
+                              />
+                              <span className="plan-warehouse-route__body">
+                                <b>{shortRouteName(route.name)}</b>
+                                <span>
+                                  {computed?.total_hotels ?? 0} stops ·{" "}
+                                  {computed?.total_bags ?? 0}/{route.max_load}{" "}
+                                  bags · {computed?.return_hq ?? "—"} return
+                                </span>
+                              </span>
+                            </button>
+                            {otherDepots.map((other) => (
+                              <button
+                                key={other.id}
+                                type="button"
+                                className="plan-warehouse-route__move"
+                                onClick={() =>
+                                  handleAssignDepot(route.route_id, other.id)
+                                }
+                                title={`Move ${shortRouteName(
+                                  route.name,
+                                )} to ${other.name}`}
+                              >
+                                <ArrowRightLeft size={11} />
+                                {depotLabel(other)}
+                              </button>
+                            ))}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </section>
+                );
+              })}
+              <p className="plan-warehouse__hint">
+                A route and all of its hotels move together. The vehicle starts
+                and ends at the assigned warehouse.
+              </p>
+            </div>
+          )}
 
           <div className="plan-sidebar__foot">
             <span>
@@ -1271,7 +1531,9 @@ export default function PlanCanvas({
               {selectedRoute
                 ? `${selectedRoute.stops.length} stops · ${
                     selectedComputed?.total_bags ?? 0
-                  } bags · ${selectedComputed?.total_dist_km ?? 0} km`
+                  } bags · ${selectedComputed?.total_dist_km ?? 0} km · ${
+                    depotLabel(routeDepot(plan, selectedRoute))
+                  }`
                 : `${plan.routes.length} routes · ${computation.totals.hotels} hotels`}
             </span>
           </div>
@@ -1289,7 +1551,7 @@ export default function PlanCanvas({
           >
             <X size={14} />
           </button>
-          {selectedStop && selectedComputed && selectedComputedStop ? (
+          {mode === "plan" && selectedStop && selectedComputed && selectedComputedStop ? (
             <>
               <div className="plan-inspector__head">
                 <span className="eyebrow">
@@ -1463,6 +1725,33 @@ export default function PlanCanvas({
                 </p>
               </div>
 
+              <div className="plan-inspector__section">
+                <h3>Warehouse</h3>
+                <label className="plan-field">
+                  <span>Vehicle starts and ends at</span>
+                  <select
+                    value={routeDepotId(plan, selectedRoute)}
+                    onChange={(event) =>
+                      handleAssignDepot(
+                        selectedRoute.route_id,
+                        event.target.value,
+                      )
+                    }
+                  >
+                    {depots.map((depot) => (
+                      <option key={depot.id} value={depot.id}>
+                        {depot.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <p className="plan-inspector__note">
+                  {mode === "warehouse"
+                    ? `All ${selectedComputed.total_hotels} hotels move with this route. The vehicle starts and ends at ${selectedComputed.depot_name}.`
+                    : `Distance and return time are calculated from ${selectedComputed.depot_name}.`}
+                </p>
+              </div>
+
               <div className="plan-metrics">
                 <div className="plan-metric">
                   <span>Depart</span>
@@ -1519,9 +1808,9 @@ export default function PlanCanvas({
                 </div>
               </div>
 
-              {selectedRoute.is_custom && (
+              {mode === "plan" && (
                 <div className="plan-inspector__section">
-                  <h3>Custom route</h3>
+                  <h3>Route tools</h3>
                   <div className="plan-inspector__row">
                     <button
                       type="button"
@@ -1548,23 +1837,37 @@ export default function PlanCanvas({
                   </div>
                   <button
                     type="button"
-                    className="btn btn--ghost plan-inspector__wide plan-danger-btn"
-                    onClick={() => handleDeleteRoute(selectedRoute.route_id)}
-                    title={
-                      selectedRoute.stops.length > 0
-                        ? "Delete this route and return its hotels to the original plan"
-                        : "Delete this custom route"
+                    className="btn btn--ghost plan-inspector__wide"
+                    onClick={() =>
+                      mapRef.current?.focusRoute(selectedRoute.route_id)
                     }
                   >
-                    <Trash2 size={14} />
-                    Delete route
+                    <MapPin size={14} />
+                    Focus on map
                   </button>
-                  {selectedRoute.stops.length > 0 && (
-                    <p className="plan-inspector__note">
-                      {selectedRoute.stops.length} hotel
-                      {selectedRoute.stops.length === 1 ? "" : "s"} will return to
-                      the original plan.
-                    </p>
+                  {selectedRoute.is_custom && (
+                    <>
+                      <button
+                        type="button"
+                        className="btn btn--ghost plan-inspector__wide plan-danger-btn"
+                        onClick={() => handleDeleteRoute(selectedRoute.route_id)}
+                        title={
+                          selectedRoute.stops.length > 0
+                            ? "Delete this route and return its hotels to the original plan"
+                            : "Delete this custom route"
+                        }
+                      >
+                        <Trash2 size={14} />
+                        Delete route
+                      </button>
+                      {selectedRoute.stops.length > 0 && (
+                        <p className="plan-inspector__note">
+                          {selectedRoute.stops.length} hotel
+                          {selectedRoute.stops.length === 1 ? "" : "s"} will
+                          return to the original plan.
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -1598,9 +1901,9 @@ export default function PlanCanvas({
               <div className="plan-inspector__section">
                 <h3>How to edit</h3>
                 <p className="plan-muted">
-                  Drag a stop by its grip to reorder it in this route. Drag it
-                  onto another route card to reassign it. Drop on a card header
-                  to use the cheapest insertion point.
+                  {mode === "warehouse"
+                    ? "Choose a warehouse above or use the move button on a route in the warehouse board. A route and all of its hotels move together, then the stop order is re-optimized from the new start."
+                    : "Drag a stop by its grip to reorder it in this route. Drag it onto another route card to reassign it. Drop on a card header to use the cheapest insertion point."}
                 </p>
               </div>
             </>
@@ -1612,8 +1915,9 @@ export default function PlanCanvas({
               </span>
               <h2>Pick a route to begin</h2>
               <p>
-                Select a route on the left, then drag stops by the grip. Drop a
-                stop on another route to move it.
+                {mode === "warehouse"
+                  ? "Select a route in the warehouse board to see its metrics, or move it to the other warehouse."
+                  : "Select a route on the left, then drag stops by the grip. Drop a stop on another route to move it."}
               </p>
             </div>
           )}
@@ -1674,6 +1978,15 @@ export default function PlanCanvas({
             Shift {formatClock(plan.shift.start_min)}–
             {formatClock(plan.shift.end_min)}
           </span>
+          <span className="plan-statusbar__depots">
+            {depotTotals.map(({ depot, routeCount, bags }) => (
+              <span key={depot.id}>
+                <Warehouse size={10} />
+                <b>{depotLabel(depot)}</b>
+                {routeCount} route{routeCount === 1 ? "" : "s"} · {bags} bags
+              </span>
+            ))}
+          </span>
         </div>
         <div className="plan-statusbar__right">
           {updatingRoutes.size > 0 && (
@@ -1705,6 +2018,8 @@ export default function PlanCanvas({
       <PlanCreateRouteDialog
         open={createRouteOpen}
         defaultName={`Route ${plan.routes.length + 1}`}
+        depots={depots}
+        defaultDepotId={plan.depot.id}
         onClose={() => setCreateRouteOpen(false)}
         onCreate={handleCreateRoute}
       />

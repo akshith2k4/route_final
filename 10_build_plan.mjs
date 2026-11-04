@@ -40,6 +40,19 @@ const hotels = JSON.parse(fs.readFileSync(HOTELS_PATH, "utf8"));
 const manualRoutes = JSON.parse(fs.readFileSync(ROUTES_PATH, "utf8"));
 const fleet = JSON.parse(fs.readFileSync(FLEET_PATH, "utf8"));
 
+const fleetDepots =
+  Array.isArray(fleet.depots) && fleet.depots.length > 0
+    ? fleet.depots
+    : [fleet.depot];
+const depots = fleetDepots.map((depot, index) => ({
+  id: depot.id ?? `depot-${index}`,
+  name: depot.name,
+  lat: depot.latitude,
+  lon: depot.longitude,
+  ...(depot.short_name ? { short_name: depot.short_name } : {}),
+}));
+const primaryDepot = depots[0];
+
 const byName = new Map();
 for (const hotel of hotels) {
   if (!hotel.id) throw new Error(`Hotel has no id: ${hotel.name}`);
@@ -110,6 +123,7 @@ const routes = manualRoutes.map((route) => {
     max_load: route.max_load,
     departure_min: parseClock(route.departure_hq, 7 * 60),
     stops: stops.filter(Boolean),
+    depot_id: route.depot_id ?? primaryDepot.id,
   };
 });
 
@@ -140,12 +154,8 @@ const plan = {
   status: "draft",
   created_at: new Date().toISOString(),
   source: "data/manual_routes.json",
-  depot: {
-    id: "depot-yeshwanthpur",
-    name: fleet.depot.name,
-    lat: fleet.depot.latitude,
-    lon: fleet.depot.longitude,
-  },
+  depot: primaryDepot,
+  depots,
   shift: {
     start_min: 6 * 60 + 30,
     end_min: 16 * 60 + 30,
