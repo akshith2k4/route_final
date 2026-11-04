@@ -5338,6 +5338,14 @@ a {
   border-color: var(--green);
 }
 
+.plan-legend-region {
+  width: 18px;
+  height: 9px;
+  border: 1.5px solid #111827;
+  border-radius: 2px;
+  background: rgba(95, 128, 104, 0.2);
+}
+
 .plan-route {
   flex: 0 0 auto;
   overflow: hidden;

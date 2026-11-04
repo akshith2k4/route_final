@@ -7,13 +7,16 @@ import {
   useRef,
   useState,
 } from "react";
+import { cellToBoundary, cellsToMultiPolygon } from "h3-js";
 import type * as Leaflet from "leaflet";
+import type { HexMap, RegionMeta } from "../lib/coverage";
 import { escapeHtml } from "../lib/coverage";
 import type { ComputedRoute, Plan } from "../lib/plan";
 
 const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors';
+const REGION_PANE = "plan-region-pane";
 
 type PlanCanvasMapProps = {
   plan: Plan;
@@ -21,6 +24,8 @@ type PlanCanvasMapProps = {
   selectedRouteId: string | null;
   selectedStopId: string | null;
   geometries: Record<string, [number, number][]>;
+  regions: RegionMeta[];
+  hexMap: HexMap;
   onSelectRoute: (routeId: string) => void;
   onSelectStop: (routeId: string, hotelId: string) => void;
 };
@@ -43,6 +48,8 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
       selectedRouteId,
       selectedStopId,
       geometries,
+      regions,
+      hexMap,
       onSelectRoute,
       onSelectStop,
     },
@@ -51,6 +58,7 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
     const containerRef = useRef<HTMLDivElement | null>(null);
     const mapRef = useRef<Leaflet.Map | null>(null);
     const leafletRef = useRef<typeof import("leaflet") | null>(null);
+    const regionLayerRef = useRef<Leaflet.LayerGroup | null>(null);
     const depotLayerRef = useRef<Leaflet.LayerGroup | null>(null);
     const routeLayerRef = useRef<Leaflet.LayerGroup | null>(null);
     const stopLayerRef = useRef<Leaflet.LayerGroup | null>(null);
@@ -104,11 +112,16 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
           });
           mapRef.current = map;
 
+          const regionPane = map.createPane(REGION_PANE);
+          regionPane.style.zIndex = "390";
+          regionPane.style.pointerEvents = "none";
+
           L.tileLayer(TILE_URL, {
             attribution: TILE_ATTRIBUTION,
             maxZoom: 19,
           }).addTo(map);
 
+          regionLayerRef.current = L.layerGroup().addTo(map);
           depotLayerRef.current = L.layerGroup().addTo(map);
           routeLayerRef.current = L.layerGroup().addTo(map);
           stopLayerRef.current = L.layerGroup().addTo(map);
@@ -129,11 +142,78 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
           map = null;
         }
         mapRef.current = null;
+        regionLayerRef.current = null;
         routeLayerRef.current = null;
         stopLayerRef.current = null;
         depotLayerRef.current = null;
       };
     }, []);
+
+    useEffect(() => {
+      if (status !== "ready") return;
+      const L = leafletRef.current;
+      const regionLayer = regionLayerRef.current;
+      if (!L || !regionLayer) return;
+
+      regionLayer.clearLayers();
+
+      const regionById = new Map(
+        regions.map((region) => [region.id, region]),
+      );
+      const cellsByRegion = new Map<number, string[]>();
+
+      for (const [hexId, regionId] of Object.entries(hexMap)) {
+        const meta = regionById.get(regionId);
+        if (!meta) continue;
+
+        const boundary = cellToBoundary(hexId);
+        const latLngs = boundary.map(
+          ([lat, lon]) => [lat, lon] as Leaflet.LatLngTuple,
+        );
+
+        L.polygon(latLngs, {
+          pane: REGION_PANE,
+          color: meta.color,
+          weight: 0.7,
+          opacity: 0.35,
+          fillColor: meta.color,
+          fillOpacity: 0.18,
+          interactive: false,
+          className: "plan-region-hex",
+        }).addTo(regionLayer);
+
+        const regionCells = cellsByRegion.get(regionId) ?? [];
+        regionCells.push(hexId);
+        cellsByRegion.set(regionId, regionCells);
+      }
+
+      for (const [regionId, cells] of cellsByRegion) {
+        const meta = regionById.get(regionId);
+        if (!meta) continue;
+
+        const multiPolygon = cellsToMultiPolygon(
+          cells,
+          false,
+        ) as number[][][][];
+
+        for (const polygon of multiPolygon) {
+          const rings = polygon.map((ring) =>
+            ring.map(([lat, lon]) => [lat, lon] as Leaflet.LatLngTuple),
+          );
+
+          L.polygon(rings, {
+            pane: REGION_PANE,
+            color: "#111827",
+            weight: 1.8,
+            opacity: 0.55,
+            fill: false,
+            interactive: false,
+            dashArray: meta.route_status === "Proposed" ? "6 5" : undefined,
+            className: "plan-region-outline",
+          }).addTo(regionLayer);
+        }
+      }
+    }, [status, regions, hexMap]);
 
     useEffect(() => {
       if (status !== "ready") return;

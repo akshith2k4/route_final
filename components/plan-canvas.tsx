@@ -28,6 +28,7 @@ import {
 import PlanCanvasMap, {
   type PlanCanvasMapHandle,
 } from "./plan-canvas-map";
+import type { HexMap, RegionMeta } from "../lib/coverage";
 import {
   computePlan,
   findStop,
@@ -49,6 +50,8 @@ const OSRM_BASE_URL = "https://router.project-osrm.org";
 type PlanCanvasProps = {
   initialPlan: Plan;
   matrix: TravelMatrix;
+  regions: RegionMeta[];
+  hexMap: HexMap;
   initialGeometries: Record<string, [number, number][]>;
 };
 
@@ -112,6 +115,8 @@ function formatBags(value: number): string {
 export default function PlanCanvas({
   initialPlan,
   matrix,
+  regions,
+  hexMap,
   initialGeometries,
 }: PlanCanvasProps) {
   const [plan, setPlan] = useState<Plan>(initialPlan);
@@ -973,6 +978,10 @@ export default function PlanCanvas({
               <span className="plan-legend-line plan-legend-line--solid" />
               Solid line = OSRM road path
             </span>
+            <span>
+              <span className="plan-legend-region" />
+              H3 region fill &amp; boundary
+            </span>
           </div>
         </aside>
 
@@ -984,6 +993,8 @@ export default function PlanCanvas({
             selectedRouteId={selectedRouteId}
             selectedStopId={selectedStopId}
             geometries={geometries}
+            regions={regions}
+            hexMap={hexMap}
             onSelectRoute={selectRoute}
             onSelectStop={selectStop}
           />
