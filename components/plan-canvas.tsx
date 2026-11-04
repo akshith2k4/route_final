@@ -26,6 +26,7 @@ import {
   RotateCcw,
   Route,
   Trash2,
+  Truck,
   Undo2,
   Wand2,
   Warehouse,
@@ -34,21 +35,26 @@ import {
 } from "lucide-react";
 import PlanAddHotelsDialog from "./plan-add-hotels-dialog";
 import PlanCreateRouteDialog from "./plan-create-route-dialog";
+import PlanVehiclesDialog from "./plan-vehicles-dialog";
 import PlanCanvasMap, {
   type PlanCanvasMapHandle,
 } from "./plan-canvas-map";
 import type { HexMap, RegionMeta } from "../lib/coverage";
 import {
   addStopsToRoute,
+  addVehicle,
+  assignVehicleToRoute,
   computePlan,
   createRoute,
   deleteRoute,
+  deleteVehicle,
   depotLabel,
   findStop,
   formatClock,
   formatDuration,
   getPlanDepots,
   getPlanLaundries,
+  getPlanVehicles,
   laundryLabel,
   migratePlanDepots,
   moveStop,
@@ -56,10 +62,14 @@ import {
   reassignRouteDepot,
   reorderStops,
   resolveLaundry,
+  resolveVehicle,
   routeDepot,
   routeDepotId,
   routeLaundryId,
+  routesUsingVehicle,
   setRouteLaundry,
+  sortVehicles,
+  updateVehicle,
   type Plan,
   type PlanIssue,
   type PlanRoute,
@@ -172,6 +182,7 @@ export default function PlanCanvas({
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [createRouteOpen, setCreateRouteOpen] = useState(false);
   const [addHotelsOpen, setAddHotelsOpen] = useState(false);
+  const [vehiclesOpen, setVehiclesOpen] = useState(false);
 
   const planRef = useRef(plan);
   const mapRef = useRef<PlanCanvasMapHandle | null>(null);
@@ -185,6 +196,17 @@ export default function PlanCanvas({
   const computation = useMemo(() => computePlan(plan, matrix), [plan, matrix]);
   const depots = useMemo(() => getPlanDepots(plan), [plan]);
   const laundries = useMemo(() => getPlanLaundries(plan), [plan]);
+  const vehicles = useMemo(
+    () => sortVehicles(getPlanVehicles(plan)),
+    [plan],
+  );
+  const usedVehicleIds = useMemo(
+    () =>
+      vehicles
+        .filter((vehicle) => routesUsingVehicle(plan, vehicle.id).length > 0)
+        .map((vehicle) => vehicle.id),
+    [plan, vehicles],
+  );
   const computedById = useMemo(
     () =>
       new Map(
@@ -223,6 +245,14 @@ export default function PlanCanvas({
     : null;
   const selectedLaundry =
     selectedRoute === null ? null : resolveLaundry(plan, selectedRoute);
+  const selectedVehicle =
+    selectedRoute === null ? null : resolveVehicle(plan, selectedRoute);
+  const otherRoutesOnVehicle =
+    selectedVehicle === null
+      ? []
+      : routesUsingVehicle(plan, selectedVehicle.id).filter(
+          (route) => route.route_id !== selectedRoute?.route_id,
+        );
   const selectedStop =
     selectedRoute?.stops.find((stop) => stop.hotel_id === selectedStopId) ??
     null;
@@ -452,9 +482,10 @@ export default function PlanCanvas({
         if (event.shiftKey) redo();
         else undo();
       } else if (event.key === "Escape") {
-        if (createRouteOpen || addHotelsOpen) {
+        if (createRouteOpen || addHotelsOpen || vehiclesOpen) {
           setCreateRouteOpen(false);
           setAddHotelsOpen(false);
+          setVehiclesOpen(false);
           return;
         }
         setSelectedStopId(null);
@@ -466,7 +497,7 @@ export default function PlanCanvas({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [addHotelsOpen, createRouteOpen, undo, redo]);
+  }, [addHotelsOpen, createRouteOpen, vehiclesOpen, undo, redo]);
 
   const revealInspector = useCallback(() => {
     if (window.matchMedia("(max-width: 980px)").matches) {
@@ -480,6 +511,7 @@ export default function PlanCanvas({
       setMode(nextMode);
       setCreateRouteOpen(false);
       setAddHotelsOpen(false);
+      setVehiclesOpen(false);
       setDragState(null);
       setDropTarget(null);
       setSelectedStopId(null);
@@ -565,13 +597,19 @@ export default function PlanCanvas({
   );
 
   const handleCreateRoute = useCallback(
-    (name: string, capacity: number, depotId: string) => {
+    (
+      name: string,
+      capacity: number,
+      depotId: string,
+      vehicleId: string | null,
+    ) => {
       let next: Plan;
       try {
         next = createRoute(planRef.current, {
           name,
           capacity,
           depot_id: depotId,
+          vehicle_id: vehicleId,
         });
       } catch (error) {
         notify(
@@ -582,11 +620,20 @@ export default function PlanCanvas({
       }
 
       const created = next.routes[next.routes.length - 1];
+      const vehicle = created.vehicle_id
+        ? getPlanVehicles(next).find(
+            (candidate) => candidate.id === created.vehicle_id,
+          )
+        : null;
       commit(
         next,
         `Created ${shortRouteName(created.name)} at ${
           depots.find((depot) => depot.id === depotId)?.name ?? "the warehouse"
-        } · safe load ${formatBags(created.max_load)}`,
+        } · ${
+          vehicle
+            ? `${vehicle.name} · ${vehicle.nominal_cap} bags`
+            : `manual capacity · safe load ${formatBags(created.max_load)}`
+        }`,
       );
       setSelectedRouteId(created.route_id);
       setSelectedStopId(null);
@@ -769,6 +816,117 @@ export default function PlanCanvas({
       revealInspector();
     },
     [commit, computedById, laundries, matrix, notify, revealInspector],
+  );
+
+  const handleAssignVehicle = useCallback(
+    (routeId: string, vehicleId: string) => {
+      const current = planRef.current;
+      const route = current.routes.find(
+        (candidate) => candidate.route_id === routeId,
+      );
+      const vehicle = vehicleId
+        ? getPlanVehicles(current).find(
+            (candidate) => candidate.id === vehicleId,
+          )
+        : null;
+      if (!route) return;
+      if (vehicleId && !vehicle) return;
+      if ((route.vehicle_id ?? null) === (vehicleId || null)) return;
+
+      let next: Plan;
+      try {
+        next = assignVehicleToRoute(current, routeId, vehicleId || null);
+      } catch (error) {
+        notify(
+          error instanceof Error
+            ? error.message
+            : "Could not assign this vehicle.",
+          "error",
+        );
+        return;
+      }
+      commit(
+        next,
+        vehicle
+          ? `${shortRouteName(route.name)} uses ${vehicle.name}`
+          : `${shortRouteName(route.name)} released ${
+              getPlanVehicles(current).find(
+                (candidate) => candidate.id === route.vehicle_id,
+              )?.name ?? "its vehicle"
+            } — pick another vehicle`,
+      );
+    },
+    [commit, notify],
+  );
+
+  const handleAddVehicle = useCallback(
+    (name: string, capacity: number) => {
+      const current = planRef.current;
+      const next = addVehicle(current, { name, capacity });
+      const added = next.vehicles?.[next.vehicles.length - 1];
+      commit(
+        next,
+        `Added ${added?.name ?? name} · ${capacity} bags`,
+      );
+    },
+    [commit],
+  );
+
+  const handleUpdateVehicle = useCallback(
+    (vehicleId: string, name: string, capacity: number) => {
+      const current = planRef.current;
+      const vehicle = getPlanVehicles(current).find(
+        (candidate) => candidate.id === vehicleId,
+      );
+      if (!vehicle) return;
+      if (
+        vehicle.name === name.trim() &&
+        vehicle.nominal_cap === capacity
+      ) {
+        return;
+      }
+
+      const affected = routesUsingVehicle(current, vehicleId);
+      const next = updateVehicle(current, vehicleId, { name, capacity });
+      const updated = getPlanVehicles(next).find(
+        (candidate) => candidate.id === vehicleId,
+      );
+      const overloaded = affected.filter(
+        (route) =>
+          route.stops.reduce((sum, stop) => sum + stop.load_bags, 0) >
+          (updated?.nominal_cap ?? capacity),
+      );
+      commit(
+        next,
+        `Updated ${updated?.name ?? name} · ${capacity} bags${
+          affected.length > 0
+            ? ` · ${affected.length} route${
+                affected.length === 1 ? "" : "s"
+              } updated`
+            : ""
+        }${
+          overloaded.length > 0
+            ? ` · ${overloaded
+                .map((route) => shortRouteName(route.name))
+                .join(", ")} now over capacity`
+            : ""
+        }`,
+      );
+    },
+    [commit],
+  );
+
+  const handleDeleteVehicle = useCallback(
+    (vehicleId: string) => {
+      const current = planRef.current;
+      const vehicle = getPlanVehicles(current).find(
+        (candidate) => candidate.id === vehicleId,
+      );
+      if (!vehicle) return;
+      const next = deleteVehicle(current, vehicleId);
+      commit(next, `Deleted ${vehicle.name}`);
+    },
+    [commit],
   );
 
   const handleOptimizeRoute = useCallback(
@@ -1133,6 +1291,14 @@ export default function PlanCanvas({
                   >
                     <Plus size={12} />
                     New route
+                  </button>
+                  <button
+                    type="button"
+                    className="plan-new-route plan-new-route--ghost"
+                    onClick={() => setVehiclesOpen(true)}
+                  >
+                    <Truck size={12} />
+                    Vehicles
                   </button>
                   <span className="plan-sidebar__hint">
                     <GripVertical size={13} />
@@ -1859,6 +2025,105 @@ export default function PlanCanvas({
 
               {mode === "plan" && (
                 <div className="plan-inspector__section">
+                  <h3>Vehicle</h3>
+                  <label className="plan-field">
+                    <span>Assigned vehicle</span>
+                    <select
+                      value={selectedRoute.vehicle_id ?? ""}
+                      onChange={(event) =>
+                        handleAssignVehicle(
+                          selectedRoute.route_id,
+                          event.target.value,
+                        )
+                      }
+                    >
+                      {!selectedVehicle && (
+                        <option value="" disabled>
+                          Select a vehicle
+                        </option>
+                      )}
+                      {vehicles.map((vehicle) => {
+                        const usedElsewhere = routesUsingVehicle(
+                          plan,
+                          vehicle.id,
+                        ).filter(
+                          (route) =>
+                            route.route_id !== selectedRoute.route_id,
+                        );
+                        return (
+                          <option
+                            key={vehicle.id}
+                            value={vehicle.id}
+                            disabled={usedElsewhere.length > 0}
+                            title={
+                              usedElsewhere.length > 0
+                                ? `Allocated to ${usedElsewhere
+                                    .map((route) => shortRouteName(route.name))
+                                    .join(", ")} — release it there first`
+                                : undefined
+                            }
+                          >
+                            {vehicle.name} · {vehicle.nominal_cap} bags
+                            {usedElsewhere.length > 0 ? " · in use" : ""}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </label>
+                  <p className="plan-inspector__note">
+                    {selectedVehicle
+                      ? `${selectedVehicle.name} · safe load ${selectedVehicle.max_load} bags.`
+                      : `No vehicle assigned · safe load ${selectedRoute.max_load} bags.`}
+                  </p>
+                  {otherRoutesOnVehicle.length > 0 && (
+                    <p className="plan-inspector__note plan-inspector__note--warning">
+                      Also allocated to{" "}
+                      {otherRoutesOnVehicle
+                        .map((route) => shortRouteName(route.name))
+                        .join(", ")}
+                      . Reassign one of these routes.
+                    </p>
+                  )}
+                  {selectedComputed.total_bags > selectedRoute.nominal_cap && (
+                    <p className="plan-inspector__note plan-inspector__note--warning">
+                      This route carries {selectedComputed.total_bags} bags,
+                      above the {selectedRoute.nominal_cap}-bag vehicle capacity.
+                    </p>
+                  )}
+                  <div className="plan-inspector__row">
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      onClick={() =>
+                        handleAssignVehicle(selectedRoute.route_id, "")
+                      }
+                      disabled={!selectedRoute.vehicle_id}
+                      title={
+                        selectedRoute.vehicle_id
+                          ? "Free this vehicle so another route can use it"
+                          : "No vehicle assigned"
+                      }
+                    >
+                      Release
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      onClick={() => setVehiclesOpen(true)}
+                    >
+                      <Truck size={14} />
+                      Manage
+                    </button>
+                  </div>
+                  <p className="plan-inspector__note">
+                    A vehicle on another route is locked. Release it there
+                    first, then assign it here.
+                  </p>
+                </div>
+              )}
+
+              {mode === "plan" && (
+                <div className="plan-inspector__section">
                   <h3>Return</h3>
                   <label className="plan-field">
                     <span>After the last hotel</span>
@@ -2174,8 +2439,19 @@ export default function PlanCanvas({
         defaultName={`Route ${plan.routes.length + 1}`}
         depots={depots}
         defaultDepotId={plan.depot.id}
+        vehicles={vehicles}
+        usedVehicleIds={usedVehicleIds}
         onClose={() => setCreateRouteOpen(false)}
         onCreate={handleCreateRoute}
+      />
+
+      <PlanVehiclesDialog
+        open={vehiclesOpen}
+        plan={plan}
+        onClose={() => setVehiclesOpen(false)}
+        onAdd={handleAddVehicle}
+        onUpdate={handleUpdateVehicle}
+        onDelete={handleDeleteVehicle}
       />
 
       <PlanAddHotelsDialog

@@ -1,4 +1,5 @@
 export const PLAN_SCHEMA_VERSION = 1;
+export const PLAN_VEHICLES_VERSION = 2;
 export const MATRIX_SCHEMA_VERSION = 1;
 
 export type PlanDepot = {
@@ -19,6 +20,15 @@ export type PlanLaundry = {
   short_name?: string;
   /** Minutes the vehicle spends at the laundry. */
   service_mins: number;
+};
+
+export type PlanVehicle = {
+  id: string;
+  name: string;
+  nominal_cap: number;
+  /** Safe load, normally 90% of the nominal capacity. */
+  max_load: number;
+  color?: string;
 };
 
 export type PlanShift = {
@@ -51,6 +61,8 @@ export type PlanRoute = {
   depot_id?: string;
   /** Optional laundry visited after the last hotel, before returning to the warehouse. */
   laundry_id?: string | null;
+  /** Vehicle from the plan's fleet inventory. Missing values use manual capacity. */
+  vehicle_id?: string | null;
   is_custom?: boolean;
 };
 
@@ -67,6 +79,10 @@ export type Plan = {
   depots?: PlanDepot[];
   /** Laundries a route can visit after its last hotel. */
   laundries?: PlanLaundry[];
+  /** Vehicles available to routes. */
+  vehicles?: PlanVehicle[];
+  /** One-time fleet numbering version. */
+  vehicles_version?: number;
   shift: PlanShift;
   routes: PlanRoute[];
   unassigned_hotel_ids?: string[];
@@ -258,6 +274,47 @@ export function laundryLabel(laundry: PlanLaundry): string {
   return laundry.short_name?.trim() || laundry.name;
 }
 
+/** All vehicles configured for the plan. */
+export function getPlanVehicles(plan: Plan): PlanVehicle[] {
+  return plan.vehicles ?? [];
+}
+
+/** Vehicles in natural order: Vehicle 1, Vehicle 2, ..., Vehicle 10. */
+export function sortVehicles(vehicles: PlanVehicle[]): PlanVehicle[] {
+  return [...vehicles].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    }),
+  );
+}
+
+/** Resolves the vehicle assigned to a route, or null for manual capacity. */
+export function resolveVehicle(
+  plan: Plan,
+  route: PlanRoute,
+): PlanVehicle | null {
+  if (!route.vehicle_id) return null;
+  return (
+    getPlanVehicles(plan).find(
+      (vehicle) => vehicle.id === route.vehicle_id,
+    ) ?? null
+  );
+}
+
+/** Every route currently using a vehicle. */
+export function routesUsingVehicle(
+  plan: Plan,
+  vehicleId: string,
+): PlanRoute[] {
+  return plan.routes.filter((route) => route.vehicle_id === vehicleId);
+}
+
+/** Safe load for a capacity, matching the 90% fleet rule. */
+export function safeLoadForCapacity(capacity: number): number {
+  return Math.max(1, Math.floor(capacity * 0.9));
+}
+
 /**
  * Upgrades a persisted draft to the current warehouse shape. Existing routes
  * keep their assignment; missing assignments inherit the primary depot, and
@@ -335,30 +392,95 @@ export function migratePlanDepots(plan: Plan, reference: Plan): Plan {
     }
   }
 
+  // Vehicles are user-managed: seed them only when the draft predates the
+  // fleet inventory. Afterwards the draft's list wins, so edits and deletions
+  // survive reloads. Assigned routes always follow their vehicle capacity.
+  let vehicles: PlanVehicle[];
+  const vehicleIdByRoute = new Map<string, string | null>();
+  const needsVehicleNormalization =
+    (plan.vehicles_version ?? 0) < PLAN_VEHICLES_VERSION;
+  if (Array.isArray(plan.vehicles)) {
+    vehicles = plan.vehicles;
+    for (const route of plan.routes) {
+      vehicleIdByRoute.set(route.route_id, route.vehicle_id ?? null);
+    }
+  } else {
+    vehicles = reference.vehicles ?? [];
+    for (const route of plan.routes) {
+      const referenceRoute = reference.routes.find(
+        (candidate) => candidate.route_id === route.route_id,
+      );
+      vehicleIdByRoute.set(route.route_id, referenceRoute?.vehicle_id ?? null);
+    }
+  }
+  const vehicleById = new Map(
+    vehicles.map((vehicle) => [vehicle.id, vehicle]),
+  );
+  const referenceVehicleById = new Map(
+    getPlanVehicles(reference).map((vehicle) => [vehicle.id, vehicle]),
+  );
+
+  // Older layouts numbered the fleet by capacity rather than by vehicle
+  // number. On the first load after the fleet update, re-point routes to the
+  // numbered baseline when the capacity still matches; later user choices are
+  // preserved because the version is stored on the plan.
+  if (needsVehicleNormalization && Array.isArray(plan.vehicles)) {
+    for (const route of plan.routes) {
+      const currentId = vehicleIdByRoute.get(route.route_id);
+      if (!currentId) continue;
+      const currentVehicle = vehicleById.get(currentId);
+      const referenceRoute = reference.routes.find(
+        (candidate) => candidate.route_id === route.route_id,
+      );
+      const referenceVehicle = referenceRoute?.vehicle_id
+        ? referenceVehicleById.get(referenceRoute.vehicle_id)
+        : undefined;
+      if (
+        currentVehicle &&
+        referenceVehicle &&
+        currentVehicle.nominal_cap === referenceVehicle.nominal_cap
+      ) {
+        vehicleIdByRoute.set(route.route_id, referenceVehicle.id);
+      }
+    }
+  }
+  vehicles = sortVehicles(vehicles);
+
   return {
     ...plan,
     depot: primary ?? plan.depot,
     depots,
     laundries,
-    routes: plan.routes.map((route) => ({
-      ...route,
-      depot_id:
-        route.depot_id &&
-        depots.some((depot) => depot.id === route.depot_id)
-          ? route.depot_id
-          : fallbackId,
-      laundry_id:
-        route.laundry_id &&
-        laundries.some((laundry) => laundry.id === route.laundry_id)
-          ? route.laundry_id
-          : undefined,
-      stops: route.stops.map((stop) => ({
-        ...stop,
-        rooms:
-          roomsByHotelId.get(stop.hotel_id) ??
-          (typeof stop.rooms === "number" ? stop.rooms : 0),
-      })),
-    })),
+    vehicles,
+    vehicles_version: PLAN_VEHICLES_VERSION,
+    routes: plan.routes.map((route) => {
+      const requestedVehicleId = vehicleIdByRoute.get(route.route_id) ?? null;
+      const vehicle = requestedVehicleId
+        ? vehicleById.get(requestedVehicleId)
+        : undefined;
+      return {
+        ...route,
+        depot_id:
+          route.depot_id &&
+          depots.some((depot) => depot.id === route.depot_id)
+            ? route.depot_id
+            : fallbackId,
+        laundry_id:
+          route.laundry_id &&
+          laundries.some((laundry) => laundry.id === route.laundry_id)
+            ? route.laundry_id
+            : undefined,
+        vehicle_id: vehicle ? vehicle.id : undefined,
+        nominal_cap: vehicle ? vehicle.nominal_cap : route.nominal_cap,
+        max_load: vehicle ? vehicle.max_load : route.max_load,
+        stops: route.stops.map((stop) => ({
+          ...stop,
+          rooms:
+            roomsByHotelId.get(stop.hotel_id) ??
+            (typeof stop.rooms === "number" ? stop.rooms : 0),
+        })),
+      };
+    }),
   };
 }
 
@@ -712,6 +834,16 @@ export function validateComputedPlan(
     }
   }
 
+  for (const route of plan.routes) {
+    if (!route.vehicle_id && route.stops.length > 0) {
+      issues.push({
+        severity: "warning",
+        code: "no_vehicle",
+        message: `${route.name} has no vehicle assigned.`,
+      });
+    }
+  }
+
   if (plan.unassigned_hotel_ids && plan.unassigned_hotel_ids.length > 0) {
     issues.push({
       severity: "warning",
@@ -721,6 +853,29 @@ export function validateComputedPlan(
       } not assigned to any route.`,
     });
   }
+
+  const vehicleAssignments = new Map<string, string[]>();
+  for (const route of plan.routes) {
+    if (!route.vehicle_id) continue;
+    const assigned = vehicleAssignments.get(route.vehicle_id) ?? [];
+    assigned.push(route.name);
+    vehicleAssignments.set(route.vehicle_id, assigned);
+  }
+  const vehicleIssues: PlanIssue[] = [];
+  for (const [vehicleId, routeNames] of vehicleAssignments) {
+    if (routeNames.length <= 1) continue;
+    const vehicle = getPlanVehicles(plan).find(
+      (candidate) => candidate.id === vehicleId,
+    );
+    vehicleIssues.push({
+      severity: "warning",
+      code: "vehicle_double_booked",
+      message: `${vehicle?.name ?? vehicleId} is assigned to ${routeNames.join(
+        " and ",
+      )}.`,
+    });
+  }
+  issues.unshift(...vehicleIssues);
 
   return issues;
 }
@@ -930,6 +1085,8 @@ export type CreateRouteInput = {
   color?: string;
   /** Warehouse this route starts from and returns to. Defaults to the primary depot. */
   depot_id?: string;
+  /** Optional vehicle from the plan's fleet inventory. Its capacity wins. */
+  vehicle_id?: string | null;
 };
 
 /**
@@ -964,16 +1121,34 @@ export function createRoute(plan: Plan, input: CreateRouteInput): Plan {
     throw new Error(`Unknown warehouse: ${input.depot_id}`);
   }
   const depot = resolveDepot(plan, input.depot_id);
+  const vehicle = input.vehicle_id
+    ? getPlanVehicles(plan).find((candidate) => candidate.id === input.vehicle_id)
+    : null;
+  if (input.vehicle_id && !vehicle) {
+    throw new Error(`Unknown vehicle: ${input.vehicle_id}`);
+  }
+  if (vehicle) {
+    const assignedElsewhere = routesUsingVehicle(plan, vehicle.id);
+    if (assignedElsewhere.length > 0) {
+      throw new Error(
+        `${vehicle.name} is already allocated to ${assignedElsewhere
+          .map((candidate) => candidate.name)
+          .join(" and ")}.`,
+      );
+    }
+  }
+  const nominalCap = vehicle ? vehicle.nominal_cap : capacity;
   const route: PlanRoute = {
     route_id: routeId,
     route_key: routeId.replace(/-/g, "_"),
     name,
     color: input.color ?? pickCustomRouteColor(plan),
-    nominal_cap: capacity,
-    max_load: Math.max(1, Math.floor(capacity * 0.9)),
+    nominal_cap: nominalCap,
+    max_load: vehicle ? vehicle.max_load : safeLoadForCapacity(capacity),
     departure_min: departureMin,
     stops: [],
     depot_id: depot.id,
+    vehicle_id: vehicle?.id,
     is_custom: true,
   };
 
@@ -1149,6 +1324,197 @@ export function setRouteLaundry(
   }
 
   return next;
+}
+
+const VEHICLE_COLORS = [
+  "#1d4ed8",
+  "#0f766e",
+  "#b45309",
+  "#7c3aed",
+  "#be185d",
+  "#0369a1",
+  "#4d7c0f",
+  "#c2410c",
+];
+
+function nextVehicleId(plan: Plan): string {
+  const base = Date.now();
+  let stamp = base;
+  while (getPlanVehicles(plan).some((vehicle) => vehicle.id === `vehicle-${stamp}`)) {
+    stamp += 1;
+  }
+  return `vehicle-${stamp}`;
+}
+
+function pickVehicleColor(plan: Plan): string {
+  const used = new Set(
+    getPlanVehicles(plan).map((vehicle) => vehicle.color?.toLowerCase()),
+  );
+  const available = VEHICLE_COLORS.find(
+    (color) => !used.has(color.toLowerCase()),
+  );
+  return (
+    available ??
+    VEHICLE_COLORS[getPlanVehicles(plan).length % VEHICLE_COLORS.length]
+  );
+}
+
+export type AddVehicleInput = {
+  name: string;
+  capacity: number;
+  color?: string;
+};
+
+/** Adds a vehicle to the plan's fleet inventory. */
+export function addVehicle(plan: Plan, input: AddVehicleInput): Plan {
+  const name = input.name.trim();
+  if (!name) throw new Error("A vehicle name is required");
+  const capacity = input.capacity;
+  if (!Number.isInteger(capacity) || capacity < 1) {
+    throw new Error("Vehicle capacity must be a whole number of at least 1 bag");
+  }
+
+  const vehicle: PlanVehicle = {
+    id: nextVehicleId(plan),
+    name,
+    nominal_cap: capacity,
+    max_load: safeLoadForCapacity(capacity),
+    color: input.color ?? pickVehicleColor(plan),
+  };
+
+  return { ...plan, vehicles: [...getPlanVehicles(plan), vehicle] };
+}
+
+export type UpdateVehicleInput = {
+  name?: string;
+  capacity?: number;
+  color?: string;
+};
+
+/**
+ * Updates a vehicle. Capacity changes propagate to every route using it, and
+ * the caller is responsible for warning when a route's load exceeds the new
+ * capacity (the plan validation will still flag it).
+ */
+export function updateVehicle(
+  plan: Plan,
+  vehicleId: string,
+  input: UpdateVehicleInput,
+): Plan {
+  const vehicle = getPlanVehicles(plan).find(
+    (candidate) => candidate.id === vehicleId,
+  );
+  if (!vehicle) throw new Error(`Unknown vehicle: ${vehicleId}`);
+
+  const name = input.name === undefined ? vehicle.name : input.name.trim();
+  if (!name) throw new Error("A vehicle name is required");
+
+  const capacity =
+    input.capacity === undefined ? vehicle.nominal_cap : input.capacity;
+  if (!Number.isInteger(capacity) || capacity < 1) {
+    throw new Error("Vehicle capacity must be a whole number of at least 1 bag");
+  }
+
+  const nextVehicle: PlanVehicle = {
+    ...vehicle,
+    name,
+    nominal_cap: capacity,
+    max_load: safeLoadForCapacity(capacity),
+    color: input.color ?? vehicle.color,
+  };
+  const capacityChanged =
+    nextVehicle.nominal_cap !== vehicle.nominal_cap ||
+    nextVehicle.max_load !== vehicle.max_load;
+
+  return {
+    ...plan,
+    vehicles: getPlanVehicles(plan).map((candidate) =>
+      candidate.id === vehicleId ? nextVehicle : candidate,
+    ),
+    routes: capacityChanged
+      ? plan.routes.map((route) =>
+          route.vehicle_id === vehicleId
+            ? {
+                ...route,
+                nominal_cap: nextVehicle.nominal_cap,
+                max_load: nextVehicle.max_load,
+              }
+            : route,
+        )
+      : plan.routes,
+  };
+}
+
+/** Assigns a vehicle to a route, or clears it for manual capacity. */
+export function assignVehicleToRoute(
+  plan: Plan,
+  routeId: string,
+  vehicleId: string | null,
+): Plan {
+  const route = findRoute(plan, routeId);
+  if (!route) throw new Error(`Unknown route: ${routeId}`);
+  if ((route.vehicle_id ?? null) === vehicleId) return plan;
+
+  if (vehicleId === null) {
+    return {
+      ...plan,
+      routes: plan.routes.map((candidate) =>
+        candidate.route_id === routeId
+          ? { ...candidate, vehicle_id: undefined }
+          : candidate,
+      ),
+    };
+  }
+
+  const vehicle = getPlanVehicles(plan).find(
+    (candidate) => candidate.id === vehicleId,
+  );
+  if (!vehicle) throw new Error(`Unknown vehicle: ${vehicleId}`);
+  const assignedElsewhere = routesUsingVehicle(plan, vehicleId).filter(
+    (candidate) => candidate.route_id !== routeId,
+  );
+  if (assignedElsewhere.length > 0) {
+    throw new Error(
+      `${vehicle.name} is already allocated to ${assignedElsewhere
+        .map((candidate) => candidate.name)
+        .join(" and ")}.`,
+    );
+  }
+
+  return {
+    ...plan,
+    routes: plan.routes.map((candidate) =>
+      candidate.route_id === routeId
+        ? {
+            ...candidate,
+            vehicle_id: vehicle.id,
+            nominal_cap: vehicle.nominal_cap,
+            max_load: vehicle.max_load,
+          }
+        : candidate,
+    ),
+  };
+}
+
+/** Removes an unassigned vehicle from the inventory. */
+export function deleteVehicle(plan: Plan, vehicleId: string): Plan {
+  const vehicle = getPlanVehicles(plan).find(
+    (candidate) => candidate.id === vehicleId,
+  );
+  if (!vehicle) throw new Error(`Unknown vehicle: ${vehicleId}`);
+  const assigned = routesUsingVehicle(plan, vehicleId);
+  if (assigned.length > 0) {
+    throw new Error(
+      `${vehicle.name} is assigned to ${assigned.map((route) => route.name).join(" and ")}. Reassign those routes first.`,
+    );
+  }
+
+  return {
+    ...plan,
+    vehicles: getPlanVehicles(plan).filter(
+      (candidate) => candidate.id !== vehicleId,
+    ),
+  };
 }
 
 /**

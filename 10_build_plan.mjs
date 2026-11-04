@@ -63,6 +63,19 @@ const laundries = fleetLaundries.map((laundry, index) => ({
   service_mins: laundry.service_mins ?? 0,
 }));
 
+const fleetVehicles = Array.isArray(fleet.vehicles)
+  ? [...fleet.vehicles].sort((a, b) => Number(a.id) - Number(b.id))
+  : [];
+const vehicles = fleetVehicles.map((vehicle, index) => ({
+  id: `vehicle-${vehicle.id ?? index + 1}`,
+  name: vehicle.label ?? `Vehicle ${index + 1}`,
+  nominal_cap: vehicle.nominal_capacity,
+  max_load:
+    vehicle.max_load_90pct ??
+    Math.max(1, Math.floor(vehicle.nominal_capacity * 0.9)),
+  ...(vehicle.color ? { color: vehicle.color } : {}),
+}));
+
 const byName = new Map();
 for (const hotel of hotels) {
   if (!hotel.id) throw new Error(`Hotel has no id: ${hotel.name}`);
@@ -139,6 +152,28 @@ const routes = manualRoutes.map((route) => {
   };
 });
 
+const assignedVehicleIds = new Set();
+for (const route of routes) {
+  const vehicle =
+    vehicles.find(
+      (candidate) =>
+        !assignedVehicleIds.has(candidate.id) &&
+        candidate.nominal_cap === route.nominal_cap &&
+        candidate.max_load === route.max_load,
+    ) ??
+    vehicles.find(
+      (candidate) =>
+        !assignedVehicleIds.has(candidate.id) &&
+        candidate.nominal_cap === route.nominal_cap,
+    );
+  if (vehicle) {
+    route.vehicle_id = vehicle.id;
+    route.nominal_cap = vehicle.nominal_cap;
+    route.max_load = vehicle.max_load;
+    assignedVehicleIds.add(vehicle.id);
+  }
+}
+
 const totalStops = routes.reduce((sum, route) => sum + route.stops.length, 0);
 const totalBags = routes.reduce(
   (sum, route) => sum + route.stops.reduce((sub, stop) => sub + stop.load_bags, 0),
@@ -169,6 +204,8 @@ const plan = {
   depot: primaryDepot,
   depots,
   laundries,
+  vehicles,
+  vehicles_version: 2,
   shift: {
     start_min: 6 * 60 + 30,
     end_min: 16 * 60 + 30,

@@ -2,15 +2,28 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Plus, Route, X } from "lucide-react";
-import { depotLabel, type PlanDepot } from "../lib/plan";
+import {
+  depotLabel,
+  safeLoadForCapacity,
+  sortVehicles,
+  type PlanDepot,
+  type PlanVehicle,
+} from "../lib/plan";
 
 type PlanCreateRouteDialogProps = {
   open: boolean;
   defaultName: string;
   depots: PlanDepot[];
   defaultDepotId: string;
+  vehicles: PlanVehicle[];
+  usedVehicleIds: string[];
   onClose: () => void;
-  onCreate: (name: string, capacity: number, depotId: string) => void;
+  onCreate: (
+    name: string,
+    capacity: number,
+    depotId: string,
+    vehicleId: string | null,
+  ) => void;
 };
 
 export default function PlanCreateRouteDialog({
@@ -18,19 +31,29 @@ export default function PlanCreateRouteDialog({
   defaultName,
   depots,
   defaultDepotId,
+  vehicles,
+  usedVehicleIds,
   onClose,
   onCreate,
 }: PlanCreateRouteDialogProps) {
   const [name, setName] = useState(defaultName);
   const [capacity, setCapacity] = useState("40");
   const [depotId, setDepotId] = useState(defaultDepotId);
+  const [vehicleId, setVehicleId] = useState("");
   const nameRef = useRef<HTMLInputElement | null>(null);
+
+  const sortedVehicles = sortVehicles(vehicles);
+  const availableVehicles = sortedVehicles.filter(
+    (vehicle) => !usedVehicleIds.includes(vehicle.id),
+  );
+  const initialVehicle = availableVehicles[0] ?? null;
 
   useEffect(() => {
     if (!open) return;
     setName(defaultName);
-    setCapacity("40");
+    setCapacity(initialVehicle ? String(initialVehicle.nominal_cap) : "40");
     setDepotId(defaultDepotId);
+    setVehicleId(initialVehicle?.id ?? "");
     const timer = window.setTimeout(() => {
       nameRef.current?.focus();
       nameRef.current?.select();
@@ -49,6 +72,11 @@ export default function PlanCreateRouteDialog({
 
   if (!open) return null;
 
+  const selectedVehicle =
+    vehicles.find((vehicle) => vehicle.id === vehicleId) ?? null;
+  const selectedVehicleUsed = selectedVehicle
+    ? usedVehicleIds.includes(selectedVehicle.id)
+    : false;
   const capacityValue = Number(capacity);
   const capacityValid =
     capacity.trim().length > 0 &&
@@ -56,10 +84,16 @@ export default function PlanCreateRouteDialog({
     capacityValue >= 1 &&
     capacityValue <= 999;
   const nameValid = name.trim().length > 0;
-  const valid = nameValid && capacityValid;
-  const safeLoad = capacityValid
-    ? Math.max(1, Math.floor(capacityValue * 0.9))
-    : null;
+  const valid =
+    nameValid &&
+    capacityValid &&
+    selectedVehicle !== null &&
+    !selectedVehicleUsed;
+  const safeLoad = selectedVehicle
+    ? selectedVehicle.max_load
+    : capacityValid
+      ? safeLoadForCapacity(capacityValue)
+      : null;
 
   return (
     <div
@@ -76,7 +110,12 @@ export default function PlanCreateRouteDialog({
         onSubmit={(event) => {
           event.preventDefault();
           if (!valid) return;
-          onCreate(name.trim(), capacityValue, depotId);
+          onCreate(
+            name.trim(),
+            capacityValue,
+            depotId,
+            vehicleId || null,
+          );
         }}
       >
         <button
@@ -94,9 +133,8 @@ export default function PlanCreateRouteDialog({
         </span>
         <h2 id="plan-create-route-title">Create a new route</h2>
         <p className="dialog-lede">
-          Name the route and enter the vehicle capacity. Safe load is set to
-          90% automatically, and hotels will be pulled from the routes they are
-          on today.
+          Name the route and choose one of your available vehicles. Safe load
+          follows the vehicle.
         </p>
 
         <label className="plan-dialog__field">
@@ -112,6 +150,48 @@ export default function PlanCreateRouteDialog({
         </label>
 
         <label className="plan-dialog__field">
+          <span>Vehicle</span>
+          <select
+            value={vehicleId}
+            onChange={(event) => {
+              const nextId = event.target.value;
+              setVehicleId(nextId);
+              const vehicle = vehicles.find(
+                (candidate) => candidate.id === nextId,
+              );
+              if (vehicle) setCapacity(String(vehicle.nominal_cap));
+            }}
+          >
+            <option value="" disabled>
+              {availableVehicles.length === 0
+                ? "No vehicle available"
+                : "Select a vehicle"}
+            </option>
+            {sortedVehicles.map((vehicle) => {
+              const used = usedVehicleIds.includes(vehicle.id);
+              return (
+                <option
+                  key={vehicle.id}
+                  value={vehicle.id}
+                  disabled={used}
+                  title={
+                    used ? "Already allocated to another route" : undefined
+                  }
+                >
+                  {vehicle.name} · {vehicle.nominal_cap} bags
+                  {used ? " · in use" : ""}
+                </option>
+              );
+            })}
+          </select>
+        </label>
+        {availableVehicles.length === 0 && (
+          <p className="plan-inspector__note plan-inspector__note--warning">
+            All vehicles are allocated. Add a vehicle from Vehicles first.
+          </p>
+        )}
+
+        <label className="plan-dialog__field">
           <span>Vehicle capacity (bags)</span>
           <input
             type="number"
@@ -120,6 +200,12 @@ export default function PlanCreateRouteDialog({
             max={999}
             step={1}
             value={capacity}
+            disabled={selectedVehicle !== null}
+            title={
+              selectedVehicle
+                ? "Edit this vehicle's capacity from Manage vehicles"
+                : undefined
+            }
             onChange={(event) => setCapacity(event.target.value)}
           />
         </label>
@@ -144,8 +230,8 @@ export default function PlanCreateRouteDialog({
             <b>{safeLoad === null ? "—" : `${safeLoad} bags`}</b>
           </div>
           <div>
-            <span>Departs</span>
-            <b>07:00 AM</b>
+            <span>Vehicle</span>
+            <b>{selectedVehicle ? selectedVehicle.name : "Manual"}</b>
           </div>
           <div>
             <span>Starts at</span>

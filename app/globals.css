@@ -6377,6 +6377,16 @@ a {
   background: #273a2f;
 }
 
+.plan-new-route--ghost {
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  color: var(--ink-soft);
+}
+
+.plan-new-route--ghost:hover {
+  background: var(--bone);
+}
+
 .plan-route__tag {
   display: inline-flex;
   flex: 0 0 auto;
@@ -6667,6 +6677,10 @@ a {
   line-height: 1.45;
 }
 
+.plan-inspector__note--warning {
+  color: #b45309;
+}
+
 .plan-dialog {
   position: relative;
   width: min(500px, 100%);
@@ -6751,6 +6765,198 @@ a {
   border-color: var(--green);
   background: #fffefb;
   box-shadow: 0 0 0 3px rgba(45, 91, 66, 0.1);
+}
+
+/* Fleet inventory dialog */
+.plan-vehicles-dialog {
+  max-height: min(88vh, 780px);
+  overflow-y: auto;
+}
+
+.plan-vehicle-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 132px auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 12px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+}
+
+.plan-vehicle-add__button {
+  height: 43px;
+  white-space: nowrap;
+}
+
+.plan-vehicle-error {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 10px;
+  color: #b91c1c;
+  font-size: 9px;
+}
+
+.plan-vehicle-summary {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.plan-vehicle-summary b {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.plan-vehicle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 330px;
+  padding: 2px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.plan-vehicle-list__empty {
+  margin: 0;
+  padding: 20px;
+  color: var(--faint);
+  font-size: 10px;
+  text-align: center;
+}
+
+.plan-vehicle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--paper);
+}
+
+.plan-vehicle.is-editing {
+  border-color: #b7c7bb;
+  background: #fffefb;
+}
+
+.plan-vehicle__swatch {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 28px;
+  border-radius: 4px;
+}
+
+.plan-vehicle__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.plan-vehicle__main b {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-vehicle__main span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8.5px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-vehicle__actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+}
+
+.plan-vehicle__icon-btn {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--muted);
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.plan-vehicle__icon-btn:hover:not(:disabled) {
+  background: var(--bone);
+  color: var(--ink);
+}
+
+.plan-vehicle__icon-btn--save {
+  color: var(--green);
+}
+
+.plan-vehicle__icon-btn--danger:hover:not(:disabled) {
+  background: #fbeae6;
+  color: #b91c1c;
+}
+
+.plan-vehicle__icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.plan-vehicle__edit {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.plan-vehicle__edit input {
+  height: 30px;
+  min-width: 0;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  outline: none;
+  background: var(--paper-strong);
+  color: var(--ink);
+  font-size: 10.5px;
+}
+
+.plan-vehicle__edit input:first-child {
+  flex: 1;
+}
+
+.plan-vehicle__edit input[type="number"] {
+  width: 78px;
+  flex: 0 0 auto;
+}
+
+.plan-vehicle__edit input:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(45, 91, 66, 0.1);
+}
+
+.plan-vehicle-warning {
+  display: flex;
+  flex-basis: 100%;
+  align-items: flex-start;
+  gap: 5px;
+  margin: 2px 0 0 16px;
+  color: #b45309;
+  font-size: 8.5px;
+  line-height: 1.4;
 }
 
 .plan-dialog__preview {
@@ -7142,6 +7348,14 @@ a {
 
   .plan-mode-switch--sidebar {
     display: flex;
+  }
+
+  .plan-vehicle-add {
+    grid-template-columns: 1fr;
+  }
+
+  .plan-vehicle-add__button {
+    width: 100%;
   }
 
   .plan-sidebar__hint {

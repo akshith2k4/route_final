@@ -2,15 +2,19 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
   addStopsToRoute,
+  addVehicle,
+  assignVehicleToRoute,
   computePlan,
   createMatrixLookup,
   createRoute,
   deleteRoute,
+  deleteVehicle,
   depotLabel,
   findStop,
   formatClock,
   getPlanDepots,
   getPlanLaundries,
+  getPlanVehicles,
   laundryLabel,
   migratePlanDepots,
   moveStop,
@@ -19,11 +23,15 @@ import {
   reassignRouteDepot,
   reorderStops,
   resolveLaundry,
+  resolveVehicle,
   routeDepot,
   routeDepotId,
   routeLaundryId,
+  routesUsingVehicle,
+  safeLoadForCapacity,
   SECOND_DEPOT_ID,
   setRouteLaundry,
+  updateVehicle,
 } from "../lib/plan.ts";
 
 const plan = JSON.parse(fs.readFileSync("data/plan.json", "utf8"));
@@ -437,12 +445,175 @@ assert.throws(
   "routes cannot use an unknown laundry",
 );
 
+// ---------------------------------------------------------------------------
+// Fleet inventory and per-route vehicle assignment
+// ---------------------------------------------------------------------------
+
+const vehicles = getPlanVehicles(plan);
+assert.equal(vehicles.length, 10, "expected the fleet inventory");
+assert.equal(
+  plan.routes.every((route) => route.vehicle_id),
+  true,
+  "baseline routes should start with a vehicle",
+);
+for (const route of plan.routes) {
+  const vehicle = resolveVehicle(plan, route);
+  assert.ok(vehicle, `expected a vehicle for ${route.name}`);
+  assert.equal(route.nominal_cap, vehicle.nominal_cap);
+  assert.equal(route.max_load, vehicle.max_load);
+}
+assert.equal(
+  vehicles.filter(
+    (vehicle) => routesUsingVehicle(plan, vehicle.id).length === 0,
+  ).length,
+  2,
+  "two fleet vehicles should be spare",
+);
+assert.equal(safeLoadForCapacity(35), 31);
+assert.equal(safeLoadForCapacity(70), 63);
+
+const vehicleRoute1 = plan.routes[0];
+assert.equal(resolveVehicle(plan, vehicleRoute1).id, vehicleRoute1.vehicle_id);
+
+const manualRoute = assignVehicleToRoute(
+  plan,
+  vehicleRoute1.route_id,
+  null,
+);
+const manualRouteEntry = manualRoute.routes.find(
+  (route) => route.route_id === vehicleRoute1.route_id,
+);
+assert.equal(manualRouteEntry.vehicle_id, undefined);
+assert.equal(
+  manualRouteEntry.nominal_cap,
+  vehicleRoute1.nominal_cap,
+  "clearing a vehicle keeps the route's manual capacity",
+);
+
+const onVehicle9 = assignVehicleToRoute(
+  plan,
+  vehicleRoute1.route_id,
+  "vehicle-9",
+);
+const vehicle9 = getPlanVehicles(onVehicle9).find(
+  (vehicle) => vehicle.id === "vehicle-9",
+);
+assert.ok(vehicle9);
+assert.equal(onVehicle9.routes[0].vehicle_id, "vehicle-9");
+assert.equal(onVehicle9.routes[0].nominal_cap, vehicle9.nominal_cap);
+assert.equal(onVehicle9.routes[0].max_load, vehicle9.max_load);
+assert.equal(
+  plan.routes[0].vehicle_id,
+  vehicleRoute1.vehicle_id,
+  "assignment must not mutate the original plan",
+);
+
+assert.throws(
+  () => assignVehicleToRoute(onVehicle9, "103601", "vehicle-9"),
+  /already allocated to/,
+  "a vehicle already on another route must be blocked",
+);
+
+const duplicatePlan = structuredClone(plan);
+duplicatePlan.routes[1].vehicle_id = duplicatePlan.routes[0].vehicle_id;
+assert.equal(
+  computePlan(duplicatePlan, matrix).issues.some(
+    (issue) => issue.code === "vehicle_double_booked",
+  ),
+  true,
+  "a legacy shared vehicle should still raise a warning",
+);
+
+const shrunk = updateVehicle(onVehicle9, "vehicle-9", {
+  capacity: 30,
+  name: "Truck 9",
+});
+const shrunkVehicle = getPlanVehicles(shrunk).find(
+  (vehicle) => vehicle.id === "vehicle-9",
+);
+assert.equal(shrunkVehicle.name, "Truck 9");
+assert.equal(shrunkVehicle.nominal_cap, 30);
+assert.equal(shrunkVehicle.max_load, 27);
+const shrunkRoute1 = shrunk.routes.find(
+  (candidate) => candidate.route_id === "103501",
+);
+assert.equal(shrunkRoute1.nominal_cap, 30);
+assert.equal(shrunkRoute1.max_load, 27);
+const untouchedRoute2 = shrunk.routes.find(
+  (candidate) => candidate.route_id === "103601",
+);
+assert.equal(
+  untouchedRoute2.nominal_cap,
+  plan.routes.find((route) => route.route_id === "103601").nominal_cap,
+  "capacity changes must only touch routes using that vehicle",
+);
+assert.equal(
+  computePlan(shrunk, matrix).issues.some(
+    (issue) =>
+      issue.code === "over_nominal_capacity" &&
+      issue.route_id === "103501",
+  ),
+  true,
+  "capacity changes should surface over-capacity routes",
+);
+
+const addedVehiclePlan = addVehicle(plan, {
+  name: "Spare Truck",
+  capacity: 25,
+});
+assert.equal(getPlanVehicles(addedVehiclePlan).length, 11);
+const addedVehicle = getPlanVehicles(addedVehiclePlan).at(-1);
+assert.equal(addedVehicle.nominal_cap, 25);
+assert.equal(addedVehicle.max_load, 22);
+const afterDelete = deleteVehicle(addedVehiclePlan, addedVehicle.id);
+assert.equal(getPlanVehicles(afterDelete).length, 10);
+assert.throws(
+  () => deleteVehicle(plan, "vehicle-1"),
+  /assigned to/,
+  "assigned vehicles cannot be deleted",
+);
+
+const vehicleRoutePlan = createRoute(plan, {
+  name: "Vehicle route",
+  capacity: 10,
+  vehicle_id: "vehicle-9",
+});
+const vehicleRoute = vehicleRoutePlan.routes.at(-1);
+assert.equal(vehicleRoute.vehicle_id, "vehicle-9");
+assert.equal(
+  vehicleRoute.nominal_cap,
+  40,
+  "vehicle capacity should override the manual capacity",
+);
+assert.equal(vehicleRoute.max_load, 36);
+assert.throws(
+  () =>
+    createRoute(onVehicle9, {
+      name: "Blocked vehicle route",
+      capacity: 40,
+      vehicle_id: "vehicle-9",
+    }),
+  /already allocated to/,
+  "new routes cannot reuse a vehicle already on another route",
+);
+assert.throws(
+  () =>
+    createRoute(plan, {
+      name: "Unknown vehicle",
+      capacity: 40,
+      vehicle_id: "vehicle-nowhere",
+    }),
+  /Unknown vehicle/,
+);
+
 const legacyDraft = structuredClone(plan);
 delete legacyDraft.depots;
 delete legacyDraft.laundries;
+delete legacyDraft.vehicles;
 for (const route of legacyDraft.routes) {
   delete route.depot_id;
   delete route.laundry_id;
+  delete route.vehicle_id;
 }
 const migratedDraft = migratePlanDepots(legacyDraft, plan);
 assert.equal(
@@ -469,6 +640,23 @@ assert.equal(
   true,
   "legacy routes should return directly to the warehouse",
 );
+assert.equal(
+  getPlanVehicles(migratedDraft).length,
+  10,
+  "migration should seed the fleet inventory",
+);
+for (const route of migratedDraft.routes) {
+  const referenceRoute = plan.routes.find(
+    (candidate) => candidate.route_id === route.route_id,
+  );
+  assert.equal(
+    route.vehicle_id,
+    referenceRoute.vehicle_id,
+    "migration should copy the baseline vehicle assignment",
+  );
+  assert.equal(route.nominal_cap, referenceRoute.nominal_cap);
+  assert.equal(route.max_load, referenceRoute.max_load);
+}
 
 const invalidLaundryDraft = structuredClone(plan);
 invalidLaundryDraft.routes[0].laundry_id = "laundry-nowhere";
@@ -476,6 +664,91 @@ assert.equal(
   migratePlanDepots(invalidLaundryDraft, plan).routes[0].laundry_id,
   undefined,
   "migration should drop unknown laundries",
+);
+
+const editedVehiclesDraft = structuredClone(plan);
+editedVehiclesDraft.vehicles = editedVehiclesDraft.vehicles.filter(
+  (vehicle) => vehicle.id !== "vehicle-10",
+);
+editedVehiclesDraft.vehicles[0] = {
+  ...editedVehiclesDraft.vehicles[0],
+  name: "Truck A",
+  nominal_cap: 44,
+  max_load: 39,
+};
+editedVehiclesDraft.routes[0].vehicle_id = editedVehiclesDraft.vehicles[0].id;
+const migratedEditedVehicles = migratePlanDepots(
+  editedVehiclesDraft,
+  plan,
+);
+assert.equal(
+  getPlanVehicles(migratedEditedVehicles).length,
+  9,
+  "migration must not resurrect deleted vehicles",
+);
+assert.equal(getPlanVehicles(migratedEditedVehicles)[0].name, "Truck A");
+assert.equal(
+  migratedEditedVehicles.routes[0].nominal_cap,
+  44,
+  "route capacity should follow the draft vehicle",
+);
+assert.equal(migratedEditedVehicles.routes[0].max_load, 39);
+
+const oldNumberingDraft = structuredClone(plan);
+delete oldNumberingDraft.vehicles_version;
+const oldVehicleIds = [
+  "vehicle-1",
+  "vehicle-2",
+  "vehicle-5",
+  "vehicle-4",
+  "vehicle-3",
+  "vehicle-6",
+  "vehicle-7",
+  "vehicle-8",
+];
+oldNumberingDraft.routes.forEach((route, index) => {
+  route.vehicle_id = oldVehicleIds[index];
+});
+oldNumberingDraft.vehicles = [...oldNumberingDraft.vehicles].reverse();
+const remappedVehicles = migratePlanDepots(oldNumberingDraft, plan);
+assert.deepEqual(
+  remappedVehicles.routes.map((route) => route.vehicle_id),
+  plan.routes.map((route) => route.vehicle_id),
+  "old capacity-based fleet numbers should normalize to Vehicle 1..8",
+);
+assert.deepEqual(
+  getPlanVehicles(remappedVehicles).map((vehicle) => vehicle.name),
+  [
+    "Vehicle 1",
+    "Vehicle 2",
+    "Vehicle 3",
+    "Vehicle 4",
+    "Vehicle 5",
+    "Vehicle 6",
+    "Vehicle 7",
+    "Vehicle 8",
+    "Vehicle 9",
+    "Vehicle 10",
+  ],
+  "the fleet should always be listed as Vehicle 1, 2, 3, ...",
+);
+assert.equal(remappedVehicles.vehicles_version, 2);
+
+const customAssignmentDraft = structuredClone(plan);
+customAssignmentDraft.routes[0].vehicle_id = "vehicle-9";
+const preservedAssignment = migratePlanDepots(customAssignmentDraft, plan);
+assert.equal(
+  preservedAssignment.routes[0].vehicle_id,
+  "vehicle-9",
+  "after normalization, user vehicle choices should be preserved",
+);
+
+const invalidVehicleDraft = structuredClone(plan);
+invalidVehicleDraft.routes[0].vehicle_id = "vehicle-nowhere";
+assert.equal(
+  migratePlanDepots(invalidVehicleDraft, plan).routes[0].vehicle_id,
+  undefined,
+  "migration should drop unknown vehicles",
 );
 
 const secondDraft = structuredClone(legacyDraft);
@@ -549,6 +822,15 @@ console.log(
 );
 console.log(
   `  laundry ${laundryComputed.laundry_arrival_time} -> ${laundryComputed.laundry_departure_time} (${laundryComputed.laundry_service_mins} min)`,
+);
+
+console.log("");
+console.log("Fleet inventory:");
+console.log(
+  `  ${vehicles.length} vehicles, ${plan.routes.length} routes, ${vehicles.filter((vehicle) => routesUsingVehicle(plan, vehicle.id).length === 0).length} spare`,
+);
+console.log(
+  `  Vehicle 9 capacity 40 -> ${getPlanVehicles(shrunk).find((vehicle) => vehicle.id === "vehicle-9").nominal_cap} (${routesUsingVehicle(shrunk, "vehicle-9").length} route${routesUsingVehicle(shrunk, "vehicle-9").length === 1 ? "" : "s"} updated)`,
 );
 
 console.log("Route comparison (manual Google data vs OSRM recalculation)");

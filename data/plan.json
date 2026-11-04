@@ -3,7 +3,7 @@
   "plan_id": "manual-current",
   "name": "Manual Dispatch Plan",
   "status": "draft",
-  "created_at": "2026-11-04T11:00:28.492Z",
+  "created_at": "2026-11-04T12:36:39.128Z",
   "source": "data/manual_routes.json",
   "depot": {
     "id": "depot-yeshwanthpur",
@@ -46,6 +46,79 @@
       "service_mins": 180
     }
   ],
+  "vehicles": [
+    {
+      "id": "vehicle-1",
+      "name": "Vehicle 1",
+      "nominal_cap": 40,
+      "max_load": 36,
+      "color": "#dc2626"
+    },
+    {
+      "id": "vehicle-2",
+      "name": "Vehicle 2",
+      "nominal_cap": 40,
+      "max_load": 36,
+      "color": "#f87171"
+    },
+    {
+      "id": "vehicle-3",
+      "name": "Vehicle 3",
+      "nominal_cap": 35,
+      "max_load": 31,
+      "color": "#14b8a6"
+    },
+    {
+      "id": "vehicle-4",
+      "name": "Vehicle 4",
+      "nominal_cap": 20,
+      "max_load": 18,
+      "color": "#15803d"
+    },
+    {
+      "id": "vehicle-5",
+      "name": "Vehicle 5",
+      "nominal_cap": 35,
+      "max_load": 31,
+      "color": "#3b82f6"
+    },
+    {
+      "id": "vehicle-6",
+      "name": "Vehicle 6",
+      "nominal_cap": 20,
+      "max_load": 18,
+      "color": "#22c55e"
+    },
+    {
+      "id": "vehicle-7",
+      "name": "Vehicle 7",
+      "nominal_cap": 40,
+      "max_load": 36,
+      "color": "#0f766e"
+    },
+    {
+      "id": "vehicle-8",
+      "name": "Vehicle 8",
+      "nominal_cap": 70,
+      "max_load": 63,
+      "color": "#1e3a8a"
+    },
+    {
+      "id": "vehicle-9",
+      "name": "Vehicle 9",
+      "nominal_cap": 40,
+      "max_load": 36,
+      "color": "#b45309"
+    },
+    {
+      "id": "vehicle-10",
+      "name": "Vehicle 10",
+      "nominal_cap": 40,
+      "max_load": 36,
+      "color": "#f59e0b"
+    }
+  ],
+  "vehicles_version": 2,
   "shift": {
     "start_min": 390,
     "end_min": 990
@@ -161,7 +234,8 @@
           "rooms": 55
         }
       ],
-      "depot_id": "depot-yeshwanthpur"
+      "depot_id": "depot-yeshwanthpur",
+      "vehicle_id": "vehicle-1"
     },
     {
       "route_id": "103601",
@@ -343,7 +417,8 @@
           "rooms": 10
         }
       ],
-      "depot_id": "depot-yeshwanthpur"
+      "depot_id": "depot-yeshwanthpur",
+      "vehicle_id": "vehicle-2"
     },
     {
       "route_id": "103602",
@@ -351,7 +426,7 @@
       "name": "Route 2 - Jayanagara (ID: 103602)",
       "color": "#d97706",
       "nominal_cap": 35,
-      "max_load": 32,
+      "max_load": 31,
       "departure_min": 420,
       "stops": [
         {
@@ -475,7 +550,8 @@
           "rooms": 10
         }
       ],
-      "depot_id": "depot-yeshwanthpur"
+      "depot_id": "depot-yeshwanthpur",
+      "vehicle_id": "vehicle-3"
     },
     {
       "route_id": "103603",
@@ -677,7 +753,8 @@
           "rooms": 36
         }
       ],
-      "depot_id": "depot-yeshwanthpur"
+      "depot_id": "depot-yeshwanthpur",
+      "vehicle_id": "vehicle-4"
     },
     {
       "route_id": "103604",
@@ -685,7 +762,7 @@
       "name": "Route 4 - TCH & TCP (ID: 103604)",
       "color": "#7c3aed",
       "nominal_cap": 35,
-      "max_load": 32,
+      "max_load": 31,
       "departure_min": 420,
       "stops": [
         {
@@ -709,7 +786,8 @@
           "rooms": 225
         }
       ],
-      "depot_id": "depot-yeshwanthpur"
+      "depot_id": "depot-yeshwanthpur",
+      "vehicle_id": "vehicle-5"
     },
     {
       "route_id": "103605",
@@ -871,7 +949,8 @@
           "rooms": 26
         }
       ],
-      "depot_id": "depot-yeshwanthpur"
+      "depot_id": "depot-yeshwanthpur",
+      "vehicle_id": "vehicle-6"
     },
     {
       "route_id": "103606",
@@ -1063,7 +1142,8 @@
           "rooms": 30
         }
       ],
-      "depot_id": "depot-yeshwanthpur"
+      "depot_id": "depot-yeshwanthpur",
+      "vehicle_id": "vehicle-7"
     },
     {
       "route_id": "103607",
@@ -1155,7 +1235,8 @@
           "rooms": 42
         }
       ],
-      "depot_id": "depot-yeshwanthpur"
+      "depot_id": "depot-yeshwanthpur",
+      "vehicle_id": "vehicle-8"
     }
   ],
   "unassigned_hotel_ids": []
