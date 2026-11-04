@@ -32,6 +32,7 @@ export type PlanRoute = {
   max_load: number;
   departure_min: number;
   stops: PlanStop[];
+  is_custom?: boolean;
 };
 
 export type Plan = {
@@ -99,6 +100,7 @@ export type ComputedRoute = {
   return_min: number;
   stops: ComputedStop[];
   estimated_legs: number;
+  is_custom?: boolean;
 };
 
 export type PlanIssueSeverity = "error" | "warning";
@@ -339,6 +341,7 @@ export function computeRoute(
     return_min: Math.round(cursorS / 60),
     stops,
     estimated_legs: estimatedLegs,
+    is_custom: route.is_custom,
   };
 }
 
@@ -398,7 +401,7 @@ export function validateComputedPlan(
       }
     }
 
-    if (route.stops.length === 0) {
+    if (route.stops.length === 0 && !route.is_custom) {
       issues.push({
         severity: "warning",
         code: "empty_route",
@@ -631,5 +634,327 @@ export function moveStop(
       }
       return route;
     }),
+  };
+}
+
+const CUSTOM_ROUTE_COLORS = [
+  "#2563eb",
+  "#0d9488",
+  "#b45309",
+  "#7c3aed",
+  "#be185d",
+  "#0369a1",
+  "#4d7c0f",
+  "#c2410c",
+];
+
+function nextCustomRouteId(plan: Plan): string {
+  const base = Date.now();
+  let stamp = base;
+  while (plan.routes.some((route) => route.route_id === `custom-${stamp}`)) {
+    stamp += 1;
+  }
+  return `custom-${stamp}`;
+}
+
+function pickCustomRouteColor(plan: Plan): string {
+  const used = new Set(plan.routes.map((route) => route.color.toLowerCase()));
+  const available = CUSTOM_ROUTE_COLORS.find(
+    (color) => !used.has(color.toLowerCase()),
+  );
+  return (
+    available ??
+    CUSTOM_ROUTE_COLORS[plan.routes.length % CUSTOM_ROUTE_COLORS.length]
+  );
+}
+
+export type CreateRouteInput = {
+  name: string;
+  capacity: number;
+  departure_min?: number;
+  color?: string;
+};
+
+/**
+ * Appends an empty custom route. The new route is always the last item in
+ * `plan.routes`, so callers can select it by reading the final element.
+ */
+export function createRoute(plan: Plan, input: CreateRouteInput): Plan {
+  const name = input.name.trim();
+  if (!name) throw new Error("A route name is required");
+
+  const capacity = input.capacity;
+  if (
+    !Number.isFinite(capacity) ||
+    !Number.isInteger(capacity) ||
+    capacity < 1
+  ) {
+    throw new Error("Vehicle capacity must be a whole number of at least 1 bag");
+  }
+
+  const departureMin = input.departure_min ?? 7 * 60;
+  if (
+    !Number.isFinite(departureMin) ||
+    !Number.isInteger(departureMin) ||
+    departureMin < 0 ||
+    departureMin >= 24 * 60
+  ) {
+    throw new Error("Departure time must be within the day");
+  }
+
+  const routeId = nextCustomRouteId(plan);
+  const route: PlanRoute = {
+    route_id: routeId,
+    route_key: routeId.replace(/-/g, "_"),
+    name,
+    color: input.color ?? pickCustomRouteColor(plan),
+    nominal_cap: capacity,
+    max_load: Math.max(1, Math.floor(capacity * 0.9)),
+    departure_min: departureMin,
+    stops: [],
+    is_custom: true,
+  };
+
+  return { ...plan, routes: [...plan.routes, route] };
+}
+
+function routeTravelSeconds(
+  depotId: string,
+  stops: PlanStop[],
+  lookup: MatrixLookup,
+): number {
+  let total = 0;
+  let previousId = depotId;
+  for (const stop of stops) {
+    total += lookup.leg(previousId, stop.hotel_id).durationS;
+    previousId = stop.hotel_id;
+  }
+  total += lookup.leg(previousId, depotId).durationS;
+  return total;
+}
+
+function sameStopOrder(a: PlanStop[], b: PlanStop[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((stop, index) => stop.hotel_id === b[index].hotel_id)
+  );
+}
+
+/** Improves a single route's stop order with a 2-opt pass. Never worsens it. */
+function twoOptStops(
+  depotId: string,
+  stops: PlanStop[],
+  lookup: MatrixLookup,
+): PlanStop[] {
+  if (stops.length < 3) return stops;
+
+  let best = [...stops];
+  let bestSeconds = routeTravelSeconds(depotId, best, lookup);
+  let improved = true;
+
+  while (improved) {
+    improved = false;
+    for (let start = 0; start < best.length - 1; start += 1) {
+      for (let end = start + 1; end < best.length; end += 1) {
+        const candidate = [
+          ...best.slice(0, start),
+          ...best.slice(start, end + 1).reverse(),
+          ...best.slice(end + 1),
+        ];
+        const candidateSeconds = routeTravelSeconds(depotId, candidate, lookup);
+        if (candidateSeconds < bestSeconds) {
+          best = candidate;
+          bestSeconds = candidateSeconds;
+          improved = true;
+        }
+      }
+    }
+  }
+
+  return best;
+}
+
+/** Reorders one route's stops with 2-opt while preserving its hotel set. */
+export function optimizeRouteOrder(
+  plan: Plan,
+  routeId: string,
+  matrixOrLookup: TravelMatrix | MatrixLookup,
+): Plan {
+  const route = findRoute(plan, routeId);
+  if (!route) throw new Error(`Unknown route: ${routeId}`);
+  if (route.stops.length < 3) return plan;
+
+  const lookup =
+    "leg" in matrixOrLookup ? matrixOrLookup : createMatrixLookup(matrixOrLookup);
+  const optimized = twoOptStops(plan.depot.id, route.stops, lookup);
+  if (sameStopOrder(route.stops, optimized)) return plan;
+
+  return {
+    ...plan,
+    routes: plan.routes.map((candidate) =>
+      candidate.route_id === routeId
+        ? { ...candidate, stops: optimized }
+        : candidate,
+    ),
+  };
+}
+
+/**
+ * Moves a batch of existing hotels onto one route. The move is atomic: if the
+ * projected load exceeds the target vehicle capacity, nothing changes. Stops
+ * are placed with cheapest insertion and the target route is polished with
+ * 2-opt; every other route keeps its current stop order.
+ */
+export function addStopsToRoute(
+  plan: Plan,
+  routeId: string,
+  hotelIds: string[],
+  matrixOrLookup: TravelMatrix | MatrixLookup,
+): Plan {
+  const route = findRoute(plan, routeId);
+  if (!route) throw new Error(`Unknown route: ${routeId}`);
+
+  const requestedIds = [...new Set(hotelIds)];
+  if (requestedIds.length === 0) return plan;
+
+  const existingIds = new Set(route.stops.map((stop) => stop.hotel_id));
+  const selected: PlanStop[] = [];
+
+  for (const hotelId of requestedIds) {
+    if (existingIds.has(hotelId)) {
+      const existing = route.stops.find((stop) => stop.hotel_id === hotelId);
+      throw new Error(
+        `${existing?.name ?? hotelId} is already on ${route.name}.`,
+      );
+    }
+    const found = findStop(plan, hotelId);
+    if (!found) {
+      throw new Error(`Hotel is not assigned to any route: ${hotelId}`);
+    }
+    selected.push(found.stop);
+  }
+
+  const currentBags = route.stops.reduce(
+    (sum, stop) => sum + stop.load_bags,
+    0,
+  );
+  const addedBags = selected.reduce((sum, stop) => sum + stop.load_bags, 0);
+  const projectedBags = currentBags + addedBags;
+  if (projectedBags > route.nominal_cap) {
+    throw new Error(
+      `${route.name} cannot take ${requestedIds.length} hotel${
+        requestedIds.length === 1 ? "" : "s"
+      }: ${projectedBags} bags would exceed its ${route.nominal_cap}-bag vehicle limit.`,
+    );
+  }
+
+  const lookup =
+    "leg" in matrixOrLookup ? matrixOrLookup : createMatrixLookup(matrixOrLookup);
+  const selectedIds = new Set(requestedIds);
+
+  let targetStops = [...route.stops];
+  for (const stop of selected) {
+    const insertIndex = cheapestInsertionIndex(
+      plan,
+      { ...route, stops: targetStops },
+      stop,
+      lookup,
+    );
+    targetStops.splice(insertIndex, 0, stop);
+  }
+  targetStops = twoOptStops(plan.depot.id, targetStops, lookup);
+
+  return {
+    ...plan,
+    routes: plan.routes.map((candidate) => {
+      if (candidate.route_id === routeId) {
+        return { ...candidate, stops: targetStops };
+      }
+      if (candidate.stops.some((stop) => selectedIds.has(stop.hotel_id))) {
+        return {
+          ...candidate,
+          stops: candidate.stops.filter(
+            (stop) => !selectedIds.has(stop.hotel_id),
+          ),
+        };
+      }
+      return candidate;
+    }),
+  };
+}
+
+export type DeleteRouteOptions = {
+  /**
+   * Plan whose routes and stop positions are restored when a non-empty custom
+   * route is deleted. Without it, hotels leave their routes but remain in the
+   * plan as unassigned.
+   */
+  restoreFrom?: Plan;
+};
+
+/**
+ * Deletes a custom route at any time. When the route has stops, they return to
+ * their original routes and positions from `restoreFrom` (normally the
+ * baseline plan). Baseline routes remain protected.
+ */
+export function deleteRoute(
+  plan: Plan,
+  routeId: string,
+  options: DeleteRouteOptions = {},
+): Plan {
+  const route = findRoute(plan, routeId);
+  if (!route) throw new Error(`Unknown route: ${routeId}`);
+  if (!route.is_custom) {
+    throw new Error(`${route.name} is a baseline route and cannot be deleted.`);
+  }
+
+  const restoredIds = new Set(route.stops.map((stop) => stop.hotel_id));
+  const unassigned = new Set(plan.unassigned_hotel_ids ?? []);
+  const placed = new Set<string>();
+  const restoreFrom = options.restoreFrom;
+
+  const routes = plan.routes
+    .filter((candidate) => candidate.route_id !== routeId)
+    .map((candidate) => {
+      if (!restoreFrom || restoredIds.size === 0) return candidate;
+
+      const original = restoreFrom.routes.find(
+        (source) => source.route_id === candidate.route_id,
+      );
+      if (!original) return candidate;
+
+      const originalIndexById = new Map(
+        original.stops.map((stop, index) => [stop.hotel_id, index]),
+      );
+      const returning = route.stops
+        .filter((stop) => originalIndexById.has(stop.hotel_id))
+        .map((stop) => ({
+          stop,
+          index: originalIndexById.get(stop.hotel_id) as number,
+        }))
+        .sort((a, b) => a.index - b.index);
+
+      if (returning.length === 0) return candidate;
+
+      const stops = [...candidate.stops];
+      for (const { stop, index } of returning) {
+        stops.splice(Math.min(index, stops.length), 0, stop);
+        placed.add(stop.hotel_id);
+      }
+      return { ...candidate, stops };
+    });
+
+  for (const hotelId of restoredIds) {
+    if (placed.has(hotelId)) unassigned.delete(hotelId);
+    else unassigned.add(hotelId);
+  }
+
+  return {
+    ...plan,
+    routes,
+    unassigned_hotel_ids:
+      route.stops.length > 0
+        ? [...unassigned]
+        : plan.unassigned_hotel_ids,
   };
 }

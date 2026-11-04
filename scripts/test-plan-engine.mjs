@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
+  addStopsToRoute,
   computePlan,
+  createRoute,
+  deleteRoute,
   findStop,
   formatClock,
   moveStop,
+  optimizeRouteOrder,
   parseClock,
   reorderStops,
 } from "../lib/plan.ts";
@@ -270,6 +274,253 @@ console.log(
 );
 console.log(
   `  target return ${computation.routes.find((route) => route.route_id === "103607").return_hq} -> ${movedTargetComputed.return_hq}`,
+);
+
+// ---------------------------------------------------------------------------
+// Custom routes
+// ---------------------------------------------------------------------------
+
+const customPlan = createRoute(plan, {
+  name: "Route 9 - North",
+  capacity: 40,
+});
+assert.equal(customPlan.routes.length, plan.routes.length + 1);
+const customRoute = customPlan.routes[customPlan.routes.length - 1];
+assert.equal(customRoute.is_custom, true, "custom route should be flagged");
+assert.equal(customRoute.route_id.startsWith("custom-"), true);
+assert.equal(customRoute.name, "Route 9 - North");
+assert.equal(customRoute.nominal_cap, 40);
+assert.equal(customRoute.max_load, 36, "safe load should be 90% of capacity");
+assert.equal(customRoute.departure_min, 7 * 60);
+assert.equal(customRoute.stops.length, 0, "new routes start empty");
+assert.equal(
+  plan.routes.length,
+  8,
+  "creating a route must not mutate the original plan",
+);
+
+const customComputation = computePlan(customPlan, matrix);
+assert.equal(
+  customComputation.issues.some(
+    (issue) =>
+      issue.code === "empty_route" && issue.route_id === customRoute.route_id,
+  ),
+  false,
+  "empty custom routes should not raise empty_route warnings",
+);
+
+const donorRoute = plan.routes.find((route) => route.route_id === "103607");
+assert.ok(donorRoute, "expected route 103607 as the donor");
+const pickedStops = donorRoute.stops.slice(0, 3);
+const pickedIds = pickedStops.map((stop) => stop.hotel_id);
+const pickedBags = pickedStops.reduce((sum, stop) => sum + stop.load_bags, 0);
+assert.ok(
+  pickedBags <= customRoute.nominal_cap,
+  "test fixture should fit the custom route",
+);
+
+const addedPlan = addStopsToRoute(
+  customPlan,
+  customRoute.route_id,
+  pickedIds,
+  matrix,
+);
+const addedRoute = addedPlan.routes.find(
+  (route) => route.route_id === customRoute.route_id,
+);
+assert.ok(addedRoute);
+assert.equal(addedRoute.stops.length, pickedStops.length);
+assert.deepEqual(
+  [...addedRoute.stops.map((stop) => stop.hotel_id)].sort(),
+  [...pickedIds].sort(),
+  "the custom route should contain exactly the selected hotels",
+);
+
+const addedDonor = addedPlan.routes.find(
+  (route) => route.route_id === donorRoute.route_id,
+);
+assert.ok(addedDonor);
+assert.equal(
+  addedDonor.stops.some((stop) => pickedIds.includes(stop.hotel_id)),
+  false,
+  "donor route should lose the selected hotels",
+);
+assert.deepEqual(
+  addedDonor.stops.map((stop) => stop.hotel_id),
+  donorRoute.stops
+    .filter((stop) => !pickedIds.includes(stop.hotel_id))
+    .map((stop) => stop.hotel_id),
+  "donor routes must keep their existing stop order",
+);
+
+const addedComputation = computePlan(addedPlan, matrix);
+assert.equal(
+  addedComputation.totals.bags,
+  computation.totals.bags,
+  "moving hotels onto a custom route must preserve total plan bags",
+);
+assert.equal(
+  addedComputation.totals.hotels,
+  computation.totals.hotels,
+  "moving hotels onto a custom route must preserve the hotel set",
+);
+
+const naivePlan = {
+  ...customPlan,
+  routes: customPlan.routes.map((route) =>
+    route.route_id === customRoute.route_id
+      ? { ...route, stops: pickedStops }
+      : route,
+  ),
+};
+const naiveDrive = computePlan(naivePlan, matrix).routes.find(
+  (route) => route.route_id === customRoute.route_id,
+).total_drive_mins;
+const addedDrive = addedComputation.routes.find(
+  (route) => route.route_id === customRoute.route_id,
+).total_drive_mins;
+assert.ok(
+  addedDrive <= naiveDrive,
+  `cheapest insertion + 2-opt should not worsen the route (${addedDrive} > ${naiveDrive})`,
+);
+
+const heavyStop = plan.routes
+  .flatMap((route) => route.stops)
+  .reduce((heaviest, stop) =>
+    stop.load_bags > heaviest.load_bags ? stop : heaviest,
+  );
+assert.ok(heavyStop.load_bags > 1, "expected a multi-bag hotel in the fixture");
+const tinyPlan = createRoute(plan, {
+  name: "Route 10 - Tiny",
+  capacity: heavyStop.load_bags - 1,
+});
+assert.throws(
+  () =>
+    addStopsToRoute(
+      tinyPlan,
+      tinyPlan.routes[tinyPlan.routes.length - 1].route_id,
+      [heavyStop.hotel_id],
+      matrix,
+    ),
+  /would exceed its \d+-bag vehicle limit/,
+  "a batch that exceeds vehicle capacity should be rejected atomically",
+);
+assert.equal(tinyPlan.routes[tinyPlan.routes.length - 1].stops.length, 0);
+assert.equal(
+  addStopsToRoute(
+    tinyPlan,
+    tinyPlan.routes[tinyPlan.routes.length - 1].route_id,
+    [],
+    matrix,
+  ),
+  tinyPlan,
+  "an empty add should be a no-op",
+);
+assert.throws(
+  () =>
+    addStopsToRoute(
+      addedPlan,
+      customRoute.route_id,
+      [pickedIds[0]],
+      matrix,
+    ),
+  /already on Route 9 - North/,
+  "hotels already on the target route should be rejected",
+);
+
+const emptyDeleted = deleteRoute(customPlan, customRoute.route_id);
+assert.equal(emptyDeleted.routes.length, plan.routes.length);
+assert.equal(
+  emptyDeleted.routes.some((route) => route.route_id === customRoute.route_id),
+  false,
+  "empty custom routes should delete",
+);
+const restoredDeleted = deleteRoute(addedPlan, customRoute.route_id, {
+  restoreFrom: plan,
+});
+assert.equal(restoredDeleted.routes.length, plan.routes.length);
+assert.equal(
+  restoredDeleted.routes.some(
+    (route) => route.route_id === customRoute.route_id,
+  ),
+  false,
+  "non-empty custom routes should delete",
+);
+assert.deepEqual(
+  restoredDeleted,
+  plan,
+  "deleting a custom route should restore its hotels to the original plan",
+);
+assert.equal(
+  addedPlan.routes.length,
+  9,
+  "deleting must not mutate the plan it was called with",
+);
+
+const unassignedDeleted = deleteRoute(addedPlan, customRoute.route_id);
+assert.equal(unassignedDeleted.routes.length, plan.routes.length);
+assert.deepEqual(
+  [...(unassignedDeleted.unassigned_hotel_ids ?? [])].sort(),
+  [...pickedIds].sort(),
+  "without a restore plan, deleted stops should remain unassigned",
+);
+assert.equal(
+  computePlan(unassignedDeleted, matrix).totals.hotels,
+  computation.totals.hotels - pickedIds.length,
+  "unassigned hotels should leave the routed totals but stay in the plan",
+);
+
+assert.throws(
+  () => deleteRoute(plan, "103501"),
+  /baseline route and cannot be deleted/,
+  "baseline routes must not delete",
+);
+
+const reversedPlan = structuredClone(plan);
+const reversedRoute = reversedPlan.routes.find(
+  (route) => route.route_id === "103501",
+);
+assert.ok(reversedRoute);
+reversedRoute.stops.reverse();
+const reversedDrive = computePlan(reversedPlan, matrix).routes.find(
+  (route) => route.route_id === "103501",
+).total_drive_mins;
+const optimizedPlan = optimizeRouteOrder(reversedPlan, "103501", matrix);
+const optimizedRoute = optimizedPlan.routes.find(
+  (route) => route.route_id === "103501",
+);
+assert.ok(optimizedRoute);
+assert.deepEqual(
+  [...optimizedRoute.stops.map((stop) => stop.hotel_id)].sort(),
+  [...reversedRoute.stops.map((stop) => stop.hotel_id)].sort(),
+  "optimization must preserve the hotel set",
+);
+const optimizedDrive = computePlan(optimizedPlan, matrix).routes.find(
+  (route) => route.route_id === "103501",
+).total_drive_mins;
+assert.ok(
+  optimizedDrive <= reversedDrive,
+  `2-opt must not worsen the route (${optimizedDrive} > ${reversedDrive})`,
+);
+assert.equal(
+  optimizeRouteOrder(optimizedPlan, "103501", matrix),
+  optimizedPlan,
+  "optimizing an already polished order should be a no-op",
+);
+
+console.log("");
+console.log("Custom route smoke test:");
+console.log(
+  `  created ${customRoute.name} (${customRoute.nominal_cap} bags, safe ${customRoute.max_load})`,
+);
+console.log(
+  `  moved ${pickedStops.length} hotels (${pickedBags} bags) from ${donorRoute.name}`,
+);
+console.log(
+  `  custom route drive ${naiveDrive} min -> ${addedDrive} min after insertion + 2-opt`,
+);
+console.log(
+  `  reversed Route 1 drive ${reversedDrive} min -> ${optimizedDrive} min after 2-opt`,
 );
 
 console.log("");

@@ -6245,6 +6245,447 @@ a {
 }
 
 /* --------------------------------------------------------------------------
+   Plan custom routes and dialogs
+   -------------------------------------------------------------------------- */
+
+.plan-sidebar__head-tools {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
+}
+
+.plan-new-route {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 7px;
+  background: var(--ink);
+  color: var(--cream);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  transition: background 130ms ease;
+}
+
+.plan-new-route:hover {
+  background: #273a2f;
+}
+
+.plan-route__tag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 5px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+
+.plan-route__tools {
+  display: flex;
+  gap: 4px;
+  margin: 0 9px 7px;
+}
+
+.plan-route__tool {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 25px;
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: 8px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.plan-route__tool:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--bone);
+}
+
+.plan-route__tool:disabled {
+  opacity: 0.45;
+}
+
+.plan-route__tool--danger {
+  color: var(--danger);
+}
+
+.plan-danger-btn {
+  color: var(--danger);
+}
+
+.plan-danger-btn:hover:not(:disabled) {
+  border-color: #e3bdb6;
+  background: #faedea;
+}
+
+.plan-inspector__note {
+  margin-top: 7px;
+  color: var(--faint);
+  font-size: 8.5px;
+  line-height: 1.45;
+}
+
+.plan-dialog {
+  position: relative;
+  width: min(500px, 100%);
+  max-height: calc(100svh - 40px);
+  padding: 24px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 16px;
+  background: var(--paper-strong);
+  box-shadow: 0 30px 80px rgba(12, 20, 16, 0.36);
+  animation: dialog-in 200ms ease both;
+}
+
+.plan-dialog--wide {
+  width: min(640px, 100%);
+}
+
+.plan-dialog h2 {
+  margin: 10px 38px 8px 0;
+  color: var(--ink);
+  font-family: var(--font-instrument-serif), Georgia, "Times New Roman", serif;
+  font-size: 30px;
+  font-weight: 400;
+  letter-spacing: -0.018em;
+  line-height: 1.03;
+}
+
+.plan-dialog .dialog-lede {
+  max-width: 520px;
+  margin-bottom: 16px;
+}
+
+.plan-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.plan-dialog__field > span {
+  color: var(--muted);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.plan-dialog__field input {
+  height: 43px;
+  padding: 0 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  outline: none;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 12px;
+  transition: border-color 150ms ease, box-shadow 150ms ease,
+    background 150ms ease;
+}
+
+.plan-dialog__field input:focus {
+  border-color: var(--green);
+  background: #fffefb;
+  box-shadow: 0 0 0 3px rgba(45, 91, 66, 0.1);
+}
+
+.plan-dialog__preview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--paper);
+}
+
+.plan-dialog__preview > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.plan-dialog__preview span {
+  color: var(--faint);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.plan-dialog__preview b {
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-dialog__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.plan-dialog__selection {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 9.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-hotel-filters {
+  display: flex;
+  gap: 7px;
+  margin-bottom: 8px;
+}
+
+.plan-hotel-search {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--paper);
+  transition: border-color 150ms ease, box-shadow 150ms ease,
+    background 150ms ease;
+}
+
+.plan-hotel-search:focus-within {
+  border-color: var(--green);
+  background: #fffefb;
+  box-shadow: 0 0 0 3px rgba(45, 91, 66, 0.1);
+}
+
+.plan-hotel-search svg {
+  flex: 0 0 auto;
+  color: var(--faint);
+}
+
+.plan-hotel-search input {
+  width: 100%;
+  border: 0;
+  outline: none;
+  background: none;
+  font-size: 11.5px;
+}
+
+.plan-hotel-search input::placeholder {
+  color: var(--faint);
+}
+
+.plan-hotel-filters select {
+  width: 150px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  outline: none;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.plan-hotel-bulk {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 5px;
+  color: var(--faint);
+  font-size: 8.5px;
+}
+
+.plan-hotel-bulk button {
+  color: var(--green);
+  font-size: 8.5px;
+  font-weight: 700;
+}
+
+.plan-hotel-bulk button:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.plan-hotel-bulk button:disabled {
+  opacity: 0.45;
+}
+
+.plan-hotel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 120px;
+  max-height: 270px;
+  padding: 5px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--paper);
+  overscroll-behavior: contain;
+}
+
+.plan-hotel-list__empty {
+  margin: auto;
+  padding: 20px;
+  color: var(--faint);
+  font-size: 10px;
+  text-align: center;
+}
+
+.plan-hotel-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 7px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 110ms ease, border-color 110ms ease;
+}
+
+.plan-hotel-option:hover {
+  border-color: var(--line);
+  background: var(--paper-strong);
+}
+
+.plan-hotel-option.is-selected {
+  border-color: #cfe0d3;
+  background: var(--green-soft);
+}
+
+.plan-hotel-option:focus-within {
+  outline: 2px solid rgba(45, 91, 66, 0.25);
+  outline-offset: 1px;
+}
+
+.plan-hotel-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.plan-hotel-option__check {
+  display: grid;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--paper-strong);
+  color: var(--cream);
+}
+
+.plan-hotel-option.is-selected .plan-hotel-option__check {
+  border-color: var(--green);
+  background: var(--green);
+}
+
+.plan-hotel-option__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.plan-hotel-option__main b {
+  overflow: hidden;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-hotel-option__main > span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-hotel-option__dot {
+  flex: 0 0 auto;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+.plan-hotel-option__bags {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-dialog__capacity {
+  margin-top: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+}
+
+.plan-dialog__capacity .plan-capacity__track {
+  height: 6px;
+}
+
+.plan-dialog__capacity-note {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  color: #2c6a49;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.plan-dialog__capacity-note--warn {
+  color: #7d5a24;
+}
+
+.plan-dialog__capacity-note--over {
+  color: var(--danger);
+}
+
+.plan-dialog__capacity-note svg {
+  flex: 0 0 auto;
+}
+
+/* --------------------------------------------------------------------------
    Responsive
    -------------------------------------------------------------------------- */
 
@@ -6375,6 +6816,15 @@ a {
     font-size: 19px;
   }
 
+  .plan-sidebar__head-tools {
+    gap: 5px;
+  }
+
+  .plan-new-route {
+    height: 24px;
+    padding: 0 8px;
+  }
+
   .plan-sidebar__routes {
     padding: 9px;
   }
@@ -6411,5 +6861,39 @@ a {
 
   .plan-app .brand-sub {
     display: none;
+  }
+
+  .plan-dialog {
+    padding: 20px;
+  }
+
+  .plan-dialog h2 {
+    font-size: 26px;
+  }
+
+  .plan-hotel-filters {
+    flex-direction: column;
+  }
+
+  .plan-hotel-filters select {
+    width: 100%;
+    height: 38px;
+  }
+
+  .plan-dialog__preview {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .plan-dialog__actions {
+    flex-wrap: wrap;
+  }
+
+  .plan-dialog__actions .btn {
+    flex: 1;
+  }
+
+  .plan-dialog__selection {
+    width: 100%;
+    margin-right: 0;
   }
 }

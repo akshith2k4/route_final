@@ -20,21 +20,30 @@ import {
   MapPin,
   MoveRight,
   PanelRight,
+  Plus,
   Redo2,
   RotateCcw,
+  Trash2,
   Undo2,
+  Wand2,
   X,
 } from "lucide-react";
+import PlanAddHotelsDialog from "./plan-add-hotels-dialog";
+import PlanCreateRouteDialog from "./plan-create-route-dialog";
 import PlanCanvasMap, {
   type PlanCanvasMapHandle,
 } from "./plan-canvas-map";
 import type { HexMap, RegionMeta } from "../lib/coverage";
 import {
+  addStopsToRoute,
   computePlan,
+  createRoute,
+  deleteRoute,
   findStop,
   formatClock,
   formatDuration,
   moveStop,
+  optimizeRouteOrder,
   reorderStops,
   type ComputedRoute,
   type Plan,
@@ -136,6 +145,8 @@ export default function PlanCanvas({
   const [toast, setToast] = useState<Toast | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [createRouteOpen, setCreateRouteOpen] = useState(false);
+  const [addHotelsOpen, setAddHotelsOpen] = useState(false);
 
   const planRef = useRef(plan);
   const mapRef = useRef<PlanCanvasMapHandle | null>(null);
@@ -352,7 +363,7 @@ export default function PlanCanvas({
     setFuture([planRef.current, ...future].slice(0, 50));
     setPlan(previous);
     planRef.current = previous;
-    notify("Undid the last move");
+    notify("Undid the last change");
   }, [history, future, notify]);
 
   const redo = useCallback(() => {
@@ -362,7 +373,7 @@ export default function PlanCanvas({
     setHistory([...history.slice(-49), planRef.current]);
     setPlan(next);
     planRef.current = next;
-    notify("Redid the last move");
+    notify("Redid the last change");
   }, [history, future, notify]);
 
   useEffect(() => {
@@ -383,6 +394,11 @@ export default function PlanCanvas({
         if (event.shiftKey) redo();
         else undo();
       } else if (event.key === "Escape") {
+        if (createRouteOpen || addHotelsOpen) {
+          setCreateRouteOpen(false);
+          setAddHotelsOpen(false);
+          return;
+        }
         setSelectedStopId(null);
         setDropTarget(null);
         setDragState(null);
@@ -392,7 +408,7 @@ export default function PlanCanvas({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [undo, redo]);
+  }, [addHotelsOpen, createRouteOpen, undo, redo]);
 
   const revealInspector = useCallback(() => {
     if (window.matchMedia("(max-width: 980px)").matches) {
@@ -471,6 +487,152 @@ export default function PlanCanvas({
       handleReorder(routeId, index, index + direction);
     },
     [handleReorder],
+  );
+
+  const handleCreateRoute = useCallback(
+    (name: string, capacity: number) => {
+      let next: Plan;
+      try {
+        next = createRoute(planRef.current, { name, capacity });
+      } catch (error) {
+        notify(
+          error instanceof Error ? error.message : "Could not create the route.",
+          "error",
+        );
+        return;
+      }
+
+      const created = next.routes[next.routes.length - 1];
+      commit(
+        next,
+        `Created ${shortRouteName(created.name)} · safe load ${formatBags(
+          created.max_load,
+        )}`,
+      );
+      setSelectedRouteId(created.route_id);
+      setSelectedStopId(null);
+      setCreateRouteOpen(false);
+    },
+    [commit, notify],
+  );
+
+  const handleAddStops = useCallback(
+    (hotelIds: string[]) => {
+      const current = planRef.current;
+      const target = current.routes.find(
+        (route) => route.route_id === selectedRouteId,
+      );
+      if (!target) return;
+      if (!target.is_custom) {
+        notify("Hotels can only be added to a custom route.", "error");
+        return;
+      }
+
+      let next: Plan;
+      try {
+        next = addStopsToRoute(current, target.route_id, hotelIds, matrix);
+      } catch (error) {
+        notify(
+          error instanceof Error
+            ? error.message
+            : "Those hotels could not be added.",
+          "error",
+        );
+        return;
+      }
+
+      const addedBags = hotelIds.reduce(
+        (sum, hotelId) => sum + (findStop(current, hotelId)?.stop.load_bags ?? 0),
+        0,
+      );
+      commit(
+        next,
+        `Added ${hotelIds.length} hotel${
+          hotelIds.length === 1 ? "" : "s"
+        } (${formatBags(addedBags)}) to ${shortRouteName(target.name)}`,
+      );
+      setAddHotelsOpen(false);
+      revealInspector();
+    },
+    [commit, matrix, notify, revealInspector, selectedRouteId],
+  );
+
+  const handleDeleteRoute = useCallback(
+    (routeId: string) => {
+      const current = planRef.current;
+      const index = current.routes.findIndex(
+        (route) => route.route_id === routeId,
+      );
+      const target = current.routes[index];
+      if (!target) return;
+
+      let next: Plan;
+      try {
+        next = deleteRoute(current, routeId, { restoreFrom: initialPlan });
+      } catch (error) {
+        notify(
+          error instanceof Error ? error.message : "Could not delete the route.",
+          "error",
+        );
+        return;
+      }
+
+      const returned = target.stops.length;
+      commit(
+        next,
+        returned > 0
+          ? `Deleted ${shortRouteName(target.name)} · returned ${returned} hotel${
+              returned === 1 ? "" : "s"
+            } to the original plan`
+          : `Deleted ${shortRouteName(target.name)}`,
+      );
+      setAddHotelsOpen(false);
+      if (selectedRouteId === routeId) {
+        const fallback =
+          next.routes[Math.min(index, next.routes.length - 1)] ?? null;
+        setSelectedRouteId(fallback?.route_id ?? null);
+        setSelectedStopId(null);
+      }
+    },
+    [commit, initialPlan, notify, selectedRouteId],
+  );
+
+  const handleOptimizeRoute = useCallback(
+    (routeId: string) => {
+      const current = planRef.current;
+      const target = current.routes.find((route) => route.route_id === routeId);
+      if (!target) return;
+
+      let next: Plan;
+      try {
+        next = optimizeRouteOrder(current, routeId, matrix);
+      } catch (error) {
+        notify(
+          error instanceof Error
+            ? error.message
+            : "Could not optimize this route.",
+          "error",
+        );
+        return;
+      }
+
+      if (next === current) {
+        notify("This route is already in its best stop order.");
+        return;
+      }
+
+      const before = computedById.get(routeId);
+      const after = computePlan(next, matrix).routes.find(
+        (route) => route.route_id === routeId,
+      );
+      commit(
+        next,
+        `Optimized ${shortRouteName(target.name)} · ${
+          before ? formatKm(before.total_dist_km) : "—"
+        } → ${after ? formatKm(after.total_dist_km) : "—"}`,
+      );
+    },
+    [commit, computedById, matrix, notify],
   );
 
   const resetPlan = useCallback(() => {
@@ -753,10 +915,20 @@ export default function PlanCanvas({
               </span>
               <h2>Route board</h2>
             </div>
-            <span className="plan-sidebar__hint">
-              <GripVertical size={13} />
-              Drag to reorder
-            </span>
+            <div className="plan-sidebar__head-tools">
+              <button
+                type="button"
+                className="plan-new-route"
+                onClick={() => setCreateRouteOpen(true)}
+              >
+                <Plus size={12} />
+                New route
+              </button>
+              <span className="plan-sidebar__hint">
+                <GripVertical size={13} />
+                Drag to reorder
+              </span>
+            </div>
           </div>
 
           <div className="plan-sidebar__routes">
@@ -812,7 +984,12 @@ export default function PlanCanvas({
                       style={{ background: route.color }}
                     />
                     <span className="plan-route__title">
-                      <b>{shortRouteName(route.name)}</b>
+                      <b>
+                        {shortRouteName(route.name)}
+                        {route.is_custom && (
+                          <span className="plan-route__tag">Custom</span>
+                        )}
+                      </b>
                       <span>
                         {computed.total_hotels} stops ·{" "}
                         {computed.total_bags}/{route.max_load} bags
@@ -855,11 +1032,57 @@ export default function PlanCanvas({
                     </div>
                   ))}
 
+                  {route.is_custom && (
+                    <div className="plan-route__tools">
+                      <button
+                        type="button"
+                        className="plan-route__tool"
+                        onClick={() => {
+                          setSelectedRouteId(route.route_id);
+                          setSelectedStopId(null);
+                          setAddHotelsOpen(true);
+                        }}
+                      >
+                        <Plus size={11} />
+                        Add hotels
+                      </button>
+                      <button
+                        type="button"
+                        className="plan-route__tool"
+                        onClick={() => handleOptimizeRoute(route.route_id)}
+                        disabled={route.stops.length < 3}
+                        title={
+                          route.stops.length < 3
+                            ? "Add at least three stops to optimize"
+                            : "Polish this route's stop order"
+                        }
+                      >
+                        <Wand2 size={11} />
+                        Optimize
+                      </button>
+                      <button
+                        type="button"
+                        className="plan-route__tool plan-route__tool--danger"
+                        onClick={() => handleDeleteRoute(route.route_id)}
+                        title={
+                          route.stops.length > 0
+                            ? "Delete this route and return its hotels to the original plan"
+                            : "Delete this custom route"
+                        }
+                      >
+                        <Trash2 size={11} />
+                        Delete
+                      </button>
+                    </div>
+                  )}
+
                   <div className="plan-route__stops">
                     {route.stops.length === 0 && (
                       <div className="plan-route__empty">
                         <MapPin size={13} />
-                        Drop a stop here
+                        {route.is_custom
+                          ? "New route · add hotels to start"
+                          : "Drop a stop here"}
                       </div>
                     )}
                     {route.stops.map((stop, index) => {
@@ -1296,6 +1519,56 @@ export default function PlanCanvas({
                 </div>
               </div>
 
+              {selectedRoute.is_custom && (
+                <div className="plan-inspector__section">
+                  <h3>Custom route</h3>
+                  <div className="plan-inspector__row">
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      onClick={() => setAddHotelsOpen(true)}
+                    >
+                      <Plus size={14} />
+                      Add hotels
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      onClick={() => handleOptimizeRoute(selectedRoute.route_id)}
+                      disabled={selectedRoute.stops.length < 3}
+                      title={
+                        selectedRoute.stops.length < 3
+                          ? "Add at least three stops to optimize"
+                          : "Polish this route's stop order"
+                      }
+                    >
+                      <Wand2 size={14} />
+                      Optimize
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn--ghost plan-inspector__wide plan-danger-btn"
+                    onClick={() => handleDeleteRoute(selectedRoute.route_id)}
+                    title={
+                      selectedRoute.stops.length > 0
+                        ? "Delete this route and return its hotels to the original plan"
+                        : "Delete this custom route"
+                    }
+                  >
+                    <Trash2 size={14} />
+                    Delete route
+                  </button>
+                  {selectedRoute.stops.length > 0 && (
+                    <p className="plan-inspector__note">
+                      {selectedRoute.stops.length} hotel
+                      {selectedRoute.stops.length === 1 ? "" : "s"} will return to
+                      the original plan.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="plan-inspector__section">
                 <h3>Route signals</h3>
                 {(issuesByRoute.get(selectedRoute.route_id) ?? []).length ===
@@ -1428,6 +1701,23 @@ export default function PlanCanvas({
           </span>
         </div>
       </footer>
+
+      <PlanCreateRouteDialog
+        open={createRouteOpen}
+        defaultName={`Route ${plan.routes.length + 1}`}
+        onClose={() => setCreateRouteOpen(false)}
+        onCreate={handleCreateRoute}
+      />
+
+      <PlanAddHotelsDialog
+        open={addHotelsOpen}
+        route={selectedRoute}
+        currentBags={selectedComputed?.total_bags ?? 0}
+        plan={plan}
+        regions={regions}
+        onClose={() => setAddHotelsOpen(false)}
+        onAdd={handleAddStops}
+      />
 
       {toast && (
         <div
