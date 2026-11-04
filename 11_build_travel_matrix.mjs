@@ -36,8 +36,18 @@ const depotPoints = fleetDepots.map((depot, index) => ({
 }));
 const primaryDepotId = depotPoints[0].id;
 
+const fleetLaundries = Array.isArray(fleet.laundries) ? fleet.laundries : [];
+const laundryPoints = fleetLaundries.map((laundry, index) => ({
+  id: laundry.id ?? `laundry-${index}`,
+  name: laundry.name,
+  lat: laundry.latitude,
+  lon: laundry.longitude,
+  kind: "laundry",
+}));
+
 const points = [
   ...depotPoints,
+  ...laundryPoints,
   ...[...hotels]
     .sort((a, b) => a.id.localeCompare(b.id))
     .map((hotel) => ({

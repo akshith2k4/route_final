@@ -10,15 +10,20 @@ import {
   findStop,
   formatClock,
   getPlanDepots,
+  getPlanLaundries,
+  laundryLabel,
   migratePlanDepots,
   moveStop,
   optimizeRouteOrder,
   parseClock,
   reassignRouteDepot,
   reorderStops,
+  resolveLaundry,
   routeDepot,
   routeDepotId,
+  routeLaundryId,
   SECOND_DEPOT_ID,
+  setRouteLaundry,
 } from "../lib/plan.ts";
 
 const plan = JSON.parse(fs.readFileSync("data/plan.json", "utf8"));
@@ -71,10 +76,10 @@ for (const route of plan.routes) {
   );
 }
 
-assert.equal(matrix.points.length, 103, "expected 103 matrix points");
+assert.equal(matrix.points.length, 105, "expected 105 matrix points");
 assert.equal(matrix.missing_pairs, 0, "matrix should be complete");
-assert.equal(matrix.durations_s.length, 103);
-assert.equal(matrix.distances_m.length, 103);
+assert.equal(matrix.durations_s.length, 105);
+assert.equal(matrix.distances_m.length, 105);
 
 assert.equal(parseClock("06:30 AM"), 390);
 assert.equal(parseClock("07:00 AM"), 420);
@@ -236,9 +241,209 @@ assert.equal(
   "routes should be assignable back to HQ",
 );
 
+// ---------------------------------------------------------------------------
+// Optional laundry stop (hotels -> laundry -> warehouse)
+// ---------------------------------------------------------------------------
+
+const LAUNDRY_PIONEER_ID = "laundry-pioneer";
+const LAUNDRY_SOLUTIONS_ID = "laundry-solutions";
+const laundries = getPlanLaundries(plan);
+assert.equal(laundries.length, 2, "expected two laundries");
+const pioneer = laundries.find((laundry) => laundry.id === LAUNDRY_PIONEER_ID);
+assert.ok(pioneer, "expected the Pioneer laundry");
+assert.equal(pioneer.name, "Pioneer");
+assert.equal(pioneer.service_mins, 180);
+assert.equal(laundryLabel(pioneer), "Pioneer");
+const solutions = laundries.find(
+  (laundry) => laundry.id === LAUNDRY_SOLUTIONS_ID,
+);
+assert.ok(solutions, "expected the Laundry Solutions site");
+assert.equal(solutions.name, "Laundry Solutions");
+assert.equal(solutions.service_mins, 180);
+assert.equal(
+  plan.routes.every((route) => routeLaundryId(plan, route) === null),
+  true,
+  "all baseline routes should return directly to the warehouse",
+);
+assert.equal(resolveLaundry(plan, plan.routes[0]), null);
+
+const laundryRouteId = "103501";
+const directRoute = plan.routes.find(
+  (route) => route.route_id === laundryRouteId,
+);
+const directComputed = computation.routes.find(
+  (route) => route.route_id === laundryRouteId,
+);
+const withLaundry = setRouteLaundry(
+  plan,
+  laundryRouteId,
+  LAUNDRY_PIONEER_ID,
+  matrix,
+);
+const laundryRoute = withLaundry.routes.find(
+  (route) => route.route_id === laundryRouteId,
+);
+assert.equal(laundryRoute.laundry_id, LAUNDRY_PIONEER_ID);
+assert.equal(
+  resolveLaundry(withLaundry, laundryRoute).name,
+  "Pioneer",
+  "the route should resolve its laundry",
+);
+assert.deepEqual(
+  [...laundryRoute.stops.map((stop) => stop.hotel_id)].sort(),
+  [...directRoute.stops.map((stop) => stop.hotel_id)].sort(),
+  "laundry must not change the hotel set",
+);
+assert.equal(
+  plan.routes.find((route) => route.route_id === laundryRouteId).laundry_id,
+  undefined,
+  "setting a laundry must not mutate the original plan",
+);
+
+const expectedEndDriveMins = (depotId, laundryId, stops) => {
+  let seconds = 0;
+  let previousId = depotId;
+  for (const stop of stops) {
+    seconds +=
+      matrix.durations_s[matrixIndex.get(previousId)][
+        matrixIndex.get(stop.hotel_id)
+      ] * factor;
+    previousId = stop.hotel_id;
+  }
+  seconds +=
+    matrix.durations_s[matrixIndex.get(previousId)][
+      matrixIndex.get(laundryId)
+    ] * factor;
+  seconds +=
+    matrix.durations_s[matrixIndex.get(laundryId)][
+      matrixIndex.get(depotId)
+    ] * factor;
+  return Math.round(seconds / 60);
+};
+
+const laundryComputed = computePlan(withLaundry, matrix).routes.find(
+  (route) => route.route_id === laundryRouteId,
+);
+assert.equal(laundryComputed.laundry_id, LAUNDRY_PIONEER_ID);
+assert.equal(laundryComputed.laundry_name, "Pioneer");
+assert.equal(laundryComputed.laundry_service_mins, 180);
+assert.ok(laundryComputed.laundry_arrival_time);
+assert.equal(
+  laundryComputed.laundry_departure_min -
+    laundryComputed.laundry_arrival_min,
+  180,
+  "the vehicle should spend three hours at the laundry",
+);
+assert.equal(
+  laundryComputed.total_service_mins,
+  directComputed.total_service_mins,
+  "hotel service minutes should not absorb laundry time",
+);
+assert.ok(
+  laundryComputed.total_dist_km > directComputed.total_dist_km,
+  "the laundry detour should add distance",
+);
+assert.equal(
+  laundryComputed.total_drive_mins,
+  expectedEndDriveMins(
+    plan.depot.id,
+    LAUNDRY_PIONEER_ID,
+    laundryRoute.stops,
+  ),
+  "drive time should include both laundry legs",
+);
+assert.ok(
+  laundryComputed.return_min >=
+    laundryComputed.laundry_departure_min +
+      Math.round(
+        (matrix.durations_s[matrixIndex.get(LAUNDRY_PIONEER_ID)][
+          matrixIndex.get(plan.depot.id)
+        ] *
+          factor) /
+          60,
+      ) -
+      1,
+  "return time should include the laundry-to-warehouse leg",
+);
+assert.equal(
+  computePlan(withLaundry, matrix).totals.rooms,
+  3423,
+  "laundry must not change room totals",
+);
+
+const clearedLaundry = setRouteLaundry(
+  withLaundry,
+  laundryRouteId,
+  null,
+  matrix,
+);
+const clearedComputed = computePlan(clearedLaundry, matrix).routes.find(
+  (route) => route.route_id === laundryRouteId,
+);
+assert.equal(clearedComputed.laundry_id, null);
+assert.equal(clearedComputed.laundry_service_mins, 0);
+assert.equal(clearedComputed.laundry_arrival_time, null);
+assert.equal(
+  clearedLaundry.routes.find((route) => route.route_id === laundryRouteId)
+    .laundry_id,
+  undefined,
+  "clearing should remove the laundry id",
+);
+
+const movedWithLaundry = reassignRouteDepot(
+  withLaundry,
+  laundryRouteId,
+  SECOND_DEPOT_ID,
+  matrix,
+);
+const movedWithLaundryRoute = movedWithLaundry.routes.find(
+  (route) => route.route_id === laundryRouteId,
+);
+assert.equal(
+  movedWithLaundryRoute.laundry_id,
+  LAUNDRY_PIONEER_ID,
+  "moving warehouses should keep the laundry selection",
+);
+assert.equal(movedWithLaundryRoute.depot_id, SECOND_DEPOT_ID);
+const movedWithLaundryComputed = computePlan(
+  movedWithLaundry,
+  matrix,
+).routes.find((route) => route.route_id === laundryRouteId);
+assert.equal(
+  movedWithLaundryComputed.total_drive_mins,
+  expectedEndDriveMins(
+    SECOND_DEPOT_ID,
+    LAUNDRY_PIONEER_ID,
+    movedWithLaundryRoute.stops,
+  ),
+  "a WH2 route should run hotels -> Pioneer -> WH2",
+);
+
+const withSolutions = setRouteLaundry(
+  plan,
+  "103602",
+  LAUNDRY_SOLUTIONS_ID,
+  matrix,
+);
+const solutionsComputed = computePlan(withSolutions, matrix).routes.find(
+  (route) => route.route_id === "103602",
+);
+assert.equal(solutionsComputed.laundry_name, "Laundry Solutions");
+assert.equal(solutionsComputed.laundry_service_mins, 180);
+
+assert.throws(
+  () => setRouteLaundry(plan, "103501", "laundry-nowhere"),
+  /Unknown laundry/,
+  "routes cannot use an unknown laundry",
+);
+
 const legacyDraft = structuredClone(plan);
 delete legacyDraft.depots;
-for (const route of legacyDraft.routes) delete route.depot_id;
+delete legacyDraft.laundries;
+for (const route of legacyDraft.routes) {
+  delete route.depot_id;
+  delete route.laundry_id;
+}
 const migratedDraft = migratePlanDepots(legacyDraft, plan);
 assert.equal(
   getPlanDepots(migratedDraft).length,
@@ -246,11 +451,31 @@ assert.equal(
   "migration should merge warehouses added after the draft was saved",
 );
 assert.equal(
+  getPlanLaundries(migratedDraft).length,
+  2,
+  "migration should merge laundries added after the draft was saved",
+);
+assert.equal(
   migratedDraft.routes.every(
     (route) => route.depot_id === plan.depot.id,
   ),
   true,
   "legacy routes should default to HQ",
+);
+assert.equal(
+  migratedDraft.routes.every(
+    (route) => routeLaundryId(migratedDraft, route) === null,
+  ),
+  true,
+  "legacy routes should return directly to the warehouse",
+);
+
+const invalidLaundryDraft = structuredClone(plan);
+invalidLaundryDraft.routes[0].laundry_id = "laundry-nowhere";
+assert.equal(
+  migratePlanDepots(invalidLaundryDraft, plan).routes[0].laundry_id,
+  undefined,
+  "migration should drop unknown laundries",
 );
 
 const secondDraft = structuredClone(legacyDraft);
@@ -312,6 +537,18 @@ console.log(
 );
 console.log(
   `  distance ${hqComputed.total_dist_km} km -> ${movedWarehouseComputed.total_dist_km} km`,
+);
+
+console.log("");
+console.log("Laundry smoke test (Route 1, direct -> Pioneer):");
+console.log(
+  `  return ${directComputed.return_hq} -> ${laundryComputed.return_hq}`,
+);
+console.log(
+  `  distance ${directComputed.total_dist_km} km -> ${laundryComputed.total_dist_km} km`,
+);
+console.log(
+  `  laundry ${laundryComputed.laundry_arrival_time} -> ${laundryComputed.laundry_departure_time} (${laundryComputed.laundry_service_mins} min)`,
 );
 
 console.log("Route comparison (manual Google data vs OSRM recalculation)");

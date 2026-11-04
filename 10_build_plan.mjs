@@ -53,6 +53,16 @@ const depots = fleetDepots.map((depot, index) => ({
 }));
 const primaryDepot = depots[0];
 
+const fleetLaundries = Array.isArray(fleet.laundries) ? fleet.laundries : [];
+const laundries = fleetLaundries.map((laundry, index) => ({
+  id: laundry.id ?? `laundry-${index}`,
+  name: laundry.name,
+  lat: laundry.latitude,
+  lon: laundry.longitude,
+  ...(laundry.short_name ? { short_name: laundry.short_name } : {}),
+  service_mins: laundry.service_mins ?? 0,
+}));
+
 const byName = new Map();
 for (const hotel of hotels) {
   if (!hotel.id) throw new Error(`Hotel has no id: ${hotel.name}`);
@@ -125,6 +135,7 @@ const routes = manualRoutes.map((route) => {
     departure_min: parseClock(route.departure_hq, 7 * 60),
     stops: stops.filter(Boolean),
     depot_id: route.depot_id ?? primaryDepot.id,
+    ...(route.laundry_id ? { laundry_id: route.laundry_id } : {}),
   };
 });
 
@@ -157,6 +168,7 @@ const plan = {
   source: "data/manual_routes.json",
   depot: primaryDepot,
   depots,
+  laundries,
   shift: {
     start_min: 6 * 60 + 30,
     end_min: 16 * 60 + 30,

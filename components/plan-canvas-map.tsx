@@ -14,6 +14,8 @@ import { escapeHtml } from "../lib/coverage";
 import {
   depotLabel,
   getPlanDepots,
+  getPlanLaundries,
+  laundryLabel,
   resolveDepot,
   routeDepotId,
   type ComputedRoute,
@@ -241,6 +243,11 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
       const allBounds = L.latLngBounds([]);
       const depots = getPlanDepots(currentPlan);
       const depotLatLngById = new Map<string, Leaflet.LatLngTuple>();
+      const laundries = getPlanLaundries(currentPlan);
+      const laundryById = new Map(
+        laundries.map((laundry) => [laundry.id, laundry]),
+      );
+      const laundryLatLngById = new Map<string, Leaflet.LatLngTuple>();
 
       for (const [index, depot] of depots.entries()) {
         const depotLatLng: Leaflet.LatLngTuple = [depot.lat, depot.lon];
@@ -275,6 +282,37 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
         depotMarker.addTo(depotLayer);
       }
 
+      for (const laundry of laundries) {
+        const laundryLatLng: Leaflet.LatLngTuple = [laundry.lat, laundry.lon];
+        laundryLatLngById.set(laundry.id, laundryLatLng);
+        allBounds.extend(laundryLatLng);
+
+        const laundryMarker = L.marker(laundryLatLng, {
+          icon: L.divIcon({
+            className: "dispatch-depot-marker",
+            html: `
+              <div class="depot-pin depot-pin--laundry">
+                <span class="depot-pin__badge">${escapeHtml(laundryLabel(laundry))}</span>
+              </div>
+            `,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+          }),
+          zIndexOffset: 1800,
+        });
+        laundryMarker.bindTooltip(
+          `<div class="depot-leaflet-tooltip"><b>${escapeHtml(
+            laundry.name,
+          )}</b><span>Laundry · ${laundry.service_mins} min on site</span></div>`,
+          {
+            direction: "top",
+            offset: [0, -16],
+            className: "depot-leaflet-tooltip",
+          },
+        );
+        laundryMarker.addTo(depotLayer);
+      }
+
       const primaryDepotLatLng: Leaflet.LatLngTuple = depots[0]
         ? [depots[0].lat, depots[0].lon]
         : [currentPlan.depot.lat, currentPlan.depot.lon];
@@ -289,6 +327,17 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
           primaryDepotLatLng;
         routeBoundsEntry.extend(routeDepotLatLng);
 
+        const routeLaundry = route.laundry_id
+          ? (laundryById.get(route.laundry_id) ?? null)
+          : null;
+        const routeLaundryLatLng = routeLaundry
+          ? (laundryLatLngById.get(routeLaundry.id) ?? null)
+          : null;
+        if (routeLaundryLatLng) {
+          routeBoundsEntry.extend(routeLaundryLatLng);
+          allBounds.extend(routeLaundryLatLng);
+        }
+
         const stopLatLngs = route.stops.map(
           (stop) => [stop.lat, stop.lon] as Leaflet.LatLngTuple,
         );
@@ -300,7 +349,12 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
         const stored = currentGeometries[route.route_id];
         const fallback = !stored || stored.length < 2;
         const latLngs: Leaflet.LatLngTuple[] = fallback
-          ? [routeDepotLatLng, ...stopLatLngs, routeDepotLatLng]
+          ? [
+              routeDepotLatLng,
+              ...stopLatLngs,
+              ...(routeLaundryLatLng ? [routeLaundryLatLng] : []),
+              routeDepotLatLng,
+            ]
           : stored.map(([lat, lon]) => [lat, lon] as Leaflet.LatLngTuple);
 
         if (latLngs.length < 2) continue;
@@ -324,7 +378,11 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
             route.name,
           )}</b><span>${route.total_hotels} stops · ${route.total_bags} bags · ${route.total_rooms} rooms · ${
             route.total_dist_km
-          } km · ${escapeHtml(route.depot_name)}</span></div>`,
+          } km · ${escapeHtml(route.depot_name)}${
+            routeLaundry
+              ? ` · via ${escapeHtml(routeLaundry.name)}`
+              : ""
+          }</span></div>`,
           { direction: "top", sticky: true, className: "plan-route-tooltip" },
         );
         polyline.on("click", () => {
@@ -414,7 +472,9 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
           ? currentRoutes.find((route) => route.route_id === selected)
           : null;
       const fitKey = selected
-        ? `${selected}:${selectedRoute?.depot_id ?? ""}`
+        ? `${selected}:${selectedRoute?.depot_id ?? ""}:${
+            selectedRoute?.laundry_id ?? ""
+          }`
         : "all";
       if (lastFitKeyRef.current !== fitKey) {
         lastFitKeyRef.current = fitKey;
@@ -448,6 +508,12 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
           const depot = resolveDepot(dataRef.current.plan, route.depot_id);
           bounds.extend([depot.lat, depot.lon]);
           for (const stop of route.stops) bounds.extend([stop.lat, stop.lon]);
+          if (route.laundry_id) {
+            const laundry = getPlanLaundries(dataRef.current.plan).find(
+              (candidate) => candidate.id === route.laundry_id,
+            );
+            if (laundry) bounds.extend([laundry.lat, laundry.lon]);
+          }
           if (bounds.isValid()) {
             map.flyToBounds(bounds, {
               paddingTopLeft: [58, 58],

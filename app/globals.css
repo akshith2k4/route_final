@@ -5058,6 +5058,18 @@ a {
   font-size: 9px;
 }
 
+.depot-pin--laundry {
+  background: #2e1065;
+  border-color: #c084fc;
+  box-shadow: 0 4px 14px rgba(46, 16, 101, 0.35);
+}
+
+.depot-pin--laundry .depot-pin__badge {
+  color: #e9d5ff;
+  font-size: 8px;
+  letter-spacing: 0;
+}
+
 .depot-pin--hub .depot-pin__badge {
   background: #0f766e;
   border-color: #5eead4;
@@ -5461,15 +5473,24 @@ a {
 }
 
 .plan-route__title b {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   overflow: hidden;
   font-size: 11.5px;
   font-weight: 600;
   letter-spacing: -0.005em;
+  white-space: nowrap;
+}
+
+.plan-route__name {
+  overflow: hidden;
+  min-width: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.plan-route__title span {
+.plan-route__title .plan-route__meta {
   overflow: hidden;
   color: var(--muted);
   font-size: 9.5px;
@@ -6358,8 +6379,9 @@ a {
 
 .plan-route__tag {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
-  margin-left: 5px;
+  margin-left: 0;
   padding: 1px 4px;
   border-radius: 4px;
   background: var(--green-soft);
@@ -6373,8 +6395,9 @@ a {
 
 .plan-route__depot {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
-  margin-left: 5px;
+  margin-left: 0;
   padding: 1px 4px;
   border-radius: 4px;
   background: var(--bone-deep);
@@ -6389,6 +6412,23 @@ a {
 .plan-route__depot.is-secondary {
   background: #e0f2fe;
   color: #0369a1;
+}
+
+.plan-route__laundry {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 3px;
+  margin-left: 0;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: #f3e8ff;
+  color: #7e22ce;
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  vertical-align: 1px;
 }
 
 /* Warehouse board (assignment mode) */

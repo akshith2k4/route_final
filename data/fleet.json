@@ -122,5 +122,23 @@
       "max_load_90pct": 36,
       "color": "#f59e0b"
     }
+  ],
+  "laundries": [
+    {
+      "id": "laundry-pioneer",
+      "name": "Pioneer",
+      "latitude": 12.727082620183035,
+      "longitude": 77.84031706188283,
+      "short_name": "Pioneer",
+      "service_mins": 180
+    },
+    {
+      "id": "laundry-solutions",
+      "name": "Laundry Solutions",
+      "latitude": 12.783260773940704,
+      "longitude": 77.52984326680344,
+      "short_name": "LS",
+      "service_mins": 180
+    }
   ]
 }

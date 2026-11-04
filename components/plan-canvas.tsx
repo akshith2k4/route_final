@@ -29,6 +29,7 @@ import {
   Undo2,
   Wand2,
   Warehouse,
+  WashingMachine,
   X,
 } from "lucide-react";
 import PlanAddHotelsDialog from "./plan-add-hotels-dialog";
@@ -47,13 +48,18 @@ import {
   formatClock,
   formatDuration,
   getPlanDepots,
+  getPlanLaundries,
+  laundryLabel,
   migratePlanDepots,
   moveStop,
   optimizeRouteOrder,
   reassignRouteDepot,
   reorderStops,
+  resolveLaundry,
   routeDepot,
   routeDepotId,
+  routeLaundryId,
+  setRouteLaundry,
   type Plan,
   type PlanIssue,
   type PlanRoute,
@@ -96,6 +102,7 @@ function shortRouteName(name: string): string {
 function routeSignature(route: PlanRoute): string {
   return [
     route.depot_id ?? "",
+    route.laundry_id ?? "",
     ...route.stops.map((stop) => stop.hotel_id),
   ].join("|");
 }
@@ -177,6 +184,7 @@ export default function PlanCanvas({
 
   const computation = useMemo(() => computePlan(plan, matrix), [plan, matrix]);
   const depots = useMemo(() => getPlanDepots(plan), [plan]);
+  const laundries = useMemo(() => getPlanLaundries(plan), [plan]);
   const computedById = useMemo(
     () =>
       new Map(
@@ -213,6 +221,8 @@ export default function PlanCanvas({
   const selectedComputed = selectedRouteId
     ? computedById.get(selectedRouteId) ?? null
     : null;
+  const selectedLaundry =
+    selectedRoute === null ? null : resolveLaundry(plan, selectedRoute);
   const selectedStop =
     selectedRoute?.stops.find((stop) => stop.hotel_id === selectedStopId) ??
     null;
@@ -322,9 +332,11 @@ export default function PlanCanvas({
 
     try {
       const depot = routeDepot(planRef.current, route);
+      const laundry = resolveLaundry(planRef.current, route);
       const points = [
         [depot.lat, depot.lon],
         ...route.stops.map((stop) => [stop.lat, stop.lon]),
+        ...(laundry ? [[laundry.lat, laundry.lon]] : []),
         [depot.lat, depot.lon],
       ];
       const coords = points
@@ -703,6 +715,60 @@ export default function PlanCanvas({
       revealInspector();
     },
     [commit, computedById, depots, matrix, notify, revealInspector],
+  );
+
+  const handleSetLaundry = useCallback(
+    (routeId: string, laundryId: string) => {
+      const current = planRef.current;
+      const route = current.routes.find(
+        (candidate) => candidate.route_id === routeId,
+      );
+      const laundry = laundryId
+        ? laundries.find((candidate) => candidate.id === laundryId)
+        : null;
+      if (!route) return;
+      if (laundryId && !laundry) return;
+
+      if ((route.laundry_id ?? null) === (laundryId || null)) {
+        setSelectedRouteId(routeId);
+        setSelectedStopId(null);
+        return;
+      }
+
+      const before = computedById.get(routeId);
+      let next: Plan;
+      try {
+        next = setRouteLaundry(current, routeId, laundryId || null, matrix);
+      } catch (error) {
+        notify(
+          error instanceof Error
+            ? error.message
+            : "Could not update this route's laundry.",
+          "error",
+        );
+        return;
+      }
+
+      const after = computePlan(next, matrix).routes.find(
+        (candidate) => candidate.route_id === routeId,
+      );
+      commit(
+        next,
+        laundry
+          ? `${shortRouteName(route.name)} returns via ${laundry.name} · ${
+              before ? before.return_hq : "—"
+            } → ${after ? after.return_hq : "—"}`
+          : `${shortRouteName(route.name)} returns directly to ${
+              depotLabel(routeDepot(current, route))
+            } · ${before ? before.return_hq : "—"} → ${
+              after ? after.return_hq : "—"
+            }`,
+      );
+      setSelectedRouteId(routeId);
+      setSelectedStopId(null);
+      revealInspector();
+    },
+    [commit, computedById, laundries, matrix, notify, revealInspector],
   );
 
   const handleOptimizeRoute = useCallback(
@@ -1089,6 +1155,7 @@ export default function PlanCanvas({
               const computed = computedById.get(route.route_id);
               if (!computed) return null;
               const depot = routeDepot(plan, route);
+              const laundry = resolveLaundry(plan, route);
               const isSelected = selectedRouteId === route.route_id;
               const isDropRoute = dropTarget?.routeId === route.route_id;
               const isDropBlocked = Boolean(
@@ -1139,7 +1206,9 @@ export default function PlanCanvas({
                     />
                     <span className="plan-route__title">
                       <b>
-                        {shortRouteName(route.name)}
+                        <span className="plan-route__name">
+                          {shortRouteName(route.name)}
+                        </span>
                         <span
                           className={`plan-route__depot ${
                             depot.id === plan.depot.id ? "" : "is-secondary"
@@ -1147,11 +1216,17 @@ export default function PlanCanvas({
                         >
                           {depotLabel(depot)}
                         </span>
+                        {laundry && (
+                          <span className="plan-route__laundry">
+                            <WashingMachine size={9} />
+                            {laundryLabel(laundry)}
+                          </span>
+                        )}
                         {route.is_custom && (
                           <span className="plan-route__tag">Custom</span>
                         )}
                       </b>
-                      <span>
+                      <span className="plan-route__meta">
                         {computed.total_hotels} stops ·{" "}
                         {computed.total_bags}/{route.max_load} bags ·{" "}
                         {formatRooms(computed.total_rooms)}
@@ -1410,7 +1485,9 @@ export default function PlanCanvas({
                           No routes assigned yet.
                         </div>
                       ) : (
-                        assigned.map(({ route, computed }) => (
+                        assigned.map(({ route, computed }) => {
+                          const laundry = resolveLaundry(plan, route);
+                          return (
                           <div
                             key={route.route_id}
                             className={`plan-warehouse-route ${
@@ -1434,7 +1511,10 @@ export default function PlanCanvas({
                                   {computed?.total_hotels ?? 0} stops ·{" "}
                                   {computed?.total_bags ?? 0}/{route.max_load}{" "}
                                   bags · {computed?.total_rooms ?? 0} rooms ·{" "}
-                                  {computed?.return_hq ?? "—"} return
+                                  {laundry
+                                    ? `via ${laundryLabel(laundry)}`
+                                    : "direct"}{" "}
+                                  · {computed?.return_hq ?? "—"} return
                                 </span>
                               </span>
                             </button>
@@ -1455,7 +1535,8 @@ export default function PlanCanvas({
                               </button>
                             ))}
                           </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
                   </section>
@@ -1463,7 +1544,8 @@ export default function PlanCanvas({
               })}
               <p className="plan-warehouse__hint">
                 A route and all of its hotels move together. The vehicle starts
-                and ends at the assigned warehouse.
+                at the assigned warehouse and returns there after any laundry
+                stop.
               </p>
             </div>
           )}
@@ -1549,7 +1631,7 @@ export default function PlanCanvas({
                     selectedComputed?.total_bags ?? 0
                   } bags · ${selectedComputed?.total_rooms ?? 0} rooms · ${selectedComputed?.total_dist_km ?? 0} km · ${
                     depotLabel(routeDepot(plan, selectedRoute))
-                  }`
+                  }${selectedLaundry ? ` · via ${laundryLabel(selectedLaundry)}` : ""}`
                 : `${plan.routes.length} routes · ${computation.totals.hotels} hotels · ${computation.totals.rooms} rooms`}
             </span>
           </div>
@@ -1769,9 +1851,44 @@ export default function PlanCanvas({
                 <p className="plan-inspector__note">
                   {mode === "warehouse"
                     ? `All ${selectedComputed.total_hotels} hotels move with this route. The vehicle starts and ends at ${selectedComputed.depot_name}.`
-                    : `Distance and return time are calculated from ${selectedComputed.depot_name}.`}
+                    : selectedLaundry
+                      ? `Distance and return time follow ${selectedComputed.depot_name} → hotels → ${selectedLaundry.name} → ${selectedComputed.depot_name}.`
+                      : `Distance and return time are calculated from ${selectedComputed.depot_name}.`}
                 </p>
               </div>
+
+              {mode === "plan" && (
+                <div className="plan-inspector__section">
+                  <h3>Return</h3>
+                  <label className="plan-field">
+                    <span>After the last hotel</span>
+                    <select
+                      value={selectedRoute.laundry_id ?? ""}
+                      onChange={(event) =>
+                        handleSetLaundry(
+                          selectedRoute.route_id,
+                          event.target.value,
+                        )
+                      }
+                    >
+                      <option value="">
+                        Direct to {depotLabel(routeDepot(plan, selectedRoute))}
+                      </option>
+                      {laundries.map((laundry) => (
+                        <option key={laundry.id} value={laundry.id}>
+                          {laundry.name} ·{" "}
+                          {formatDuration(laundry.service_mins)} on site
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="plan-inspector__note">
+                    {selectedLaundry && selectedComputed.laundry_arrival_time
+                      ? `Arrive ${selectedComputed.laundry_arrival_time} · depart ${selectedComputed.laundry_departure_time} · ${selectedComputed.depot_name} return ${selectedComputed.return_hq}.`
+                      : `No laundry stop. The vehicle returns straight to ${selectedComputed.depot_name}.`}
+                  </p>
+                </div>
+              )}
 
               <div className="plan-metrics">
                 <div className="plan-metric">
@@ -1791,8 +1908,16 @@ export default function PlanCanvas({
                   <b>{formatDuration(selectedComputed.total_drive_mins)}</b>
                 </div>
                 <div className="plan-metric">
-                  <span>Service</span>
+                  <span>Hotel service</span>
                   <b>{formatDuration(selectedComputed.total_service_mins)}</b>
+                </div>
+                <div className="plan-metric">
+                  <span>Laundry</span>
+                  <b>
+                    {selectedLaundry
+                      ? formatDuration(selectedComputed.laundry_service_mins)
+                      : "Direct"}
+                  </b>
                 </div>
                 <div className="plan-metric">
                   <span>Stops</span>

@@ -12,11 +12,20 @@ const planDepots =
     ? plan.depots
     : [plan.depot];
 
+const planLaundries = Array.isArray(plan.laundries) ? plan.laundries : [];
+
 function routeDepot(route) {
   return (
     planDepots.find((depot) => depot.id === route.depot_id) ??
     plan.depot ??
     planDepots[0]
+  );
+}
+
+function routeLaundry(route) {
+  if (!route.laundry_id) return null;
+  return (
+    planLaundries.find((laundry) => laundry.id === route.laundry_id) ?? null
   );
 }
 
@@ -59,9 +68,11 @@ function sleep(ms) {
 
 async function fetchGeometry(route) {
   const depot = routeDepot(route);
+  const laundry = routeLaundry(route);
   const points = [
     [depot.lat, depot.lon],
     ...route.stops.map((stop) => [stop.lat, stop.lon]),
+    ...(laundry ? [[laundry.lat, laundry.lon]] : []),
     [depot.lat, depot.lon],
   ];
   if (points.length < 3) return null;

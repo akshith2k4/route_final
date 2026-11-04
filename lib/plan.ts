@@ -10,6 +10,17 @@ export type PlanDepot = {
   short_name?: string;
 };
 
+export type PlanLaundry = {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  /** Compact label for map pins and route badges. */
+  short_name?: string;
+  /** Minutes the vehicle spends at the laundry. */
+  service_mins: number;
+};
+
 export type PlanShift = {
   start_min: number;
   end_min: number;
@@ -38,6 +49,8 @@ export type PlanRoute = {
   stops: PlanStop[];
   /** Warehouse this route starts from and returns to. Missing values use the plan's primary depot. */
   depot_id?: string;
+  /** Optional laundry visited after the last hotel, before returning to the warehouse. */
+  laundry_id?: string | null;
   is_custom?: boolean;
 };
 
@@ -52,6 +65,8 @@ export type Plan = {
   depot: PlanDepot;
   /** All warehouses a route can be assigned to. */
   depots?: PlanDepot[];
+  /** Laundries a route can visit after its last hotel. */
+  laundries?: PlanLaundry[];
   shift: PlanShift;
   routes: PlanRoute[];
   unassigned_hotel_ids?: string[];
@@ -62,7 +77,7 @@ export type MatrixPoint = {
   name: string;
   lat: number;
   lon: number;
-  kind: "depot" | "hotel";
+  kind: "depot" | "laundry" | "hotel";
 };
 
 export type TravelMatrix = {
@@ -107,6 +122,13 @@ export type ComputedRoute = {
   capacity_utilization_pct: number;
   depot_id: string;
   depot_name: string;
+  laundry_id: string | null;
+  laundry_name: string | null;
+  laundry_service_mins: number;
+  laundry_arrival_min: number | null;
+  laundry_arrival_time: string | null;
+  laundry_departure_min: number | null;
+  laundry_departure_time: string | null;
   departure_hq: string;
   return_hq: string;
   return_min: number;
@@ -205,6 +227,37 @@ export function depotLabel(depot: PlanDepot): string {
   return depot.short_name?.trim() || depot.name;
 }
 
+/** All laundries configured for the plan. */
+export function getPlanLaundries(plan: Plan): PlanLaundry[] {
+  return plan.laundries ?? [];
+}
+
+/** Resolves a route's laundry, or null when it returns straight to the warehouse. */
+export function resolveLaundry(
+  plan: Plan,
+  route: PlanRoute,
+): PlanLaundry | null {
+  if (!route.laundry_id) return null;
+  return (
+    getPlanLaundries(plan).find(
+      (laundry) => laundry.id === route.laundry_id,
+    ) ?? null
+  );
+}
+
+/** The laundry id a route actually uses, or null for a direct return. */
+export function routeLaundryId(
+  plan: Plan,
+  route: PlanRoute,
+): string | null {
+  return resolveLaundry(plan, route)?.id ?? null;
+}
+
+/** Compact laundry label for pins and badges. */
+export function laundryLabel(laundry: PlanLaundry): string {
+  return laundry.short_name?.trim() || laundry.name;
+}
+
 /**
  * Upgrades a persisted draft to the current warehouse shape. Existing routes
  * keep their assignment; missing assignments inherit the primary depot, and
@@ -254,10 +307,39 @@ export function migratePlanDepots(plan: Plan, reference: Plan): Plan {
     }
   }
 
+  // Merge laundries added after the draft was saved, refreshing coordinates
+  // and service times from the current plan.
+  const referenceLaundries = getPlanLaundries(reference);
+  const referenceLaundryById = new Map(
+    referenceLaundries.map((laundry) => [laundry.id, laundry]),
+  );
+  const laundries: PlanLaundry[] = [];
+  for (const laundry of getPlanLaundries(plan)) {
+    const current = referenceLaundryById.get(laundry.id);
+    laundries.push(
+      current
+        ? {
+            ...laundry,
+            name: current.name,
+            lat: current.lat,
+            lon: current.lon,
+            short_name: current.short_name,
+            service_mins: current.service_mins,
+          }
+        : laundry,
+    );
+  }
+  for (const laundry of referenceLaundries) {
+    if (!laundries.some((candidate) => candidate.id === laundry.id)) {
+      laundries.push(laundry);
+    }
+  }
+
   return {
     ...plan,
     depot: primary ?? plan.depot,
     depots,
+    laundries,
     routes: plan.routes.map((route) => ({
       ...route,
       depot_id:
@@ -265,6 +347,11 @@ export function migratePlanDepots(plan: Plan, reference: Plan): Plan {
         depots.some((depot) => depot.id === route.depot_id)
           ? route.depot_id
           : fallbackId,
+      laundry_id:
+        route.laundry_id &&
+        laundries.some((laundry) => laundry.id === route.laundry_id)
+          ? route.laundry_id
+          : undefined,
       stops: route.stops.map((stop) => ({
         ...stop,
         rooms:
@@ -447,11 +534,31 @@ export function computeRoute(
     previousId = stop.hotel_id;
   }
 
-  const returnLeg = lookup.leg(previousId, depot.id);
-  if (returnLeg.estimated) estimatedLegs += 1;
-  cursorS += returnLeg.durationS;
-  driveS += returnLeg.durationS;
-  distanceM += returnLeg.distanceM;
+  const laundry = resolveLaundry(plan, route);
+  let laundryArrivalMin: number | null = null;
+  let laundryDepartureMin: number | null = null;
+  let laundryServiceMins = 0;
+
+  const endId = laundry?.id ?? depot.id;
+  const dropLeg = lookup.leg(previousId, endId);
+  if (dropLeg.estimated) estimatedLegs += 1;
+  cursorS += dropLeg.durationS;
+  driveS += dropLeg.durationS;
+  distanceM += dropLeg.distanceM;
+
+  if (laundry) {
+    laundryArrivalMin = Math.round(cursorS / 60);
+    laundryServiceMins = laundry.service_mins;
+    cursorS += laundry.service_mins * 60;
+    laundryDepartureMin = Math.round(cursorS / 60);
+    if (laundry.id !== depot.id) {
+      const toDepot = lookup.leg(laundry.id, depot.id);
+      if (toDepot.estimated) estimatedLegs += 1;
+      cursorS += toDepot.durationS;
+      driveS += toDepot.durationS;
+      distanceM += toDepot.distanceM;
+    }
+  }
 
   return {
     route_id: route.route_id,
@@ -471,6 +578,15 @@ export function computeRoute(
       route.max_load > 0 ? round1((bags / route.max_load) * 100) : 0,
     depot_id: depot.id,
     depot_name: depot.name,
+    laundry_id: laundry?.id ?? null,
+    laundry_name: laundry?.name ?? null,
+    laundry_service_mins: laundryServiceMins,
+    laundry_arrival_min: laundryArrivalMin,
+    laundry_arrival_time:
+      laundryArrivalMin === null ? null : formatClock(laundryArrivalMin),
+    laundry_departure_min: laundryDepartureMin,
+    laundry_departure_time:
+      laundryDepartureMin === null ? null : formatClock(laundryDepartureMin),
     departure_hq: formatClock(route.departure_min),
     return_hq: formatClock(cursorS / 60),
     return_min: Math.round(cursorS / 60),
@@ -670,6 +786,8 @@ export function cheapestInsertionIndex(
   const lookup =
     "leg" in matrixOrLookup ? matrixOrLookup : createMatrixLookup(matrixOrLookup);
   const depotId = routeDepotId(plan, route);
+  const laundryId = routeLaundryId(plan, route);
+  const endId = laundryId ?? depotId;
 
   let bestIndex = route.stops.length;
   let bestDeltaS = Number.POSITIVE_INFINITY;
@@ -680,7 +798,7 @@ export function cheapestInsertionIndex(
       index === 0 ? depotId : route.stops[index - 1].hotel_id;
     const nextId =
       index === route.stops.length
-        ? depotId
+        ? endId
         : route.stops[index].hotel_id;
 
     const base = lookup.leg(previousId, nextId);
@@ -866,6 +984,7 @@ function routeTravelSeconds(
   depotId: string,
   stops: PlanStop[],
   lookup: MatrixLookup,
+  laundryId?: string | null,
 ): number {
   let total = 0;
   let previousId = depotId;
@@ -873,7 +992,11 @@ function routeTravelSeconds(
     total += lookup.leg(previousId, stop.hotel_id).durationS;
     previousId = stop.hotel_id;
   }
-  total += lookup.leg(previousId, depotId).durationS;
+  const endId = laundryId ?? depotId;
+  total += lookup.leg(previousId, endId).durationS;
+  if (laundryId && laundryId !== depotId) {
+    total += lookup.leg(laundryId, depotId).durationS;
+  }
   return total;
 }
 
@@ -889,11 +1012,12 @@ function twoOptStops(
   depotId: string,
   stops: PlanStop[],
   lookup: MatrixLookup,
+  laundryId?: string | null,
 ): PlanStop[] {
   if (stops.length < 3) return stops;
 
   let best = [...stops];
-  let bestSeconds = routeTravelSeconds(depotId, best, lookup);
+  let bestSeconds = routeTravelSeconds(depotId, best, lookup, laundryId);
   let improved = true;
 
   while (improved) {
@@ -905,7 +1029,12 @@ function twoOptStops(
           ...best.slice(start, end + 1).reverse(),
           ...best.slice(end + 1),
         ];
-        const candidateSeconds = routeTravelSeconds(depotId, candidate, lookup);
+        const candidateSeconds = routeTravelSeconds(
+          depotId,
+          candidate,
+          lookup,
+          laundryId,
+        );
         if (candidateSeconds < bestSeconds) {
           best = candidate;
           bestSeconds = candidateSeconds;
@@ -934,6 +1063,7 @@ export function optimizeRouteOrder(
     routeDepotId(plan, route),
     route.stops,
     lookup,
+    routeLaundryId(plan, route),
   );
   if (sameStopOrder(route.stops, optimized)) return plan;
 
@@ -971,6 +1101,45 @@ export function reassignRouteDepot(
     routes: plan.routes.map((candidate) =>
       candidate.route_id === routeId
         ? { ...candidate, depot_id: depotId }
+        : candidate,
+    ),
+  };
+
+  if (matrixOrLookup && route.stops.length >= 3) {
+    next = optimizeRouteOrder(next, routeId, matrixOrLookup);
+  }
+
+  return next;
+}
+
+/**
+ * Sets or clears a route's laundry. With a matrix, the stop order is
+ * re-polished with 2-opt from the new end point in the same step.
+ */
+export function setRouteLaundry(
+  plan: Plan,
+  routeId: string,
+  laundryId: string | null,
+  matrixOrLookup?: TravelMatrix | MatrixLookup,
+): Plan {
+  const route = findRoute(plan, routeId);
+  if (!route) throw new Error(`Unknown route: ${routeId}`);
+  if (
+    laundryId &&
+    !getPlanLaundries(plan).some((laundry) => laundry.id === laundryId)
+  ) {
+    throw new Error(`Unknown laundry: ${laundryId}`);
+  }
+  if ((route.laundry_id ?? null) === laundryId) return plan;
+
+  let next: Plan = {
+    ...plan,
+    routes: plan.routes.map((candidate) =>
+      candidate.route_id === routeId
+        ? {
+            ...candidate,
+            laundry_id: laundryId ?? undefined,
+          }
         : candidate,
     ),
   };
@@ -1045,7 +1214,12 @@ export function addStopsToRoute(
     );
     targetStops.splice(insertIndex, 0, stop);
   }
-  targetStops = twoOptStops(routeDepotId(plan, route), targetStops, lookup);
+  targetStops = twoOptStops(
+    routeDepotId(plan, route),
+    targetStops,
+    lookup,
+    routeLaundryId(plan, route),
+  );
 
   return {
     ...plan,

@@ -3,7 +3,7 @@
   "plan_id": "manual-current",
   "name": "Manual Dispatch Plan",
   "status": "draft",
-  "created_at": "2026-11-04T10:02:22.226Z",
+  "created_at": "2026-11-04T11:00:28.492Z",
   "source": "data/manual_routes.json",
   "depot": {
     "id": "depot-yeshwanthpur",
@@ -26,6 +26,24 @@
       "lat": 12.841935860793432,
       "lon": 77.51688698411317,
       "short_name": "WH2"
+    }
+  ],
+  "laundries": [
+    {
+      "id": "laundry-pioneer",
+      "name": "Pioneer",
+      "lat": 12.727082620183035,
+      "lon": 77.84031706188283,
+      "short_name": "Pioneer",
+      "service_mins": 180
+    },
+    {
+      "id": "laundry-solutions",
+      "name": "Laundry Solutions",
+      "lat": 12.783260773940704,
+      "lon": 77.52984326680344,
+      "short_name": "LS",
+      "service_mins": 180
     }
   ],
   "shift": {
