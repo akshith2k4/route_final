@@ -17,6 +17,7 @@ export type RegionMeta = {
 };
 
 export type Hotel = {
+  id: string;
   name: string;
   lat: number;
   lon: number;
@@ -47,6 +48,7 @@ export type ParsedCoordinate =
 
 export type DispatchStop = {
   stop_number: number;
+  hotel_id?: string;
   name: string;
   lat: number;
   lon: number;
@@ -333,7 +335,7 @@ export const REGION_MAP_LABELS: Record<number, string> = {
 };
 
 export function hotelKey(hotel: Hotel): string {
-  return `${hotel.name}::${hotel.lat.toFixed(5)}::${hotel.lon.toFixed(5)}`;
+  return hotel.id || `${hotel.name}::${hotel.lat.toFixed(5)}::${hotel.lon.toFixed(5)}`;
 }
 
 export function haversineKm(

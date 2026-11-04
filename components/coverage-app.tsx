@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -397,6 +398,10 @@ const SHOW_DISPATCH_AND_STUDIO = false;
             Manual routes
             <span className="topnav__live-pill">8 Routes</span>
           </button>
+          <Link className="topnav__item" href="/plan">
+            Plan canvas
+            <ArrowUpRight size={11} />
+          </Link>
           {SHOW_DISPATCH_AND_STUDIO && (
             <>
               <button

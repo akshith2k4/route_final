@@ -5,7 +5,8 @@
     "lon": 77.60257637227505,
     "region": 4,
     "stop_mins": 13,
-    "load": 3
+    "load": 3,
+    "id": "arama-suites"
   },
   {
     "name": "ATHASRI INN- SHIVAJINAGAR",
@@ -13,7 +14,8 @@
     "lon": 77.60379153435575,
     "region": 1,
     "stop_mins": 22,
-    "load": 3
+    "load": 3,
+    "id": "athasri-inn-shivajinagar"
   },
   {
     "name": "ATHULYA RESIDENCIES",
@@ -21,7 +23,8 @@
     "lon": 77.6487637,
     "region": 2,
     "stop_mins": 10,
-    "load": 3
+    "load": 3,
+    "id": "athulya-residencies"
   },
   {
     "name": "AURUM KEY",
@@ -29,7 +32,8 @@
     "lon": 77.69534657946771,
     "region": 3,
     "stop_mins": 11,
-    "load": 6
+    "load": 6,
+    "id": "aurum-key"
   },
   {
     "name": "BLUE BLISS HOTELS",
@@ -37,7 +41,8 @@
     "lon": 77.60413433901864,
     "region": 1,
     "stop_mins": 18,
-    "load": 3
+    "load": 3,
+    "id": "blue-bliss-hotels"
   },
   {
     "name": "BRINDAVANA STAY",
@@ -45,7 +50,8 @@
     "lon": 77.53110547783504,
     "region": 2,
     "stop_mins": 38,
-    "load": 2
+    "load": 2,
+    "id": "brindavana-stay"
   },
   {
     "name": "BRIXTON LUXE",
@@ -53,7 +59,8 @@
     "lon": 77.6285587,
     "region": 0,
     "stop_mins": 13,
-    "load": 3
+    "load": 3,
+    "id": "brixton-luxe"
   },
   {
     "name": "CASA PICCOSA E-CITY",
@@ -61,7 +68,8 @@
     "lon": 77.64704855759531,
     "region": 0,
     "stop_mins": 14,
-    "load": 3
+    "load": 3,
+    "id": "casa-piccosa-e-city"
   },
   {
     "name": "DAY SUITES",
@@ -69,7 +77,8 @@
     "lon": 77.72648790206145,
     "region": 3,
     "stop_mins": 29,
-    "load": 15
+    "load": 15,
+    "id": "day-suites"
   },
   {
     "name": "DD COMFORTS",
@@ -77,7 +86,8 @@
     "lon": 77.60564505534485,
     "region": 4,
     "stop_mins": 20,
-    "load": 5
+    "load": 5,
+    "id": "dd-comforts"
   },
   {
     "name": "EKAA KEYS",
@@ -85,7 +95,8 @@
     "lon": 77.63988996143055,
     "region": 0,
     "stop_mins": 18,
-    "load": 3
+    "load": 3,
+    "id": "ekaa-keys"
   },
   {
     "name": "EYRIE NEST",
@@ -93,7 +104,8 @@
     "lon": 77.62011922451589,
     "region": 0,
     "stop_mins": 19,
-    "load": 3
+    "load": 3,
+    "id": "eyrie-nest"
   },
   {
     "name": "FELICITY",
@@ -101,7 +113,8 @@
     "lon": 77.59697222501774,
     "region": 4,
     "stop_mins": 19,
-    "load": 5
+    "load": 5,
+    "id": "felicity"
   },
   {
     "name": "FORTUNE COMFORTS",
@@ -109,7 +122,8 @@
     "lon": 77.6245556,
     "region": 2,
     "stop_mins": 21,
-    "load": 3
+    "load": 3,
+    "id": "fortune-comforts"
   },
   {
     "name": "FORTUNE INN",
@@ -117,7 +131,8 @@
     "lon": 77.61553749782881,
     "region": 0,
     "stop_mins": 7,
-    "load": 2
+    "load": 2,
+    "id": "fortune-inn"
   },
   {
     "name": "FORTUNE STAY",
@@ -125,7 +140,8 @@
     "lon": 77.75691655901309,
     "region": 3,
     "stop_mins": 12,
-    "load": 4
+    "load": 4,
+    "id": "fortune-stay"
   },
   {
     "name": "FORTY 1 HOSPITALITY",
@@ -133,7 +149,8 @@
     "lon": 77.62746906225262,
     "region": 0,
     "stop_mins": 13,
-    "load": 2
+    "load": 2,
+    "id": "forty-1-hospitality"
   },
   {
     "name": "FOUNTAIN TREE",
@@ -141,7 +158,8 @@
     "lon": 77.59952235035779,
     "region": 4,
     "stop_mins": 27,
-    "load": 6
+    "load": 6,
+    "id": "fountain-tree"
   },
   {
     "name": "GOLDEN FORTUN INN",
@@ -149,7 +167,8 @@
     "lon": 77.63850981049048,
     "region": 2,
     "stop_mins": 14,
-    "load": 2
+    "load": 2,
+    "id": "golden-fortun-inn"
   },
   {
     "name": "GOLDEN INN ROOMS",
@@ -157,7 +176,8 @@
     "lon": 77.61961020499115,
     "region": 0,
     "stop_mins": 22,
-    "load": 3
+    "load": 3,
+    "id": "golden-inn-rooms"
   },
   {
     "name": "GOLDEN VISTA",
@@ -165,7 +185,8 @@
     "lon": 77.6165644,
     "region": 2,
     "stop_mins": 6,
-    "load": 3
+    "load": 3,
+    "id": "golden-vista"
   },
   {
     "name": "HOLIDAY VILLAGE",
@@ -173,7 +194,8 @@
     "lon": 77.5431314086749,
     "region": 4,
     "stop_mins": 29,
-    "load": 5
+    "load": 5,
+    "id": "holiday-village"
   },
   {
     "name": "HOTEL ERACREST",
@@ -181,7 +203,8 @@
     "lon": 77.62879784938296,
     "region": 2,
     "stop_mins": 15,
-    "load": 3
+    "load": 3,
+    "id": "hotel-eracrest"
   },
   {
     "name": "HOTEL MONARCH INTERNATIONAL",
@@ -189,7 +212,8 @@
     "lon": 77.60130533638062,
     "region": 4,
     "stop_mins": 15,
-    "load": 4
+    "load": 4,
+    "id": "hotel-monarch-international"
   },
   {
     "name": "HOWARD JOHNSON",
@@ -197,7 +221,8 @@
     "lon": 77.62641811715724,
     "region": 2,
     "stop_mins": 67,
-    "load": 10
+    "load": 10,
+    "id": "howard-johnson"
   },
   {
     "name": "KALINGA HOSPITALITY",
@@ -205,7 +230,8 @@
     "lon": 77.5760294,
     "region": 1,
     "stop_mins": 27,
-    "load": 4
+    "load": 4,
+    "id": "kalinga-hospitality"
   },
   {
     "name": "LE GRANDEUR",
@@ -213,7 +239,8 @@
     "lon": 77.56844984911343,
     "region": 4,
     "stop_mins": 18,
-    "load": 4
+    "load": 4,
+    "id": "le-grandeur"
   },
   {
     "name": "LE-GRANDEUR (NK CIRCLE)",
@@ -221,7 +248,8 @@
     "lon": 77.5652787,
     "region": 4,
     "stop_mins": 28,
-    "load": 4
+    "load": 4,
+    "id": "le-grandeur-nk-circle"
   },
   {
     "name": "LOCUL CENTRAL",
@@ -229,7 +257,8 @@
     "lon": 77.60238418687453,
     "region": 1,
     "stop_mins": 19,
-    "load": 2
+    "load": 2,
+    "id": "locul-central"
   },
   {
     "name": "LOCUL MIDTOWN",
@@ -237,7 +266,8 @@
     "lon": 77.64469709148311,
     "region": 1,
     "stop_mins": 24,
-    "load": 3
+    "load": 3,
+    "id": "locul-midtown"
   },
   {
     "name": "LOCUL UPTOWN",
@@ -245,7 +275,8 @@
     "lon": 77.58627779985103,
     "region": 1,
     "stop_mins": 22,
-    "load": 2
+    "load": 2,
+    "id": "locul-uptown"
   },
   {
     "name": "M R HAPPY STAY INN",
@@ -253,7 +284,8 @@
     "lon": 77.60589191873447,
     "region": 4,
     "stop_mins": 30,
-    "load": 1
+    "load": 1,
+    "id": "m-r-happy-stay-inn"
   },
   {
     "name": "NEST BY RIVIDO",
@@ -261,7 +293,8 @@
     "lon": 77.60393092043532,
     "region": 4,
     "stop_mins": 11,
-    "load": 3
+    "load": 3,
+    "id": "nest-by-rivido"
   },
   {
     "name": "NISARGA HOTEL",
@@ -269,7 +302,8 @@
     "lon": 77.517758,
     "region": 4,
     "stop_mins": 15,
-    "load": 3
+    "load": 3,
+    "id": "nisarga-hotel"
   },
   {
     "name": "OCEAN SUITES",
@@ -277,7 +311,8 @@
     "lon": 77.62105448237824,
     "region": 2,
     "stop_mins": 10,
-    "load": 3
+    "load": 3,
+    "id": "ocean-suites"
   },
   {
     "name": "OCTAVE CHURCH INN CHH",
@@ -285,7 +320,8 @@
     "lon": 77.60679472501764,
     "region": 1,
     "stop_mins": 15,
-    "load": 2
+    "load": 2,
+    "id": "octave-church-inn-chh"
   },
   {
     "name": "OCTAVE CRYSTAL HEIGHT",
@@ -293,7 +329,8 @@
     "lon": 77.64043715642362,
     "region": 1,
     "stop_mins": 37,
-    "load": 3
+    "load": 3,
+    "id": "octave-crystal-height"
   },
   {
     "name": "OCTAVE HOTEL - DOUBLE ROAD",
@@ -301,7 +338,8 @@
     "lon": 77.59345263220764,
     "region": 1,
     "stop_mins": 12,
-    "load": 3
+    "load": 3,
+    "id": "octave-hotel-double-road"
   },
   {
     "name": "OCTAVE HOTEL AND SPA - SARJAPUR ROAD",
@@ -309,7 +347,8 @@
     "lon": 77.67266607967734,
     "region": 0,
     "stop_mins": 8,
-    "load": 4
+    "load": 4,
+    "id": "octave-hotel-and-spa-sarjapur-road"
   },
   {
     "name": "OCTAVE HOTEL AND SPA - JP NAGAR",
@@ -317,7 +356,8 @@
     "lon": 77.57686143930566,
     "region": 4,
     "stop_mins": 16,
-    "load": 3
+    "load": 3,
+    "id": "octave-hotel-and-spa-jp-nagar"
   },
   {
     "name": "OCTAVE HOTEL AND SPA - MARATHAHALLI",
@@ -325,7 +365,8 @@
     "lon": 77.69741372460498,
     "region": 3,
     "stop_mins": 12,
-    "load": 4
+    "load": 4,
+    "id": "octave-hotel-and-spa-marathahalli"
   },
   {
     "name": "OCTAVE JAMAYCA",
@@ -333,7 +374,8 @@
     "lon": 77.63960281045748,
     "region": 2,
     "stop_mins": 20,
-    "load": 3
+    "load": 3,
+    "id": "octave-jamayca"
   },
   {
     "name": "OCTAVE ROYAL OPERA",
@@ -341,7 +383,8 @@
     "lon": 77.55539375127218,
     "region": 2,
     "stop_mins": 9,
-    "load": 3
+    "load": 3,
+    "id": "octave-royal-opera"
   },
   {
     "name": "OCTAVE STUDIO HOTEL - KORAMANGLA STU",
@@ -349,7 +392,8 @@
     "lon": 77.6147480778158,
     "region": 0,
     "stop_mins": 12,
-    "load": 3
+    "load": 3,
+    "id": "octave-studio-hotel-koramangla-stu"
   },
   {
     "name": "OLIVE HULIMAVU HOTEL",
@@ -357,7 +401,8 @@
     "lon": 77.59919657027788,
     "region": 4,
     "stop_mins": 24,
-    "load": 6
+    "load": 6,
+    "id": "olive-hulimavu-hotel"
   },
   {
     "name": "OLIVE NAGAWARA",
@@ -365,7 +410,8 @@
     "lon": 77.61665433332185,
     "region": 2,
     "stop_mins": 15,
-    "load": 3
+    "load": 3,
+    "id": "olive-nagawara"
   },
   {
     "name": "ORCHID PARC",
@@ -373,7 +419,8 @@
     "lon": 77.62652935076729,
     "region": 2,
     "stop_mins": 52,
-    "load": 20
+    "load": 20,
+    "id": "orchid-parc"
   },
   {
     "name": "PARK INN",
@@ -381,7 +428,8 @@
     "lon": 77.70127809496712,
     "region": 3,
     "stop_mins": 6,
-    "load": 4
+    "load": 4,
+    "id": "park-inn"
   },
   {
     "name": "PELICAN INN",
@@ -389,7 +437,8 @@
     "lon": 77.60902402864339,
     "region": 1,
     "stop_mins": 26,
-    "load": 3
+    "load": 3,
+    "id": "pelican-inn"
   },
   {
     "name": "RAJ RESIDENCY",
@@ -397,7 +446,8 @@
     "lon": 77.57387104473435,
     "region": 2,
     "stop_mins": 11,
-    "load": 3
+    "load": 3,
+    "id": "raj-residency"
   },
   {
     "name": "REGENTA PALACE",
@@ -405,7 +455,8 @@
     "lon": 77.6007365910969,
     "region": 1,
     "stop_mins": 58,
-    "load": 3
+    "load": 3,
+    "id": "regenta-palace"
   },
   {
     "name": "RIVIDO MANAYATA",
@@ -413,7 +464,8 @@
     "lon": 77.62877864297822,
     "region": 2,
     "stop_mins": 5,
-    "load": 2
+    "load": 2,
+    "id": "rivido-manayata"
   },
   {
     "name": "S V B R HOTEL",
@@ -421,7 +473,8 @@
     "lon": 77.57607029377178,
     "region": 4,
     "stop_mins": 2,
-    "load": 1
+    "load": 1,
+    "id": "s-v-b-r-hotel"
   },
   {
     "name": "SAI SUITES INN",
@@ -429,7 +482,8 @@
     "lon": 77.6116687729111,
     "region": 2,
     "stop_mins": 17,
-    "load": 3
+    "load": 3,
+    "id": "sai-suites-inn"
   },
   {
     "name": "SHETTY GARDENIA HOTEL",
@@ -437,7 +491,8 @@
     "lon": 77.56868953837824,
     "region": 4,
     "stop_mins": 10,
-    "load": 3
+    "load": 3,
+    "id": "shetty-gardenia-hotel"
   },
   {
     "name": "SK COMFORTS",
@@ -445,7 +500,8 @@
     "lon": 77.55844350828022,
     "region": 4,
     "stop_mins": 9,
-    "load": 3
+    "load": 3,
+    "id": "sk-comforts"
   },
   {
     "name": "SM COMFORTS BTM",
@@ -453,7 +509,8 @@
     "lon": 77.60227799716782,
     "region": 4,
     "stop_mins": 19,
-    "load": 3
+    "load": 3,
+    "id": "sm-comforts-btm"
   },
   {
     "name": "SM COMFORTS HSR",
@@ -461,7 +518,8 @@
     "lon": 77.65254695346336,
     "region": 0,
     "stop_mins": 13,
-    "load": 3
+    "load": 3,
+    "id": "sm-comforts-hsr"
   },
   {
     "name": "SM INTERNATIONAL",
@@ -469,7 +527,8 @@
     "lon": 77.59848892505154,
     "region": 4,
     "stop_mins": 20,
-    "load": 3
+    "load": 3,
+    "id": "sm-international"
   },
   {
     "name": "SM STAY INN",
@@ -477,7 +536,8 @@
     "lon": 77.5974425046037,
     "region": 4,
     "stop_mins": 39,
-    "load": 3
+    "load": 3,
+    "id": "sm-stay-inn"
   },
   {
     "name": "SM STAY INN KORAMANGALA",
@@ -485,7 +545,8 @@
     "lon": 77.61731362156272,
     "region": 0,
     "stop_mins": 11,
-    "load": 3
+    "load": 3,
+    "id": "sm-stay-inn-koramangala"
   },
   {
     "name": "SRI SAI COMFORTS",
@@ -493,7 +554,8 @@
     "lon": 77.61203662479055,
     "region": 2,
     "stop_mins": 19,
-    "load": 2
+    "load": 2,
+    "id": "sri-sai-comforts"
   },
   {
     "name": "SRI SAI SUITES",
@@ -501,7 +563,8 @@
     "lon": 77.63215886050482,
     "region": 2,
     "stop_mins": 9,
-    "load": 3
+    "load": 3,
+    "id": "sri-sai-suites"
   },
   {
     "name": "STERLING KEYS",
@@ -509,7 +572,8 @@
     "lon": 77.5966949,
     "region": 4,
     "stop_mins": 22,
-    "load": 4
+    "load": 4,
+    "id": "sterling-keys"
   },
   {
     "name": "SV COMFORTS",
@@ -517,7 +581,8 @@
     "lon": 77.61145942778465,
     "region": 4,
     "stop_mins": 22,
-    "load": 3
+    "load": 3,
+    "id": "sv-comforts"
   },
   {
     "name": "SY COMFORTS",
@@ -525,7 +590,8 @@
     "lon": 77.56490239605031,
     "region": 4,
     "stop_mins": 12,
-    "load": 2
+    "load": 2,
+    "id": "sy-comforts"
   },
   {
     "name": "TEMPLE KEYS",
@@ -533,7 +599,8 @@
     "lon": 77.60617816265828,
     "region": 4,
     "stop_mins": 11,
-    "load": 2
+    "load": 2,
+    "id": "temple-keys"
   },
   {
     "name": "THALASSA SPA",
@@ -541,7 +608,8 @@
     "lon": 77.56926245289007,
     "region": 2,
     "stop_mins": 6,
-    "load": 3
+    "load": 3,
+    "id": "thalassa-spa"
   },
   {
     "name": "THE CHANCERY HOTELS",
@@ -549,7 +617,8 @@
     "lon": 77.59927662063683,
     "region": 1,
     "stop_mins": 195,
-    "load": 14
+    "load": 14,
+    "id": "the-chancery-hotels"
   },
   {
     "name": "THE CHANCERY PAVILION",
@@ -557,7 +626,8 @@
     "lon": 77.59856317662033,
     "region": 1,
     "stop_mins": 127,
-    "load": 26
+    "load": 26,
+    "id": "the-chancery-pavilion"
   },
   {
     "name": "THE GRAND KRISHNA ROOMS",
@@ -565,7 +635,8 @@
     "lon": 77.61853397761958,
     "region": 0,
     "stop_mins": 21,
-    "load": 3
+    "load": 3,
+    "id": "the-grand-krishna-rooms"
   },
   {
     "name": "THE MOCANA BANYAN",
@@ -573,7 +644,8 @@
     "lon": 77.63133721618155,
     "region": 0,
     "stop_mins": 25,
-    "load": 4
+    "load": 4,
+    "id": "the-mocana-banyan"
   },
   {
     "name": "TRUP GLOBAL KEMPAPUR NEW",
@@ -581,7 +653,8 @@
     "lon": 77.62078762241003,
     "region": 2,
     "stop_mins": 9,
-    "load": 2
+    "load": 2,
+    "id": "trup-global-kempapur-new"
   },
   {
     "name": "UK COMFORTS",
@@ -589,7 +662,8 @@
     "lon": 77.63109712050142,
     "region": 2,
     "stop_mins": 19,
-    "load": 3
+    "load": 3,
+    "id": "uk-comforts"
   },
   {
     "name": "UR COMFORTS",
@@ -597,7 +671,8 @@
     "lon": 77.5830221,
     "region": 4,
     "stop_mins": 39,
-    "load": 5
+    "load": 5,
+    "id": "ur-comforts"
   },
   {
     "name": "UR STAY INN",
@@ -605,7 +680,8 @@
     "lon": 77.59572326256472,
     "region": 4,
     "stop_mins": 23,
-    "load": 3
+    "load": 3,
+    "id": "ur-stay-inn"
   },
   {
     "name": "URBAN NEST",
@@ -613,7 +689,8 @@
     "lon": 77.57171557530822,
     "region": 2,
     "stop_mins": 5,
-    "load": 3
+    "load": 3,
+    "id": "urban-nest"
   },
   {
     "name": "VP INTERNATIONAL",
@@ -621,7 +698,8 @@
     "lon": 77.5826611,
     "region": 4,
     "stop_mins": 28,
-    "load": 3
+    "load": 3,
+    "id": "vp-international"
   },
   {
     "name": "Wandr - Brookefield",
@@ -629,7 +707,8 @@
     "lon": 77.7337869816782,
     "region": 3,
     "stop_mins": 15,
-    "load": 4
+    "load": 4,
+    "id": "wandr-brookefield"
   },
   {
     "name": "Wandr - HSR Layout",
@@ -637,7 +716,8 @@
     "lon": 77.63795867226504,
     "region": 0,
     "stop_mins": 15,
-    "load": 3
+    "load": 3,
+    "id": "wandr-hsr-layout"
   },
   {
     "name": "Wandr - Indiranagar",
@@ -645,7 +725,8 @@
     "lon": 77.64469595815599,
     "region": 1,
     "stop_mins": 15,
-    "load": 2
+    "load": 2,
+    "id": "wandr-indiranagar"
   },
   {
     "name": "Wandr - Kormangala",
@@ -653,7 +734,8 @@
     "lon": 77.62391994143022,
     "region": 0,
     "stop_mins": 18,
-    "load": 3
+    "load": 3,
+    "id": "wandr-kormangala"
   },
   {
     "name": "Wandr - Richmond Road",
@@ -661,7 +743,8 @@
     "lon": 77.59310547662126,
     "region": 1,
     "stop_mins": 15,
-    "load": 3
+    "load": 3,
+    "id": "wandr-richmond-road"
   },
   {
     "name": "Wandr - Ulsoor",
@@ -669,7 +752,8 @@
     "lon": 77.61555727274767,
     "region": 1,
     "stop_mins": 15,
-    "load": 4
+    "load": 4,
+    "id": "wandr-ulsoor"
   },
   {
     "name": "WESTERN KEYS HOTEL",
@@ -677,7 +761,8 @@
     "lon": 77.62384166505534,
     "region": 0,
     "stop_mins": 11,
-    "load": 6
+    "load": 6,
+    "id": "western-keys-hotel"
   },
   {
     "name": "Hyatt Centric Whitefield Bengaluru",
@@ -685,7 +770,8 @@
     "lon": 77.68829159878129,
     "region": 3,
     "stop_mins": 21,
-    "load": 3
+    "load": 3,
+    "id": "hyatt-centric-whitefield-bengaluru"
   },
   {
     "name": "Kingston palace",
@@ -693,7 +779,8 @@
     "lon": 77.58591758394394,
     "region": 4,
     "stop_mins": 21,
-    "load": 3
+    "load": 3,
+    "id": "kingston-palace"
   },
   {
     "name": "AVORA TREE SUITES",
@@ -701,7 +788,8 @@
     "lon": 77.63423548264127,
     "region": 2,
     "stop_mins": 30,
-    "load": 5
+    "load": 5,
+    "id": "avora-tree-suites"
   },
   {
     "name": "CELEBRITY SUITES",
@@ -709,7 +797,8 @@
     "lon": 77.65082778962515,
     "region": 0,
     "stop_mins": 15,
-    "load": 3
+    "load": 3,
+    "id": "celebrity-suites"
   },
   {
     "name": "CELESTIAL SUITES",
@@ -717,7 +806,8 @@
     "lon": 77.64338471447797,
     "region": 0,
     "stop_mins": 15,
-    "load": 3
+    "load": 3,
+    "id": "celestial-suites"
   },
   {
     "name": "CLOVER A RIVIDO HOTELS",
@@ -725,7 +815,8 @@
     "lon": 77.63942316011055,
     "region": 0,
     "stop_mins": 13,
-    "load": 3
+    "load": 3,
+    "id": "clover-a-rivido-hotels"
   },
   {
     "name": "EAST PARK PREMIUM",
@@ -733,7 +824,8 @@
     "lon": 77.68275878616696,
     "region": 0,
     "stop_mins": 17,
-    "load": 4
+    "load": 4,
+    "id": "east-park-premium"
   },
   {
     "name": "EAST PARK RIO",
@@ -741,7 +833,8 @@
     "lon": 77.68840220931652,
     "region": 0,
     "stop_mins": 12,
-    "load": 2
+    "load": 2,
+    "id": "east-park-rio"
   },
   {
     "name": "GLOBAL STAY",
@@ -749,7 +842,8 @@
     "lon": 77.70994498666208,
     "region": 0,
     "stop_mins": 14,
-    "load": 3
+    "load": 3,
+    "id": "global-stay"
   },
   {
     "name": "GOLDEN STAY",
@@ -757,7 +851,8 @@
     "lon": 77.63492994659211,
     "region": 0,
     "stop_mins": 8,
-    "load": 2
+    "load": 2,
+    "id": "golden-stay"
   },
   {
     "name": "GOLDEN SUITES",
@@ -765,7 +860,8 @@
     "lon": 77.6735352596468,
     "region": 0,
     "stop_mins": 17,
-    "load": 3
+    "load": 3,
+    "id": "golden-suites"
   },
   {
     "name": "HOTEL VERTEX",
@@ -773,7 +869,8 @@
     "lon": 77.67527104817403,
     "region": 0,
     "stop_mins": 14,
-    "load": 2
+    "load": 2,
+    "id": "hotel-vertex"
   },
   {
     "name": "INVENTREE E-CITY",
@@ -781,7 +878,8 @@
     "lon": 77.66537419417524,
     "region": 0,
     "stop_mins": 39,
-    "load": 1
+    "load": 1,
+    "id": "inventree-e-city"
   },
   {
     "name": "MANDALA RESORTS",
@@ -789,7 +887,8 @@
     "lon": 77.36128797833476,
     "region": 2,
     "stop_mins": 28,
-    "load": 4
+    "load": 4,
+    "id": "mandala-resorts"
   },
   {
     "name": "NIRANTARA RESORT",
@@ -797,7 +896,8 @@
     "lon": 77.64917449252366,
     "region": 0,
     "stop_mins": 25,
-    "load": 4
+    "load": 4,
+    "id": "nirantara-resort"
   },
   {
     "name": "V.B.H INN",
@@ -805,6 +905,7 @@
     "lon": 77.65806119177002,
     "region": 0,
     "stop_mins": 9,
-    "load": 2
+    "load": 2,
+    "id": "v-b-h-inn"
   }
 ]

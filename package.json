@@ -6,7 +6,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "data:ids": "node 09_ensure_hotel_ids.mjs",
+    "data:plan": "node 10_build_plan.mjs",
+    "data:matrix": "node 11_build_travel_matrix.mjs",
+    "data:matrix:calibrated": "OSRM_CALIBRATE=1 node 11_build_travel_matrix.mjs",
+    "data:geometry": "node 12_build_plan_geometries.mjs",
+    "test:plan": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-plan-engine.mjs"
   },
   "keywords": [],
   "author": "",

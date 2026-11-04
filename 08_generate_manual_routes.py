@@ -281,6 +281,13 @@ def main():
 
     hotel_map = {h["name"].upper().strip(): h for h in hotels_data}
 
+    missing_ids = [h["name"] for h in hotels_data if not h.get("id")]
+    if missing_ids:
+        raise SystemExit(
+            "Missing hotel ids in data/hotels.json. Run `node 09_ensure_hotel_ids.mjs` first:\n  "
+            + "\n  ".join(missing_ids)
+        )
+
     # Aliases
     hotel_map["CASA PICOSSA E-CITY"] = hotel_map.get("CASA PICCOSA E-CITY")
     hotel_map["HYATT WHITEFIELD MAHADEVPURA"] = hotel_map.get("HYATT CENTRIC WHITEFIELD BENGALURU")
@@ -353,6 +360,7 @@ def main():
 
             stops_info.append({
                 "stop_number": s_idx + 1,
+                "hotel_id": hotel["id"],
                 "name": hotel["name"],
                 "lat": hotel["lat"],
                 "lon": hotel["lon"],
@@ -367,6 +375,7 @@ def main():
                 "Route ID": r_conf["id"],
                 "Route Name": r_conf["name"],
                 "Stop": s_idx + 1,
+                "Hotel ID": hotel["id"],
                 "Hotel Name": hotel["name"],
                 "Arrival Time": arr_str,
                 "Departure Time": dep_str,
