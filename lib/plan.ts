@@ -23,6 +23,8 @@ export type PlanStop = {
   region: number;
   service_mins: number;
   load_bags: number;
+  /** Number of guest rooms at this hotel. Missing values are treated as 0. */
+  rooms?: number;
 };
 
 export type PlanRoute = {
@@ -101,6 +103,7 @@ export type ComputedRoute = {
   total_drive_mins: number;
   total_service_mins: number;
   total_bags: number;
+  total_rooms: number;
   capacity_utilization_pct: number;
   depot_id: string;
   depot_name: string;
@@ -126,6 +129,7 @@ export type PlanTotals = {
   routes: number;
   hotels: number;
   bags: number;
+  rooms: number;
   distance_km: number;
   drive_mins: number;
   service_mins: number;
@@ -239,6 +243,17 @@ export function migratePlanDepots(plan: Plan, reference: Plan): Plan {
     depots.find((depot) => depot.id === fallbackId) ??
     depots[0];
 
+  // Backfill room counts for drafts saved before rooms were introduced.
+  // Room counts are reference data (never user-edited), so the current plan
+  // wins when it has a value; this also heals drafts backfilled as 0 while
+  // the page was served with stale data.
+  const roomsByHotelId = new Map<string, number>();
+  for (const route of reference.routes) {
+    for (const stop of route.stops) {
+      if (typeof stop.rooms === "number") roomsByHotelId.set(stop.hotel_id, stop.rooms);
+    }
+  }
+
   return {
     ...plan,
     depot: primary ?? plan.depot,
@@ -250,6 +265,12 @@ export function migratePlanDepots(plan: Plan, reference: Plan): Plan {
         depots.some((depot) => depot.id === route.depot_id)
           ? route.depot_id
           : fallbackId,
+      stops: route.stops.map((stop) => ({
+        ...stop,
+        rooms:
+          roomsByHotelId.get(stop.hotel_id) ??
+          (typeof stop.rooms === "number" ? stop.rooms : 0),
+      })),
     })),
   };
 }
@@ -392,6 +413,7 @@ export function computeRoute(
   let distanceM = 0;
   let serviceMins = 0;
   let bags = 0;
+  let rooms = 0;
   let estimatedLegs = 0;
   const stops: ComputedStop[] = [];
 
@@ -409,6 +431,7 @@ export function computeRoute(
     distanceM += leg.distanceM;
     serviceMins += stop.service_mins;
     bags += stop.load_bags;
+    rooms += stop.rooms ?? 0;
 
     stops.push({
       ...stop,
@@ -443,6 +466,7 @@ export function computeRoute(
     total_drive_mins: Math.round(driveS / 60),
     total_service_mins: serviceMins,
     total_bags: bags,
+    total_rooms: rooms,
     capacity_utilization_pct:
       route.max_load > 0 ? round1((bags / route.max_load) * 100) : 0,
     depot_id: depot.id,
@@ -464,6 +488,7 @@ export function computePlan(plan: Plan, matrix: TravelMatrix): PlanComputation {
     routes: routes.length,
     hotels: routes.reduce((sum, route) => sum + route.total_hotels, 0),
     bags: routes.reduce((sum, route) => sum + route.total_bags, 0),
+    rooms: routes.reduce((sum, route) => sum + route.total_rooms, 0),
     distance_km: round1(
       routes.reduce((sum, route) => sum + route.total_dist_km, 0),
     ),

@@ -134,6 +134,10 @@ function formatBags(value: number): string {
   return `${value} bag${value === 1 ? "" : "s"}`;
 }
 
+function formatRooms(value: number): string {
+  return `${value} room${value === 1 ? "" : "s"}`;
+}
+
 export default function PlanCanvas({
   initialPlan,
   matrix,
@@ -192,6 +196,11 @@ export default function PlanCanvas({
           bags: routes.reduce(
             (sum, route) =>
               sum + (computedById.get(route.route_id)?.total_bags ?? 0),
+            0,
+          ),
+          rooms: routes.reduce(
+            (sum, route) =>
+              sum + (computedById.get(route.route_id)?.total_rooms ?? 0),
             0,
           ),
         };
@@ -1144,7 +1153,8 @@ export default function PlanCanvas({
                       </b>
                       <span>
                         {computed.total_hotels} stops ·{" "}
-                        {computed.total_bags}/{route.max_load} bags
+                        {computed.total_bags}/{route.max_load} bags ·{" "}
+                        {formatRooms(computed.total_rooms)}
                         {isUpdating ? " · updating path…" : ""}
                         {isDropBlocked ? " · not enough capacity" : ""}
                       </span>
@@ -1290,6 +1300,7 @@ export default function PlanCanvas({
                               <span className="plan-stop__meta">
                                 {computedStop?.arrival_time ?? "—"} ·{" "}
                                 {formatBags(stop.load_bags)} ·{" "}
+                                {formatRooms(stop.rooms ?? 0)} ·{" "}
                                 {computedStop
                                   ? formatKm(computedStop.leg_distance_km)
                                   : "—"}
@@ -1362,6 +1373,10 @@ export default function PlanCanvas({
                   (sum, { computed }) => sum + (computed?.total_bags ?? 0),
                   0,
                 );
+                const rooms = assigned.reduce(
+                  (sum, { computed }) => sum + (computed?.total_rooms ?? 0),
+                  0,
+                );
                 const otherDepots = depots.filter(
                   (candidate) => candidate.id !== depot.id,
                 );
@@ -1381,7 +1396,7 @@ export default function PlanCanvas({
                         <span>
                           {assigned.length} route
                           {assigned.length === 1 ? "" : "s"} · {stopCount} stops ·{" "}
-                          {bags} bags
+                          {bags} bags · {rooms} rooms
                         </span>
                       </span>
                       <span className="plan-warehouse__tag">
@@ -1418,7 +1433,8 @@ export default function PlanCanvas({
                                 <span>
                                   {computed?.total_hotels ?? 0} stops ·{" "}
                                   {computed?.total_bags ?? 0}/{route.max_load}{" "}
-                                  bags · {computed?.return_hq ?? "—"} return
+                                  bags · {computed?.total_rooms ?? 0} rooms ·{" "}
+                                  {computed?.return_hq ?? "—"} return
                                 </span>
                               </span>
                             </button>
@@ -1531,10 +1547,10 @@ export default function PlanCanvas({
               {selectedRoute
                 ? `${selectedRoute.stops.length} stops · ${
                     selectedComputed?.total_bags ?? 0
-                  } bags · ${selectedComputed?.total_dist_km ?? 0} km · ${
+                  } bags · ${selectedComputed?.total_rooms ?? 0} rooms · ${selectedComputed?.total_dist_km ?? 0} km · ${
                     depotLabel(routeDepot(plan, selectedRoute))
                   }`
-                : `${plan.routes.length} routes · ${computation.totals.hotels} hotels`}
+                : `${plan.routes.length} routes · ${computation.totals.hotels} hotels · ${computation.totals.rooms} rooms`}
             </span>
           </div>
         </section>
@@ -1581,6 +1597,10 @@ export default function PlanCanvas({
                 <div className="plan-metric">
                   <span>Load</span>
                   <b>{formatBags(selectedStop.load_bags)}</b>
+                </div>
+                <div className="plan-metric">
+                  <span>Rooms</span>
+                  <b>{selectedStop.rooms ?? 0}</b>
                 </div>
                 <div className="plan-metric">
                   <span>On site</span>
@@ -1721,6 +1741,7 @@ export default function PlanCanvas({
                 <p>
                   {selectedComputed.total_hotels} stops ·{" "}
                   {selectedComputed.total_bags}/{selectedRoute.max_load} bags ·{" "}
+                  {selectedComputed.total_rooms} rooms ·{" "}
                   {selectedComputed.capacity_utilization_pct}% of safe load
                 </p>
               </div>
@@ -1776,6 +1797,10 @@ export default function PlanCanvas({
                 <div className="plan-metric">
                   <span>Stops</span>
                   <b>{selectedComputed.total_hotels}</b>
+                </div>
+                <div className="plan-metric">
+                  <span>Rooms</span>
+                  <b>{selectedComputed.total_rooms}</b>
                 </div>
               </div>
 
@@ -1971,6 +1996,9 @@ export default function PlanCanvas({
             <b>{computation.totals.bags}</b> bags
           </span>
           <span>
+            <b>{computation.totals.rooms}</b> rooms
+          </span>
+          <span>
             <b>{computation.totals.distance_km.toFixed(0)}</b> km
           </span>
           <span className="plan-statusbar__shift">
@@ -1979,11 +2007,12 @@ export default function PlanCanvas({
             {formatClock(plan.shift.end_min)}
           </span>
           <span className="plan-statusbar__depots">
-            {depotTotals.map(({ depot, routeCount, bags }) => (
+            {depotTotals.map(({ depot, routeCount, bags, rooms }) => (
               <span key={depot.id}>
                 <Warehouse size={10} />
                 <b>{depotLabel(depot)}</b>
-                {routeCount} route{routeCount === 1 ? "" : "s"} · {bags} bags
+                {routeCount} route{routeCount === 1 ? "" : "s"} · {bags} bags ·{" "}
+                {rooms} rooms
               </span>
             ))}
           </span>

@@ -111,6 +111,7 @@ const routes = manualRoutes.map((route) => {
       region: hotel.region,
       service_mins: hotel.stop_mins,
       load_bags: hotel.load,
+      rooms: hotel.rooms ?? 0,
     };
   });
 

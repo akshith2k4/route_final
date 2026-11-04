@@ -30,6 +30,10 @@ function bagLabel(value: number): string {
   return `${value} bag${value === 1 ? "" : "s"}`;
 }
 
+function roomLabel(value: number): string {
+  return `${value} room${value === 1 ? "" : "s"}`;
+}
+
 export default function PlanAddHotelsDialog({
   open,
   route,
@@ -114,6 +118,10 @@ export default function PlanAddHotelsDialog({
   );
   const selectedBags = selectedCandidates.reduce(
     (sum, candidate) => sum + candidate.stop.load_bags,
+    0,
+  );
+  const selectedRooms = selectedCandidates.reduce(
+    (sum, candidate) => sum + (candidate.stop.rooms ?? 0),
     0,
   );
   const projectedBags = currentBags + selectedBags;
@@ -265,7 +273,8 @@ export default function PlanAddHotelsDialog({
                     </span>
                   </span>
                   <span className="plan-hotel-option__bags">
-                    {bagLabel(candidate.stop.load_bags)}
+                    {bagLabel(candidate.stop.load_bags)} ·{" "}
+                    {roomLabel(candidate.stop.rooms ?? 0)}
                   </span>
                 </label>
               );
@@ -319,7 +328,7 @@ export default function PlanAddHotelsDialog({
         <div className="plan-dialog__actions">
           <span className="plan-dialog__selection">
             {selected.size} hotel{selected.size === 1 ? "" : "s"} ·{" "}
-            {bagLabel(selectedBags)}
+            {bagLabel(selectedBags)} · {roomLabel(selectedRooms)}
           </span>
           <button type="button" className="btn btn--ghost" onClick={onClose}>
             Cancel

@@ -322,7 +322,7 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
         polyline.bindTooltip(
           `<div class="plan-route-tooltip"><b>${escapeHtml(
             route.name,
-          )}</b><span>${route.total_hotels} stops · ${route.total_bags} bags · ${
+          )}</b><span>${route.total_hotels} stops · ${route.total_bags} bags · ${route.total_rooms} rooms · ${
             route.total_dist_km
           } km · ${escapeHtml(route.depot_name)}</span></div>`,
           { direction: "top", sticky: true, className: "plan-route-tooltip" },
@@ -369,7 +369,7 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
                 <div class="tooltip-stop-badge" style="background:${route.color}">STOP #${stop.stop_number}</div>
                 <div class="tooltip-stop-title">${escapeHtml(stop.name)}</div>
                 <div class="tooltip-stop-meta">${stop.arrival_time} – ${stop.departure_time} · ${stop.service_mins}m on-site</div>
-                <div class="tooltip-stop-load">${stop.load_bags} bags pickup</div>
+                <div class="tooltip-stop-load">${stop.load_bags} bags pickup · ${stop.rooms ?? 0} rooms</div>
               </div>`,
               {
                 direction: "top",
@@ -395,7 +395,7 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
             dot.bindTooltip(
               `<b>${escapeHtml(stop.name)}</b><br/><span style="color:${route.color};font-weight:600">${escapeHtml(
                 route.name,
-              )}</span> · ${stop.load_bags} bags`,
+              )}</span> · ${stop.load_bags} bags · ${stop.rooms ?? 0} rooms`,
               { direction: "top", offset: [0, -5] },
             );
             dot.on("click", () => {

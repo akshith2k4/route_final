@@ -42,6 +42,34 @@ assert.equal(
   387,
   "expected 387 bags",
 );
+assert.equal(
+  plan.routes.reduce(
+    (sum, route) =>
+      sum + route.stops.reduce((child, stop) => child + (stop.rooms ?? 0), 0),
+    0,
+  ),
+  3423,
+  "expected 3423 rooms",
+);
+
+const expectedRoomsByRoute = {
+  103501: 440,
+  103601: 433,
+  103602: 270,
+  103603: 546,
+  103604: 350,
+  103605: 676,
+  103606: 516,
+  103607: 192,
+};
+for (const route of plan.routes) {
+  const rooms = route.stops.reduce((sum, stop) => sum + (stop.rooms ?? 0), 0);
+  assert.equal(
+    rooms,
+    expectedRoomsByRoute[route.route_id],
+    `room total mismatch for ${route.name}`,
+  );
+}
 
 assert.equal(matrix.points.length, 103, "expected 103 matrix points");
 assert.equal(matrix.missing_pairs, 0, "matrix should be complete");
@@ -76,6 +104,14 @@ const computation = computePlan(plan, matrix);
 assert.equal(computation.totals.routes, 8);
 assert.equal(computation.totals.hotels, 101);
 assert.equal(computation.totals.bags, 387);
+assert.equal(computation.totals.rooms, 3423);
+for (const route of computation.routes) {
+  assert.equal(
+    route.total_rooms,
+    expectedRoomsByRoute[route.route_id],
+    `computed room total mismatch for ${route.name}`,
+  );
+}
 assert.ok(
   computation.issues.filter((issue) => issue.code === "over_nominal_capacity")
     .length >= 7,
@@ -224,6 +260,38 @@ assert.equal(
   migratedSecondDraft.routes[0].depot_id,
   SECOND_DEPOT_ID,
   "migration must preserve an explicit warehouse assignment",
+);
+
+// Drafts saved before rooms were introduced should inherit room counts.
+const roomslessDraft = structuredClone(plan);
+for (const route of roomslessDraft.routes) {
+  for (const stop of route.stops) delete stop.rooms;
+}
+const migratedRoomsDraft = migratePlanDepots(roomslessDraft, plan);
+assert.equal(
+  migratedRoomsDraft.routes.reduce(
+    (sum, route) =>
+      sum + route.stops.reduce((child, stop) => child + (stop.rooms ?? 0), 0),
+    0,
+  ),
+  3423,
+  "migration should backfill room counts from the current plan",
+);
+assert.equal(
+  computePlan(migratedRoomsDraft, matrix).totals.rooms,
+  3423,
+  "migrated drafts should compute the full room total",
+);
+
+// Drafts backfilled as 0 while the page served stale data should heal.
+const zeroRoomsDraft = structuredClone(plan);
+for (const route of zeroRoomsDraft.routes) {
+  for (const stop of route.stops) stop.rooms = 0;
+}
+assert.equal(
+  computePlan(migratePlanDepots(zeroRoomsDraft, plan), matrix).totals.rooms,
+  3423,
+  "migration should heal zeroed room counts from the current plan",
 );
 
 assert.throws(

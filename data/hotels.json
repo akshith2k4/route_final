@@ -6,7 +6,8 @@
     "region": 4,
     "stop_mins": 13,
     "load": 3,
-    "id": "arama-suites"
+    "id": "arama-suites",
+    "rooms": 30
   },
   {
     "name": "ATHASRI INN- SHIVAJINAGAR",
@@ -15,7 +16,8 @@
     "region": 1,
     "stop_mins": 22,
     "load": 3,
-    "id": "athasri-inn-shivajinagar"
+    "id": "athasri-inn-shivajinagar",
+    "rooms": 29
   },
   {
     "name": "ATHULYA RESIDENCIES",
@@ -24,7 +26,8 @@
     "region": 2,
     "stop_mins": 10,
     "load": 3,
-    "id": "athulya-residencies"
+    "id": "athulya-residencies",
+    "rooms": 18
   },
   {
     "name": "AURUM KEY",
@@ -33,7 +36,8 @@
     "region": 3,
     "stop_mins": 11,
     "load": 6,
-    "id": "aurum-key"
+    "id": "aurum-key",
+    "rooms": 47
   },
   {
     "name": "BLUE BLISS HOTELS",
@@ -42,7 +46,8 @@
     "region": 1,
     "stop_mins": 18,
     "load": 3,
-    "id": "blue-bliss-hotels"
+    "id": "blue-bliss-hotels",
+    "rooms": 28
   },
   {
     "name": "BRINDAVANA STAY",
@@ -51,7 +56,8 @@
     "region": 2,
     "stop_mins": 38,
     "load": 2,
-    "id": "brindavana-stay"
+    "id": "brindavana-stay",
+    "rooms": 20
   },
   {
     "name": "BRIXTON LUXE",
@@ -60,7 +66,8 @@
     "region": 0,
     "stop_mins": 13,
     "load": 3,
-    "id": "brixton-luxe"
+    "id": "brixton-luxe",
+    "rooms": 24
   },
   {
     "name": "CASA PICCOSA E-CITY",
@@ -69,7 +76,8 @@
     "region": 0,
     "stop_mins": 14,
     "load": 3,
-    "id": "casa-piccosa-e-city"
+    "id": "casa-piccosa-e-city",
+    "rooms": 15
   },
   {
     "name": "DAY SUITES",
@@ -78,7 +86,8 @@
     "region": 3,
     "stop_mins": 29,
     "load": 15,
-    "id": "day-suites"
+    "id": "day-suites",
+    "rooms": 122
   },
   {
     "name": "DD COMFORTS",
@@ -87,7 +96,8 @@
     "region": 4,
     "stop_mins": 20,
     "load": 5,
-    "id": "dd-comforts"
+    "id": "dd-comforts",
+    "rooms": 26
   },
   {
     "name": "EKAA KEYS",
@@ -96,7 +106,8 @@
     "region": 0,
     "stop_mins": 18,
     "load": 3,
-    "id": "ekaa-keys"
+    "id": "ekaa-keys",
+    "rooms": 32
   },
   {
     "name": "EYRIE NEST",
@@ -105,7 +116,8 @@
     "region": 0,
     "stop_mins": 19,
     "load": 3,
-    "id": "eyrie-nest"
+    "id": "eyrie-nest",
+    "rooms": 28
   },
   {
     "name": "FELICITY",
@@ -114,7 +126,8 @@
     "region": 4,
     "stop_mins": 19,
     "load": 5,
-    "id": "felicity"
+    "id": "felicity",
+    "rooms": 44
   },
   {
     "name": "FORTUNE COMFORTS",
@@ -123,7 +136,8 @@
     "region": 2,
     "stop_mins": 21,
     "load": 3,
-    "id": "fortune-comforts"
+    "id": "fortune-comforts",
+    "rooms": 20
   },
   {
     "name": "FORTUNE INN",
@@ -132,7 +146,8 @@
     "region": 0,
     "stop_mins": 7,
     "load": 2,
-    "id": "fortune-inn"
+    "id": "fortune-inn",
+    "rooms": 14
   },
   {
     "name": "FORTUNE STAY",
@@ -141,7 +156,8 @@
     "region": 3,
     "stop_mins": 12,
     "load": 4,
-    "id": "fortune-stay"
+    "id": "fortune-stay",
+    "rooms": 28
   },
   {
     "name": "FORTY 1 HOSPITALITY",
@@ -150,7 +166,8 @@
     "region": 0,
     "stop_mins": 13,
     "load": 2,
-    "id": "forty-1-hospitality"
+    "id": "forty-1-hospitality",
+    "rooms": 5
   },
   {
     "name": "FOUNTAIN TREE",
@@ -159,7 +176,8 @@
     "region": 4,
     "stop_mins": 27,
     "load": 6,
-    "id": "fountain-tree"
+    "id": "fountain-tree",
+    "rooms": 36
   },
   {
     "name": "GOLDEN FORTUN INN",
@@ -168,7 +186,8 @@
     "region": 2,
     "stop_mins": 14,
     "load": 2,
-    "id": "golden-fortun-inn"
+    "id": "golden-fortun-inn",
+    "rooms": 20
   },
   {
     "name": "GOLDEN INN ROOMS",
@@ -177,7 +196,8 @@
     "region": 0,
     "stop_mins": 22,
     "load": 3,
-    "id": "golden-inn-rooms"
+    "id": "golden-inn-rooms",
+    "rooms": 14
   },
   {
     "name": "GOLDEN VISTA",
@@ -186,7 +206,8 @@
     "region": 2,
     "stop_mins": 6,
     "load": 3,
-    "id": "golden-vista"
+    "id": "golden-vista",
+    "rooms": 37
   },
   {
     "name": "HOLIDAY VILLAGE",
@@ -195,7 +216,8 @@
     "region": 4,
     "stop_mins": 29,
     "load": 5,
-    "id": "holiday-village"
+    "id": "holiday-village",
+    "rooms": 23
   },
   {
     "name": "HOTEL ERACREST",
@@ -204,7 +226,8 @@
     "region": 2,
     "stop_mins": 15,
     "load": 3,
-    "id": "hotel-eracrest"
+    "id": "hotel-eracrest",
+    "rooms": 26
   },
   {
     "name": "HOTEL MONARCH INTERNATIONAL",
@@ -213,7 +236,8 @@
     "region": 4,
     "stop_mins": 15,
     "load": 4,
-    "id": "hotel-monarch-international"
+    "id": "hotel-monarch-international",
+    "rooms": 32
   },
   {
     "name": "HOWARD JOHNSON",
@@ -222,7 +246,8 @@
     "region": 2,
     "stop_mins": 67,
     "load": 10,
-    "id": "howard-johnson"
+    "id": "howard-johnson",
+    "rooms": 117
   },
   {
     "name": "KALINGA HOSPITALITY",
@@ -231,7 +256,8 @@
     "region": 1,
     "stop_mins": 27,
     "load": 4,
-    "id": "kalinga-hospitality"
+    "id": "kalinga-hospitality",
+    "rooms": 46
   },
   {
     "name": "LE GRANDEUR",
@@ -240,7 +266,8 @@
     "region": 4,
     "stop_mins": 18,
     "load": 4,
-    "id": "le-grandeur"
+    "id": "le-grandeur",
+    "rooms": 18
   },
   {
     "name": "LE-GRANDEUR (NK CIRCLE)",
@@ -249,7 +276,8 @@
     "region": 4,
     "stop_mins": 28,
     "load": 4,
-    "id": "le-grandeur-nk-circle"
+    "id": "le-grandeur-nk-circle",
+    "rooms": 42
   },
   {
     "name": "LOCUL CENTRAL",
@@ -258,7 +286,8 @@
     "region": 1,
     "stop_mins": 19,
     "load": 2,
-    "id": "locul-central"
+    "id": "locul-central",
+    "rooms": 16
   },
   {
     "name": "LOCUL MIDTOWN",
@@ -267,7 +296,8 @@
     "region": 1,
     "stop_mins": 24,
     "load": 3,
-    "id": "locul-midtown"
+    "id": "locul-midtown",
+    "rooms": 29
   },
   {
     "name": "LOCUL UPTOWN",
@@ -276,7 +306,8 @@
     "region": 1,
     "stop_mins": 22,
     "load": 2,
-    "id": "locul-uptown"
+    "id": "locul-uptown",
+    "rooms": 22
   },
   {
     "name": "M R HAPPY STAY INN",
@@ -285,7 +316,8 @@
     "region": 4,
     "stop_mins": 30,
     "load": 1,
-    "id": "m-r-happy-stay-inn"
+    "id": "m-r-happy-stay-inn",
+    "rooms": 18
   },
   {
     "name": "NEST BY RIVIDO",
@@ -294,7 +326,8 @@
     "region": 4,
     "stop_mins": 11,
     "load": 3,
-    "id": "nest-by-rivido"
+    "id": "nest-by-rivido",
+    "rooms": 15
   },
   {
     "name": "NISARGA HOTEL",
@@ -303,7 +336,8 @@
     "region": 4,
     "stop_mins": 15,
     "load": 3,
-    "id": "nisarga-hotel"
+    "id": "nisarga-hotel",
+    "rooms": 10
   },
   {
     "name": "OCEAN SUITES",
@@ -312,7 +346,8 @@
     "region": 2,
     "stop_mins": 10,
     "load": 3,
-    "id": "ocean-suites"
+    "id": "ocean-suites",
+    "rooms": 15
   },
   {
     "name": "OCTAVE CHURCH INN CHH",
@@ -321,7 +356,8 @@
     "region": 1,
     "stop_mins": 15,
     "load": 2,
-    "id": "octave-church-inn-chh"
+    "id": "octave-church-inn-chh",
+    "rooms": 23
   },
   {
     "name": "OCTAVE CRYSTAL HEIGHT",
@@ -330,7 +366,8 @@
     "region": 1,
     "stop_mins": 37,
     "load": 3,
-    "id": "octave-crystal-height"
+    "id": "octave-crystal-height",
+    "rooms": 30
   },
   {
     "name": "OCTAVE HOTEL - DOUBLE ROAD",
@@ -339,7 +376,8 @@
     "region": 1,
     "stop_mins": 12,
     "load": 3,
-    "id": "octave-hotel-double-road"
+    "id": "octave-hotel-double-road",
+    "rooms": 36
   },
   {
     "name": "OCTAVE HOTEL AND SPA - SARJAPUR ROAD",
@@ -348,7 +386,8 @@
     "region": 0,
     "stop_mins": 8,
     "load": 4,
-    "id": "octave-hotel-and-spa-sarjapur-road"
+    "id": "octave-hotel-and-spa-sarjapur-road",
+    "rooms": 38
   },
   {
     "name": "OCTAVE HOTEL AND SPA - JP NAGAR",
@@ -357,7 +396,8 @@
     "region": 4,
     "stop_mins": 16,
     "load": 3,
-    "id": "octave-hotel-and-spa-jp-nagar"
+    "id": "octave-hotel-and-spa-jp-nagar",
+    "rooms": 30
   },
   {
     "name": "OCTAVE HOTEL AND SPA - MARATHAHALLI",
@@ -366,7 +406,8 @@
     "region": 3,
     "stop_mins": 12,
     "load": 4,
-    "id": "octave-hotel-and-spa-marathahalli"
+    "id": "octave-hotel-and-spa-marathahalli",
+    "rooms": 41
   },
   {
     "name": "OCTAVE JAMAYCA",
@@ -375,7 +416,8 @@
     "region": 2,
     "stop_mins": 20,
     "load": 3,
-    "id": "octave-jamayca"
+    "id": "octave-jamayca",
+    "rooms": 23
   },
   {
     "name": "OCTAVE ROYAL OPERA",
@@ -384,7 +426,8 @@
     "region": 2,
     "stop_mins": 9,
     "load": 3,
-    "id": "octave-royal-opera"
+    "id": "octave-royal-opera",
+    "rooms": 28
   },
   {
     "name": "OCTAVE STUDIO HOTEL - KORAMANGLA STU",
@@ -393,7 +436,8 @@
     "region": 0,
     "stop_mins": 12,
     "load": 3,
-    "id": "octave-studio-hotel-koramangla-stu"
+    "id": "octave-studio-hotel-koramangla-stu",
+    "rooms": 34
   },
   {
     "name": "OLIVE HULIMAVU HOTEL",
@@ -402,7 +446,8 @@
     "region": 4,
     "stop_mins": 24,
     "load": 6,
-    "id": "olive-hulimavu-hotel"
+    "id": "olive-hulimavu-hotel",
+    "rooms": 55
   },
   {
     "name": "OLIVE NAGAWARA",
@@ -411,7 +456,8 @@
     "region": 2,
     "stop_mins": 15,
     "load": 3,
-    "id": "olive-nagawara"
+    "id": "olive-nagawara",
+    "rooms": 88
   },
   {
     "name": "ORCHID PARC",
@@ -420,7 +466,8 @@
     "region": 2,
     "stop_mins": 52,
     "load": 20,
-    "id": "orchid-parc"
+    "id": "orchid-parc",
+    "rooms": 194
   },
   {
     "name": "PARK INN",
@@ -429,7 +476,8 @@
     "region": 3,
     "stop_mins": 6,
     "load": 4,
-    "id": "park-inn"
+    "id": "park-inn",
+    "rooms": 35
   },
   {
     "name": "PELICAN INN",
@@ -438,7 +486,8 @@
     "region": 1,
     "stop_mins": 26,
     "load": 3,
-    "id": "pelican-inn"
+    "id": "pelican-inn",
+    "rooms": 20
   },
   {
     "name": "RAJ RESIDENCY",
@@ -447,7 +496,8 @@
     "region": 2,
     "stop_mins": 11,
     "load": 3,
-    "id": "raj-residency"
+    "id": "raj-residency",
+    "rooms": 23
   },
   {
     "name": "REGENTA PALACE",
@@ -456,7 +506,8 @@
     "region": 1,
     "stop_mins": 58,
     "load": 3,
-    "id": "regenta-palace"
+    "id": "regenta-palace",
+    "rooms": 79
   },
   {
     "name": "RIVIDO MANAYATA",
@@ -465,7 +516,8 @@
     "region": 2,
     "stop_mins": 5,
     "load": 2,
-    "id": "rivido-manayata"
+    "id": "rivido-manayata",
+    "rooms": 28
   },
   {
     "name": "S V B R HOTEL",
@@ -474,7 +526,8 @@
     "region": 4,
     "stop_mins": 2,
     "load": 1,
-    "id": "s-v-b-r-hotel"
+    "id": "s-v-b-r-hotel",
+    "rooms": 16
   },
   {
     "name": "SAI SUITES INN",
@@ -483,7 +536,8 @@
     "region": 2,
     "stop_mins": 17,
     "load": 3,
-    "id": "sai-suites-inn"
+    "id": "sai-suites-inn",
+    "rooms": 36
   },
   {
     "name": "SHETTY GARDENIA HOTEL",
@@ -492,7 +546,8 @@
     "region": 4,
     "stop_mins": 10,
     "load": 3,
-    "id": "shetty-gardenia-hotel"
+    "id": "shetty-gardenia-hotel",
+    "rooms": 18
   },
   {
     "name": "SK COMFORTS",
@@ -501,7 +556,8 @@
     "region": 4,
     "stop_mins": 9,
     "load": 3,
-    "id": "sk-comforts"
+    "id": "sk-comforts",
+    "rooms": 15
   },
   {
     "name": "SM COMFORTS BTM",
@@ -510,7 +566,8 @@
     "region": 4,
     "stop_mins": 19,
     "load": 3,
-    "id": "sm-comforts-btm"
+    "id": "sm-comforts-btm",
+    "rooms": 28
   },
   {
     "name": "SM COMFORTS HSR",
@@ -519,7 +576,8 @@
     "region": 0,
     "stop_mins": 13,
     "load": 3,
-    "id": "sm-comforts-hsr"
+    "id": "sm-comforts-hsr",
+    "rooms": 22
   },
   {
     "name": "SM INTERNATIONAL",
@@ -528,7 +586,8 @@
     "region": 4,
     "stop_mins": 20,
     "load": 3,
-    "id": "sm-international"
+    "id": "sm-international",
+    "rooms": 31
   },
   {
     "name": "SM STAY INN",
@@ -537,7 +596,8 @@
     "region": 4,
     "stop_mins": 39,
     "load": 3,
-    "id": "sm-stay-inn"
+    "id": "sm-stay-inn",
+    "rooms": 22
   },
   {
     "name": "SM STAY INN KORAMANGALA",
@@ -546,7 +606,8 @@
     "region": 0,
     "stop_mins": 11,
     "load": 3,
-    "id": "sm-stay-inn-koramangala"
+    "id": "sm-stay-inn-koramangala",
+    "rooms": 20
   },
   {
     "name": "SRI SAI COMFORTS",
@@ -555,7 +616,8 @@
     "region": 2,
     "stop_mins": 19,
     "load": 2,
-    "id": "sri-sai-comforts"
+    "id": "sri-sai-comforts",
+    "rooms": 34
   },
   {
     "name": "SRI SAI SUITES",
@@ -564,7 +626,8 @@
     "region": 2,
     "stop_mins": 9,
     "load": 3,
-    "id": "sri-sai-suites"
+    "id": "sri-sai-suites",
+    "rooms": 10
   },
   {
     "name": "STERLING KEYS",
@@ -573,7 +636,8 @@
     "region": 4,
     "stop_mins": 22,
     "load": 4,
-    "id": "sterling-keys"
+    "id": "sterling-keys",
+    "rooms": 28
   },
   {
     "name": "SV COMFORTS",
@@ -582,7 +646,8 @@
     "region": 4,
     "stop_mins": 22,
     "load": 3,
-    "id": "sv-comforts"
+    "id": "sv-comforts",
+    "rooms": 28
   },
   {
     "name": "SY COMFORTS",
@@ -591,7 +656,8 @@
     "region": 4,
     "stop_mins": 12,
     "load": 2,
-    "id": "sy-comforts"
+    "id": "sy-comforts",
+    "rooms": 20
   },
   {
     "name": "TEMPLE KEYS",
@@ -600,7 +666,8 @@
     "region": 4,
     "stop_mins": 11,
     "load": 2,
-    "id": "temple-keys"
+    "id": "temple-keys",
+    "rooms": 15
   },
   {
     "name": "THALASSA SPA",
@@ -609,7 +676,8 @@
     "region": 2,
     "stop_mins": 6,
     "load": 3,
-    "id": "thalassa-spa"
+    "id": "thalassa-spa",
+    "rooms": 20
   },
   {
     "name": "THE CHANCERY HOTELS",
@@ -618,7 +686,8 @@
     "region": 1,
     "stop_mins": 195,
     "load": 14,
-    "id": "the-chancery-hotels"
+    "id": "the-chancery-hotels",
+    "rooms": 125
   },
   {
     "name": "THE CHANCERY PAVILION",
@@ -627,7 +696,8 @@
     "region": 1,
     "stop_mins": 127,
     "load": 26,
-    "id": "the-chancery-pavilion"
+    "id": "the-chancery-pavilion",
+    "rooms": 225
   },
   {
     "name": "THE GRAND KRISHNA ROOMS",
@@ -636,7 +706,8 @@
     "region": 0,
     "stop_mins": 21,
     "load": 3,
-    "id": "the-grand-krishna-rooms"
+    "id": "the-grand-krishna-rooms",
+    "rooms": 36
   },
   {
     "name": "THE MOCANA BANYAN",
@@ -645,7 +716,8 @@
     "region": 0,
     "stop_mins": 25,
     "load": 4,
-    "id": "the-mocana-banyan"
+    "id": "the-mocana-banyan",
+    "rooms": 50
   },
   {
     "name": "TRUP GLOBAL KEMPAPUR NEW",
@@ -654,7 +726,8 @@
     "region": 2,
     "stop_mins": 9,
     "load": 2,
-    "id": "trup-global-kempapur-new"
+    "id": "trup-global-kempapur-new",
+    "rooms": 10
   },
   {
     "name": "UK COMFORTS",
@@ -663,7 +736,8 @@
     "region": 2,
     "stop_mins": 19,
     "load": 3,
-    "id": "uk-comforts"
+    "id": "uk-comforts",
+    "rooms": 42
   },
   {
     "name": "UR COMFORTS",
@@ -672,7 +746,8 @@
     "region": 4,
     "stop_mins": 39,
     "load": 5,
-    "id": "ur-comforts"
+    "id": "ur-comforts",
+    "rooms": 23
   },
   {
     "name": "UR STAY INN",
@@ -681,7 +756,8 @@
     "region": 4,
     "stop_mins": 23,
     "load": 3,
-    "id": "ur-stay-inn"
+    "id": "ur-stay-inn",
+    "rooms": 16
   },
   {
     "name": "URBAN NEST",
@@ -690,7 +766,8 @@
     "region": 2,
     "stop_mins": 5,
     "load": 3,
-    "id": "urban-nest"
+    "id": "urban-nest",
+    "rooms": 18
   },
   {
     "name": "VP INTERNATIONAL",
@@ -699,7 +776,8 @@
     "region": 4,
     "stop_mins": 28,
     "load": 3,
-    "id": "vp-international"
+    "id": "vp-international",
+    "rooms": 20
   },
   {
     "name": "Wandr - Brookefield",
@@ -708,7 +786,8 @@
     "region": 3,
     "stop_mins": 15,
     "load": 4,
-    "id": "wandr-brookefield"
+    "id": "wandr-brookefield",
+    "rooms": 25
   },
   {
     "name": "Wandr - HSR Layout",
@@ -717,7 +796,8 @@
     "region": 0,
     "stop_mins": 15,
     "load": 3,
-    "id": "wandr-hsr-layout"
+    "id": "wandr-hsr-layout",
+    "rooms": 32
   },
   {
     "name": "Wandr - Indiranagar",
@@ -726,7 +806,8 @@
     "region": 1,
     "stop_mins": 15,
     "load": 2,
-    "id": "wandr-indiranagar"
+    "id": "wandr-indiranagar",
+    "rooms": 18
   },
   {
     "name": "Wandr - Kormangala",
@@ -735,7 +816,8 @@
     "region": 0,
     "stop_mins": 18,
     "load": 3,
-    "id": "wandr-kormangala"
+    "id": "wandr-kormangala",
+    "rooms": 23
   },
   {
     "name": "Wandr - Richmond Road",
@@ -744,7 +826,8 @@
     "region": 1,
     "stop_mins": 15,
     "load": 3,
-    "id": "wandr-richmond-road"
+    "id": "wandr-richmond-road",
+    "rooms": 35
   },
   {
     "name": "Wandr - Ulsoor",
@@ -753,7 +836,8 @@
     "region": 1,
     "stop_mins": 15,
     "load": 4,
-    "id": "wandr-ulsoor"
+    "id": "wandr-ulsoor",
+    "rooms": 30
   },
   {
     "name": "WESTERN KEYS HOTEL",
@@ -762,7 +846,8 @@
     "region": 0,
     "stop_mins": 11,
     "load": 6,
-    "id": "western-keys-hotel"
+    "id": "western-keys-hotel",
+    "rooms": 44
   },
   {
     "name": "Hyatt Centric Whitefield Bengaluru",
@@ -771,7 +856,8 @@
     "region": 3,
     "stop_mins": 21,
     "load": 3,
-    "id": "hyatt-centric-whitefield-bengaluru"
+    "id": "hyatt-centric-whitefield-bengaluru",
+    "rooms": 55
   },
   {
     "name": "Kingston palace",
@@ -780,7 +866,8 @@
     "region": 4,
     "stop_mins": 21,
     "load": 3,
-    "id": "kingston-palace"
+    "id": "kingston-palace",
+    "rooms": 30
   },
   {
     "name": "AVORA TREE SUITES",
@@ -789,7 +876,8 @@
     "region": 2,
     "stop_mins": 30,
     "load": 5,
-    "id": "avora-tree-suites"
+    "id": "avora-tree-suites",
+    "rooms": 21
   },
   {
     "name": "CELEBRITY SUITES",
@@ -798,7 +886,8 @@
     "region": 0,
     "stop_mins": 15,
     "load": 3,
-    "id": "celebrity-suites"
+    "id": "celebrity-suites",
+    "rooms": 23
   },
   {
     "name": "CELESTIAL SUITES",
@@ -807,7 +896,8 @@
     "region": 0,
     "stop_mins": 15,
     "load": 3,
-    "id": "celestial-suites"
+    "id": "celestial-suites",
+    "rooms": 20
   },
   {
     "name": "CLOVER A RIVIDO HOTELS",
@@ -816,7 +906,8 @@
     "region": 0,
     "stop_mins": 13,
     "load": 3,
-    "id": "clover-a-rivido-hotels"
+    "id": "clover-a-rivido-hotels",
+    "rooms": 28
   },
   {
     "name": "EAST PARK PREMIUM",
@@ -825,7 +916,8 @@
     "region": 0,
     "stop_mins": 17,
     "load": 4,
-    "id": "east-park-premium"
+    "id": "east-park-premium",
+    "rooms": 25
   },
   {
     "name": "EAST PARK RIO",
@@ -834,7 +926,8 @@
     "region": 0,
     "stop_mins": 12,
     "load": 2,
-    "id": "east-park-rio"
+    "id": "east-park-rio",
+    "rooms": 10
   },
   {
     "name": "GLOBAL STAY",
@@ -843,7 +936,8 @@
     "region": 0,
     "stop_mins": 14,
     "load": 3,
-    "id": "global-stay"
+    "id": "global-stay",
+    "rooms": 27
   },
   {
     "name": "GOLDEN STAY",
@@ -852,7 +946,8 @@
     "region": 0,
     "stop_mins": 8,
     "load": 2,
-    "id": "golden-stay"
+    "id": "golden-stay",
+    "rooms": 10
   },
   {
     "name": "GOLDEN SUITES",
@@ -861,7 +956,8 @@
     "region": 0,
     "stop_mins": 17,
     "load": 3,
-    "id": "golden-suites"
+    "id": "golden-suites",
+    "rooms": 16
   },
   {
     "name": "HOTEL VERTEX",
@@ -870,7 +966,8 @@
     "region": 0,
     "stop_mins": 14,
     "load": 2,
-    "id": "hotel-vertex"
+    "id": "hotel-vertex",
+    "rooms": 28
   },
   {
     "name": "INVENTREE E-CITY",
@@ -879,7 +976,8 @@
     "region": 0,
     "stop_mins": 39,
     "load": 1,
-    "id": "inventree-e-city"
+    "id": "inventree-e-city",
+    "rooms": 70
   },
   {
     "name": "MANDALA RESORTS",
@@ -888,7 +986,8 @@
     "region": 2,
     "stop_mins": 28,
     "load": 4,
-    "id": "mandala-resorts"
+    "id": "mandala-resorts",
+    "rooms": 20
   },
   {
     "name": "NIRANTARA RESORT",
@@ -897,7 +996,8 @@
     "region": 0,
     "stop_mins": 25,
     "load": 4,
-    "id": "nirantara-resort"
+    "id": "nirantara-resort",
+    "rooms": 20
   },
   {
     "name": "V.B.H INN",
@@ -906,6 +1006,7 @@
     "region": 0,
     "stop_mins": 9,
     "load": 2,
-    "id": "v-b-h-inn"
+    "id": "v-b-h-inn",
+    "rooms": 14
   }
 ]
