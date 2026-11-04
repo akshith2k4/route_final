@@ -6785,6 +6785,10 @@ a {
   background: var(--paper);
 }
 
+.plan-vehicle-add .plan-dialog__field {
+  margin-bottom: 0;
+}
+
 .plan-vehicle-add__button {
   height: 43px;
   white-space: nowrap;
