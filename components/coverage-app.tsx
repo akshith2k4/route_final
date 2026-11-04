@@ -40,14 +40,16 @@ import {
   type RegionMeta,
   type StudioDepot,
 } from "../lib/coverage";
+import manualRoutesJson from "../data/manual_routes.json";
 
 type CoverageAppProps = {
   regions: RegionMeta[];
   hotels: Hotel[];
   hexMap: HexMap;
   routes?: DispatchRoute[];
+  manualRoutes?: DispatchRoute[];
   depot?: FleetDepot;
-  initialWorkspace?: "coverage" | "dispatch" | "studio";
+  initialWorkspace?: "coverage" | "manual" | "dispatch" | "studio";
 };
 
 type Tab = "regions" | "hotels";
@@ -70,9 +72,14 @@ export default function CoverageApp({
   hotels,
   hexMap,
   routes = [],
+  manualRoutes: manualRoutesProp,
   depot,
   initialWorkspace = "coverage",
 }: CoverageAppProps) {
+  const manualRoutes = useMemo(
+    () => manualRoutesProp ?? ((manualRoutesJson as unknown) as DispatchRoute[]),
+    [manualRoutesProp],
+  );
   const regions = useMemo(
     () => [...regionData].sort((a, b) => a.id - b.id),
     [regionData],
@@ -108,9 +115,12 @@ export default function CoverageApp({
     [regions],
   );
 
+// Feature flag: set to true to reveal Dispatch and Studio workspaces in UI
+const SHOW_DISPATCH_AND_STUDIO = false;
+
   const [activeWorkspace, setActiveWorkspace] = useState<
-    "coverage" | "dispatch" | "studio"
-  >(initialWorkspace);
+    "coverage" | "manual" | "dispatch" | "studio"
+  >(initialWorkspace === "manual" ? "manual" : SHOW_DISPATCH_AND_STUDIO ? initialWorkspace : "coverage");
   const [simulatedRoutes, setSimulatedRoutes] = useState<DispatchRoute[]>(routes);
   const [simulatedDepots, setSimulatedDepots] = useState<StudioDepot[]>(DEFAULT_DEPOTS);
 
@@ -367,38 +377,72 @@ export default function CoverageApp({
           <button
             type="button"
             className={`topnav__item ${activeWorkspace === "coverage" ? "topnav__item--active" : ""}`}
-            onClick={() => setActiveWorkspace("coverage")}
+            onClick={() => {
+              setActiveWorkspace("coverage");
+              setSelectedRouteIndex(null);
+              setSelectedStopNumber(null);
+            }}
           >
             Coverage
           </button>
           <button
             type="button"
-            className={`topnav__item ${activeWorkspace === "dispatch" ? "topnav__item--active" : ""}`}
-            onClick={() => setActiveWorkspace("dispatch")}
+            className={`topnav__item ${activeWorkspace === "manual" ? "topnav__item--active" : ""}`}
+            onClick={() => {
+              setActiveWorkspace("manual");
+              setSelectedRouteIndex(null);
+              setSelectedStopNumber(null);
+            }}
           >
-            Dispatch
-            <span className="topnav__live-pill">Live plan</span>
+            Manual routes
+            <span className="topnav__live-pill">8 Routes</span>
           </button>
-          <button
-            type="button"
-            className={`topnav__item ${activeWorkspace === "studio" ? "topnav__item--active" : ""}`}
-            onClick={() => setActiveWorkspace("studio")}
-          >
-            Studio
-            <span className="topnav__studio-pill">Custom plan</span>
-          </button>
+          {SHOW_DISPATCH_AND_STUDIO && (
+            <>
+              <button
+                type="button"
+                className={`topnav__item ${activeWorkspace === "dispatch" ? "topnav__item--active" : ""}`}
+                onClick={() => {
+                  setActiveWorkspace("dispatch");
+                  setSelectedRouteIndex(null);
+                  setSelectedStopNumber(null);
+                }}
+              >
+                Dispatch
+                <span className="topnav__live-pill">Live plan</span>
+              </button>
+              <button
+                type="button"
+                className={`topnav__item ${activeWorkspace === "studio" ? "topnav__item--active" : ""}`}
+                onClick={() => {
+                  setActiveWorkspace("studio");
+                  setSelectedRouteIndex(null);
+                  setSelectedStopNumber(null);
+                }}
+              >
+                Studio
+                <span className="topnav__studio-pill">Custom plan</span>
+              </button>
+            </>
+          )}
         </nav>
 
         <div className="topbar__actions">
           <div className="topbar-stat">
             <span className="topbar-stat__dot" />
             <span>
-              {activeWorkspace === "studio" ? (
+              {activeWorkspace === "manual" ? (
+                <>
+                  <b>{manualRoutes.length}</b> manual routes ·{" "}
+                  <b>{manualRoutes.reduce((acc, r) => acc + r.total_hotels, 0)}</b> stops ·{" "}
+                  <b>{Math.round(manualRoutes.reduce((acc, r) => acc + r.total_dist_km, 0))} km</b>
+                </>
+              ) : SHOW_DISPATCH_AND_STUDIO && activeWorkspace === "studio" ? (
                 <>
                   <b>{simulatedRoutes.length}</b> custom routes ·{" "}
                   <b>{simulatedRoutes.reduce((acc, r) => acc + r.total_hotels, 0)}</b> stops
                 </>
-              ) : activeWorkspace === "dispatch" ? (
+              ) : SHOW_DISPATCH_AND_STUDIO && activeWorkspace === "dispatch" ? (
                 <>
                   <b>{routes.length}</b> vehicles · <b>{hotels.length}</b> stops
                 </>
@@ -429,7 +473,13 @@ export default function CoverageApp({
             regions={regions}
             hotels={hotels}
             hexMap={hexMap}
-            routes={activeWorkspace === "studio" ? simulatedRoutes : routes}
+            routes={
+              activeWorkspace === "manual"
+                ? manualRoutes
+                : activeWorkspace === "studio"
+                  ? simulatedRoutes
+                  : routes
+            }
             depot={depot}
             depots={activeWorkspace === "studio" ? simulatedDepots : undefined}
             selectedRouteIndex={selectedRouteIndex}
@@ -454,14 +504,39 @@ export default function CoverageApp({
         <aside
           className="panel"
           aria-label={
-            activeWorkspace === "studio"
-              ? "Optimizer studio custom solver"
-              : activeWorkspace === "dispatch"
-                ? "Fleet dispatch management"
-                : "Coverage explorer"
+            activeWorkspace === "manual"
+              ? "Manual route mapping"
+              : activeWorkspace === "studio"
+                ? "Optimizer studio custom solver"
+                : activeWorkspace === "dispatch"
+                  ? "Fleet dispatch management"
+                  : "Coverage explorer"
           }
         >
-          {activeWorkspace === "studio" ? (
+          {activeWorkspace === "manual" ? (
+            <DispatchPanel
+              title="Manual route mapping"
+              description="8 multi-van manual routes across Bangalore with turn-by-turn road navigation from LinenGrass HQ (Yeshwanthpur Central Laundry)."
+              manifestDownloadName="linengrass_manual_routes_manifest.csv"
+              routes={manualRoutes}
+              depot={
+                depot ?? {
+                  name: "LinenGrass HQ (Yeshwanthpur Central Laundry)",
+                  latitude: 13.017275,
+                  longitude: 77.546578,
+                }
+              }
+              regions={regions}
+              selectedRouteIndex={selectedRouteIndex}
+              onSelectRoute={handleSelectRoute}
+              selectedStopNumber={selectedStopNumber}
+              onSelectStop={handleSelectStop}
+              selectedRegionFilter={selectedRegionFilter}
+              onSelectRegionFilter={setSelectedRegionFilter}
+              onFocusRoute={handleFocusRoute}
+              onFocusStop={handleFocusStop}
+            />
+          ) : activeWorkspace === "studio" ? (
             <StudioPanel
               hotels={hotels}
               regions={regions}

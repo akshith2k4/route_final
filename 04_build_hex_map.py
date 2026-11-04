@@ -147,6 +147,19 @@ for pt in sarjapur_road_pts:
         hex_to_region[cell] = 0
         corridor_hex_count += 1
 
+# 3d. Extend Route 2 (North & West) along Magadi Road corridor to Mandala Resorts
+magadi_corridor_cells = [
+    '87601458cffffff',  # Magadi Main Rd / NICE Rd junction
+    '876014433ffffff',  # Tavarekere / Magadi Rd corridor
+    '876014599ffffff',  # Peenya West highway approach
+    '87601459bffffff',  # Madavara / BIEC
+    '87601690cffffff',  # Airport NH44
+]
+for c in magadi_corridor_cells:
+    if c not in hex_to_region or hex_to_region[c] != 2:
+        hex_to_region[c] = 2
+        corridor_hex_count += 1
+
 print(f"Added {corridor_hex_count} corridor/hotel hexagons.")
 print(f"Total hexagons in 5-region operational footprint: {len(hex_to_region)}")
 

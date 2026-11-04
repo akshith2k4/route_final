@@ -38,6 +38,9 @@ type DispatchPanelProps = {
   onSelectRegionFilter: (regionId: number | null) => void;
   onFocusRoute: (index: number) => void;
   onFocusStop: (lat: number, lon: number) => void;
+  title?: string;
+  description?: string;
+  manifestDownloadName?: string;
 };
 
 export default function DispatchPanel({
@@ -52,10 +55,17 @@ export default function DispatchPanel({
   onSelectRegionFilter,
   onFocusRoute,
   onFocusStop,
+  title,
+  description,
+  manifestDownloadName,
 }: DispatchPanelProps) {
   const filteredRoutes = useMemo(() => {
     if (selectedRegionFilter === null) return routes;
-    return routes.filter((r) => r.region_id === selectedRegionFilter);
+    return routes.filter(
+      (r) =>
+        r.region_id === selectedRegionFilter ||
+        r.stops.some((s: any) => s.region === selectedRegionFilter),
+    );
   }, [routes, selectedRegionFilter]);
 
   const activeRoute = selectedRouteIndex !== null ? routes[selectedRouteIndex] : null;
@@ -101,7 +111,7 @@ export default function DispatchPanel({
       for (const s of r.stops) {
         rows.push(
           [
-            `R${r.region_id}`,
+            r.region_id ? `R${r.region_id}` : `R${s.region ?? "Fleet"}`,
             `"${r.vehicle_label}"`,
             r.nominal_cap,
             r.max_load,
@@ -126,7 +136,7 @@ export default function DispatchPanel({
       "download",
       route
         ? `linengrass_manifest_${route.vehicle_label.toLowerCase().replace(/[^a-z0-9]/g, "_")}.csv`
-        : `linengrass_fleet_dispatch_manifest_102hotels.csv`,
+        : manifestDownloadName ?? `linengrass_fleet_dispatch_manifest_101hotels.csv`,
     );
     document.body.appendChild(link);
     link.click();
@@ -141,10 +151,10 @@ export default function DispatchPanel({
           <span className="eyebrow__dot eyebrow__dot--dispatch" />
           Bengaluru · Fleet Operations
         </span>
-        <h1>Fleet dispatch</h1>
+        <h1>{title ?? "Fleet dispatch"}</h1>
         <p>
-          10 multi-van routes across 5 regions. Central HQ: Yeshwanthpur Central
-          Laundry.
+          {description ??
+            `${fleetStats.totalVans} multi-van routes across 5 regions. Central HQ: Yeshwanthpur Central Laundry.`}
         </p>
 
         <div className="intro-stats dispatch-stats-strip">
@@ -243,7 +253,8 @@ export default function DispatchPanel({
                   style={{ backgroundColor: activeRoute.color }}
                 />
                 <span className="dispatch-van-code">
-                  R{activeRoute.region_id} · Vehicle {activeRoute.vehicle_label.split(" (")[0].replace("Vehicle ", "")}
+                  {activeRoute.region_id ? `R${activeRoute.region_id} · ` : ""}
+                  {activeRoute.vehicle_label.split(" (")[0]}
                 </span>
               </div>
               <span className="dispatch-status-chip">
@@ -506,7 +517,11 @@ export default function DispatchPanel({
                       <span className="van-name">
                         {route.vehicle_label.split(" (")[0]}
                       </span>
-                      <span className="van-region-tag">R{route.region_id}</span>
+                      {route.region_id ? (
+                        <span className="van-region-tag">R{route.region_id}</span>
+                      ) : route.route_id ? (
+                        <span className="van-region-tag">#{route.route_id}</span>
+                      ) : null}
                     </div>
 
                     <span

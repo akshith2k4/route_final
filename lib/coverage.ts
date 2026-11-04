@@ -54,14 +54,15 @@ export type DispatchStop = {
   departure_time: string;
   stop_mins: number;
   load_bags: number;
+  region?: number;
   address_locality?: string;
 };
 
 export type DispatchRoute = {
   route_id?: string;
   vehicle_id?: number;
-  region_id: number;
-  region_name: string;
+  region_id?: number;
+  region_name?: string;
   vehicle_label: string;
   color: string;
   nominal_cap: number;

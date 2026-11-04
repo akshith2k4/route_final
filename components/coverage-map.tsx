@@ -45,7 +45,7 @@ import {
 } from "../lib/coverage";
 
 type CoverageMapProps = {
-  workspace: "coverage" | "dispatch" | "studio";
+  workspace: "coverage" | "dispatch" | "studio" | "manual";
   regions: RegionMeta[];
   hotels: Hotel[];
   hexMap: HexMap;
@@ -465,7 +465,13 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
 
       dispatchGroup.clearLayers();
 
-      if ((workspace !== "dispatch" && workspace !== "studio") || !routes || !routes.length) {
+      if (
+        (workspace !== "dispatch" &&
+          workspace !== "studio" &&
+          workspace !== "manual") ||
+        !routes ||
+        !routes.length
+      ) {
         return;
       }
 
@@ -946,16 +952,26 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
         ) : (
           <div className="map-legend map-legend--dispatch" aria-label="Dispatch legend">
             <div className="map-legend__head">
-              <span>{workspace === "studio" ? "Studio solver" : "Fleet dispatch"}</span>
+              <span>
+                {workspace === "studio"
+                  ? "Studio solver"
+                  : workspace === "manual"
+                    ? "Manual route plan"
+                    : "Fleet dispatch"}
+              </span>
               <span className="map-legend__res">
-                {workspace === "studio" ? `${routes.length} active vans` : "10 Vans"}
+                {workspace === "studio"
+                  ? `${routes.length} active vans`
+                  : workspace === "manual"
+                    ? `${routes.length} Routes`
+                    : "10 Vans"}
               </span>
             </div>
             <div className="dispatch-legend__depot">
               <span className="depot-legend-dot" />
               <span>LinenGrass HQ (Yeshwanthpur Central Laundry)</span>
             </div>
-            {routes.slice(0, 5).map((route, idx) => (
+            {routes.slice(0, 8).map((route, idx) => (
               <button
                 type="button"
                 key={route.vehicle_label}
@@ -964,16 +980,22 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
                 onClick={() => onSelectRoute?.(idx)}
               >
                 <span className="map-legend__dot" style={{ backgroundColor: route.color }} />
-                <span className="map-legend__code">{route.vehicle_label.split(" (")[0]}</span>
+                <span className="map-legend__code">{route.vehicle_label.split(" - ")[0]}</span>
                 <span className="map-legend__name">
-                  {route.vehicle_label.split(" - ")[1]?.split(" / ")[0] ?? `R${route.region_id}`}
+                  {route.vehicle_label.split(" - ")[1]?.split(" (")[0] ?? route.vehicle_label}
                 </span>
                 <span className="map-legend__count">{route.total_hotels} stops</span>
               </button>
             ))}
             <div className="map-legend__foot">
               <span>{routes.reduce((acc, r) => acc + r.total_hotels, 0)} stops total</span>
-              <span>{workspace === "studio" ? "Simulated plan" : "100% delivered"}</span>
+              <span>
+                {workspace === "studio"
+                  ? "Simulated plan"
+                  : workspace === "manual"
+                    ? "Manual route plan"
+                    : "100% delivered"}
+              </span>
             </div>
           </div>
         )}
