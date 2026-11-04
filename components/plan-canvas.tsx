@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   Check,
   ChevronDown,
+  Clock,
   ChevronUp,
   Download,
   GripVertical,
@@ -30,6 +31,7 @@ import PlanCanvasMap, {
 import {
   computePlan,
   findStop,
+  formatClock,
   formatDuration,
   moveStop,
   reorderStops,
@@ -58,6 +60,11 @@ type DropTarget = {
 type DragState = {
   hotelId: string;
   sourceRouteId: string;
+};
+
+type Toast = {
+  message: string;
+  tone: "info" | "error";
 };
 
 function shortRouteName(name: string): string {
@@ -121,7 +128,7 @@ export default function PlanCanvas({
   const [updatingRoutes, setUpdatingRoutes] = useState<Set<string>>(
     () => new Set(),
   );
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
 
@@ -182,11 +189,17 @@ export default function PlanCanvas({
     return map;
   }, [computation.issues]);
 
-  const notify = useCallback((message: string) => {
-    setToast(message);
-    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = window.setTimeout(() => setToast(null), 3800);
-  }, []);
+  const notify = useCallback(
+    (message: string, tone: Toast["tone"] = "info") => {
+      setToast({ message, tone });
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = window.setTimeout(
+        () => setToast(null),
+        tone === "error" ? 5600 : 3800,
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     return () => {
@@ -204,12 +217,13 @@ export default function PlanCanvas({
           parsed.plan_id === initialPlan.plan_id &&
           Array.isArray(parsed.routes)
         ) {
-          setPlan(parsed);
-          planRef.current = parsed;
+          const restored: Plan = { ...parsed, shift: initialPlan.shift };
+          setPlan(restored);
+          planRef.current = restored;
           setSelectedRouteId((current) =>
-            current && parsed.routes.some((route) => route.route_id === current)
+            current && restored.routes.some((route) => route.route_id === current)
               ? current
-              : (parsed.routes[0]?.route_id ?? null),
+              : (restored.routes[0]?.route_id ?? null),
           );
           notify("Restored your local draft");
         }
@@ -219,7 +233,12 @@ export default function PlanCanvas({
     } finally {
       setHydrated(true);
     }
-  }, [initialPlan.plan_id, notify]);
+  }, [
+    initialPlan.plan_id,
+    initialPlan.shift.start_min,
+    initialPlan.shift.end_min,
+    notify,
+  ]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -419,7 +438,18 @@ export default function PlanCanvas({
       );
       if (!source || !target) return;
 
-      const next = moveStop(current, hotelId, targetRouteId, targetIndex, matrix);
+      let next: Plan;
+      try {
+        next = moveStop(current, hotelId, targetRouteId, targetIndex, matrix);
+      } catch (error) {
+        notify(
+          error instanceof Error
+            ? error.message
+            : "That stop cannot be moved to this route.",
+          "error",
+        );
+        return;
+      }
       const stop = source.stop;
       const targetName = shortRouteName(target.name);
       commit(next, `Moved ${stop.name} to ${targetName}`);
@@ -428,7 +458,7 @@ export default function PlanCanvas({
       mapRef.current?.focusStop(stop.lat, stop.lon);
       revealInspector();
     },
-    [commit, matrix, revealInspector],
+    [commit, matrix, notify, revealInspector],
   );
 
   const moveWithinRoute = useCallback(
@@ -484,6 +514,20 @@ export default function PlanCanvas({
     setDropTarget(null);
   }, []);
 
+  const canDropOnRoute = useCallback(
+    (route: PlanRoute): boolean => {
+      if (!dragState) return true;
+      if (dragState.sourceRouteId === route.route_id) return true;
+      const dragged = findStop(planRef.current, dragState.hotelId);
+      const target = computedById.get(route.route_id);
+      if (!dragged || !target) return true;
+      return (
+        target.total_bags + dragged.stop.load_bags <= route.nominal_cap
+      );
+    },
+    [computedById, dragState],
+  );
+
   const handleStopDragOver = useCallback(
     (
       event: React.DragEvent<HTMLElement>,
@@ -491,6 +535,11 @@ export default function PlanCanvas({
       index: number,
     ) => {
       if (!dragState) return;
+      if (!canDropOnRoute(route)) {
+        event.dataTransfer.dropEffect = "none";
+        if (dropTarget?.routeId === route.route_id) setDropTarget(null);
+        return;
+      }
       event.preventDefault();
       event.stopPropagation();
       event.dataTransfer.dropEffect = "move";
@@ -504,7 +553,7 @@ export default function PlanCanvas({
         setDropTarget({ routeId: route.route_id, index: gap });
       }
     },
-    [dragState, dropTarget],
+    [canDropOnRoute, dragState, dropTarget],
   );
 
   const handleStopDrop = useCallback(
@@ -543,13 +592,18 @@ export default function PlanCanvas({
   const handleRouteDragOver = useCallback(
     (event: React.DragEvent<HTMLElement>, route: PlanRoute) => {
       if (!dragState) return;
+      if (!canDropOnRoute(route)) {
+        event.dataTransfer.dropEffect = "none";
+        if (dropTarget) setDropTarget(null);
+        return;
+      }
       event.preventDefault();
       event.dataTransfer.dropEffect = "move";
       if (dropTarget?.routeId !== route.route_id || dropTarget.index !== null) {
         setDropTarget({ routeId: route.route_id, index: null });
       }
     },
-    [dragState, dropTarget],
+    [canDropOnRoute, dragState, dropTarget],
   );
 
   const handleRouteDrop = useCallback(
@@ -602,6 +656,9 @@ export default function PlanCanvas({
   const moveTargets = selectedRoute
     ? plan.routes.filter((route) => route.route_id !== selectedRoute.route_id)
     : [];
+  const draggedStop = dragState
+    ? findStop(plan, dragState.hotelId)?.stop ?? null
+    : null;
 
   return (
     <div className="plan-app">
@@ -703,6 +760,13 @@ export default function PlanCanvas({
               if (!computed) return null;
               const isSelected = selectedRouteId === route.route_id;
               const isDropRoute = dropTarget?.routeId === route.route_id;
+              const isDropBlocked = Boolean(
+                dragState &&
+                  draggedStop &&
+                  dragState.sourceRouteId !== route.route_id &&
+                  computed.total_bags + draggedStop.load_bags >
+                    route.nominal_cap,
+              );
               const tone = capacityTone(computed.total_bags, route);
               const returnTone =
                 computed.total_bags > route.nominal_cap
@@ -726,7 +790,9 @@ export default function PlanCanvas({
                   key={route.route_id}
                   className={`plan-route ${
                     isSelected ? "is-selected" : ""
-                  } ${isDropRoute ? "is-drop-target" : ""}`}
+                  } ${isDropRoute ? "is-drop-target" : ""} ${
+                    isDropBlocked ? "is-drop-blocked" : ""
+                  }`}
                   onDragOver={(event) => handleRouteDragOver(event, route)}
                   onDrop={(event) => handleRouteDrop(event, route)}
                 >
@@ -746,6 +812,7 @@ export default function PlanCanvas({
                         {computed.total_hotels} stops ·{" "}
                         {computed.total_bags}/{route.max_load} bags
                         {isUpdating ? " · updating path…" : ""}
+                        {isDropBlocked ? " · not enough capacity" : ""}
                       </span>
                     </span>
                     <span className={`plan-route__return plan-route__return--${returnTone}`}>
@@ -1083,10 +1150,19 @@ export default function PlanCanvas({
                     <option value="">Choose a route…</option>
                     {moveTargets.map((route) => {
                       const target = computedById.get(route.route_id);
+                      const targetBags = target?.total_bags ?? 0;
+                      const fits =
+                        targetBags + selectedStop.load_bags <=
+                        route.nominal_cap;
                       return (
-                        <option key={route.route_id} value={route.route_id}>
-                          {shortRouteName(route.name)} ·{" "}
-                          {target?.total_bags ?? 0}/{route.max_load} bags
+                        <option
+                          key={route.route_id}
+                          value={route.route_id}
+                          disabled={!fits}
+                        >
+                          {shortRouteName(route.name)} · {targetBags}/
+                          {route.max_load} bags
+                          {fits ? "" : " · over capacity"}
                         </option>
                       );
                     })}
@@ -1309,6 +1385,11 @@ export default function PlanCanvas({
           <span>
             <b>{computation.totals.distance_km.toFixed(0)}</b> km
           </span>
+          <span className="plan-statusbar__shift">
+            <Clock size={11} />
+            Shift {formatClock(plan.shift.start_min)}–
+            {formatClock(plan.shift.end_min)}
+          </span>
         </div>
         <div className="plan-statusbar__right">
           {updatingRoutes.size > 0 && (
@@ -1338,10 +1419,19 @@ export default function PlanCanvas({
       </footer>
 
       {toast && (
-        <div className="plan-toast" role="status">
-          <MoveRight size={14} />
-          <span>{toast}</span>
-          {history.length > 0 && (
+        <div
+          className={`plan-toast ${
+            toast.tone === "error" ? "plan-toast--error" : ""
+          }`}
+          role={toast.tone === "error" ? "alert" : "status"}
+        >
+          {toast.tone === "error" ? (
+            <AlertTriangle size={14} />
+          ) : (
+            <MoveRight size={14} />
+          )}
+          <span>{toast.message}</span>
+          {toast.tone === "info" && history.length > 0 && (
             <button type="button" onClick={undo}>
               <Undo2 size={12} />
               Undo

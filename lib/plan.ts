@@ -589,6 +589,17 @@ export function moveStop(
   }
 
   const stop = found.stop;
+  const targetBags = targetRoute.stops.reduce(
+    (sum, candidate) => sum + candidate.load_bags,
+    0,
+  );
+  const projectedBags = targetBags + stop.load_bags;
+  if (projectedBags > targetRoute.nominal_cap) {
+    throw new Error(
+      `${targetRoute.name} cannot take ${stop.name}: ${projectedBags} bags would exceed its ${targetRoute.nominal_cap}-bag vehicle limit.`,
+    );
+  }
+
   const sourceStops = found.route.stops.filter(
     (candidate) => candidate.hotel_id !== hotelId,
   );

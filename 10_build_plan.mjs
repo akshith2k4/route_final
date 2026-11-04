@@ -147,8 +147,8 @@ const plan = {
     lon: fleet.depot.longitude,
   },
   shift: {
-    start_min: 7 * 60,
-    end_min: 17 * 60,
+    start_min: 6 * 60 + 30,
+    end_min: 16 * 60 + 30,
   },
   routes,
   unassigned_hotel_ids: unassigned,

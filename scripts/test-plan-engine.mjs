@@ -36,11 +36,18 @@ assert.equal(matrix.missing_pairs, 0, "matrix should be complete");
 assert.equal(matrix.durations_s.length, 102);
 assert.equal(matrix.distances_m.length, 102);
 
+assert.equal(parseClock("06:30 AM"), 390);
 assert.equal(parseClock("07:00 AM"), 420);
 assert.equal(parseClock("3:54 PM"), 954);
+assert.equal(parseClock("4:30 PM"), 990);
 assert.equal(parseClock("17:00"), 1020);
+assert.equal(formatClock(390), "06:30 AM");
 assert.equal(formatClock(420), "07:00 AM");
 assert.equal(formatClock(954), "03:54 PM");
+assert.equal(formatClock(990), "04:30 PM");
+
+assert.equal(plan.shift.start_min, 390, "shift should start at 06:30");
+assert.equal(plan.shift.end_min, 990, "shift should end at 16:30");
 
 for (let routeIndex = 0; routeIndex < plan.routes.length; routeIndex += 1) {
   const route = plan.routes[routeIndex];
@@ -61,6 +68,11 @@ assert.ok(
   computation.issues.filter((issue) => issue.code === "over_nominal_capacity")
     .length >= 7,
   "expected the seven overloaded routes to be flagged",
+);
+assert.ok(
+  computation.issues.filter((issue) => issue.code === "shift_overrun").length >=
+    1,
+  "expected routes finishing after the 16:30 shift end to be flagged",
 );
 
 console.log("Route comparison (manual Google data vs OSRM recalculation)");
@@ -171,6 +183,23 @@ assert.equal(
   sameRoute.stops.length,
   fountain.route.stops.length,
   "same-route move must not change the stop count",
+);
+
+assert.throws(
+  () => moveStop(plan, fountainTree.hotel_id, "103501", 0, matrix),
+  /would exceed its 40-bag vehicle limit/,
+  "moves into a route with insufficient capacity should be rejected",
+);
+
+const tightPlan = structuredClone(plan);
+const tightTarget = tightPlan.routes.find(
+  (route) => route.route_id === "103607",
+);
+tightTarget.stops[0].load_bags += 39;
+assert.throws(
+  () => moveStop(tightPlan, fountainTree.hotel_id, "103607", undefined, matrix),
+  /would exceed its 70-bag vehicle limit/,
+  "moves that only exceed capacity after insertion should be rejected",
 );
 
 assert.throws(

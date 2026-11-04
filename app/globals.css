@@ -5362,6 +5362,13 @@ a {
     0 8px 22px rgba(24, 36, 30, 0.08);
 }
 
+.plan-route.is-drop-blocked {
+  border-color: #d9a49a;
+  box-shadow:
+    0 0 0 2px rgba(180, 76, 54, 0.1),
+    0 8px 22px rgba(24, 36, 30, 0.05);
+}
+
 .plan-route__head {
   display: flex;
   align-items: center;
@@ -6082,6 +6089,17 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
+.plan-statusbar__shift {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 14px;
+  border-left: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .plan-statusbar__right {
   display: flex;
   align-items: center;
@@ -6164,6 +6182,16 @@ a {
   font-size: 10.5px;
   transform: translateX(-50%);
   animation: plan-toast-in 180ms ease-out;
+}
+
+.plan-toast--error {
+  border-color: rgba(255, 173, 156, 0.35);
+  background: #5b241a;
+  box-shadow: 0 14px 36px rgba(70, 24, 16, 0.38);
+}
+
+.plan-toast--error > span {
+  white-space: normal;
 }
 
 @keyframes plan-toast-in {
