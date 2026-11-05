@@ -34,12 +34,15 @@ import {
   setRouteLaundry,
   updateVehicle,
 } from "../lib/plan.ts";
+import { buildDayData } from "../lib/day-plan.ts";
 
 const plan = JSON.parse(fs.readFileSync("data/plan.json", "utf8"));
 const matrix = JSON.parse(fs.readFileSync("data/travel_matrix.json", "utf8"));
 const manualRoutes = JSON.parse(
   fs.readFileSync("data/manual_routes.json", "utf8"),
 );
+const dayPlan = JSON.parse(fs.readFileSync("data/day_plan.json", "utf8"));
+const hotels = JSON.parse(fs.readFileSync("data/hotels.json", "utf8"));
 
 assert.equal(plan.routes.length, 8, "expected 8 routes");
 assert.equal(
@@ -904,6 +907,39 @@ assert.equal(
     .length,
   10,
 );
+
+// ---------------------------------------------------------------------------
+// Day board data
+// ---------------------------------------------------------------------------
+
+const dayViews = buildDayData(dayPlan, hotels);
+assert.equal(dayViews.length, 3, "expected Day 0, Day 1 and Day 2");
+assert.equal(dayViews[0].total, 28, "Day 0 should contain the daily hotels");
+assert.equal(dayViews[0].unique, 28);
+assert.equal(dayViews[1].total, 66, "Day 1 should contain the full list");
+assert.equal(dayViews[1].dailyTotal, 28);
+assert.equal(dayViews[1].alternativeTotal, 38);
+assert.equal(dayViews[2].total, 62, "Day 2 should contain the full list");
+assert.equal(dayViews[2].dailyTotal, 28);
+assert.equal(dayViews[2].alternativeTotal, 34);
+assert.deepEqual(dayViews[2].missing, ["UM Comforts"]);
+const day1Route1 = dayViews[1].routes.find(
+  (route) => route.routeId === "103501",
+);
+assert.equal(day1Route1.hotels.length, 7);
+assert.equal(day1Route1.dailyCount, 4);
+assert.equal(day1Route1.alternativeCount, 3);
+const hyatt = day1Route1.hotels.find(
+  (hotel) => hotel.name === "HYATT WHITEFIELD MAHADEVPURA",
+);
+assert.ok(hyatt, "expected the Hyatt alias to be present");
+assert.ok(hyatt.lat !== null, "the Hyatt alias should resolve to coordinates");
+assert.equal(hyatt.mappedName, "Hyatt Centric Whitefield Bengaluru");
+const umComforts = dayViews[2].routes
+  .find((route) => route.routeId === "103602")
+  .hotels.find((hotel) => hotel.name === "UM Comforts");
+assert.ok(umComforts);
+assert.equal(umComforts.lat, null, "unmatched hotels should be unpinned");
 
 console.log("");
 console.log("Warehouse assignment smoke test (Route 7, HQ -> Second Warehouse):");

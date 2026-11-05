@@ -8933,3 +8933,780 @@ a {
   opacity: 0.8;
   margin-top: 1px;
 }
+
+/* =========================================================================
+   DAY BOARD — Three-day hotel coverage + map
+   ========================================================================= */
+
+.days-app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100svh;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bone);
+}
+
+.days-topbar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  height: 64px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper-strong);
+}
+
+.days-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.days-brand__mark {
+  display: grid;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--ink);
+  color: var(--cream);
+}
+
+.days-brand__text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+}
+
+.days-brand__text b {
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.days-brand__text em {
+  color: var(--muted);
+  font-size: 7.5px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.days-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  text-align: center;
+}
+
+.days-heading h1 {
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.days-actions {
+  display: flex;
+  align-items: center;
+  justify-self: end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.days-actions .btn {
+  height: 32px;
+  padding: 0 10px;
+  font-size: 9.5px;
+}
+
+.days-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--faint);
+  font-size: 8.5px;
+  white-space: nowrap;
+}
+
+.days-workspace {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+  padding: 12px;
+}
+
+.days-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  padding-right: 2px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.days-panel {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  max-height: 380px;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--paper-strong);
+  box-shadow: 0 1px 2px rgba(24, 36, 30, 0.03);
+  cursor: pointer;
+  transition: border-color 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+}
+
+.days-panel:hover {
+  border-color: var(--line-strong);
+}
+
+.days-panel.is-active {
+  border-color: #9db6a4;
+  box-shadow:
+    0 0 0 1px rgba(45, 91, 66, 0.08),
+    0 10px 24px rgba(24, 36, 30, 0.06);
+}
+
+.days-panel.is-drop-target {
+  border-color: #6f9b7d;
+  box-shadow:
+    0 0 0 2px rgba(111, 155, 125, 0.16),
+    0 10px 24px rgba(24, 36, 30, 0.08);
+}
+
+.days-panel.is-dragging {
+  opacity: 0.5;
+}
+
+.days-panel__head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 13px 13px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.days-drag {
+  display: grid;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 28px;
+  margin-left: -4px;
+  place-items: center;
+  border-radius: 5px;
+  color: var(--faint);
+  cursor: grab;
+}
+
+.days-drag:hover {
+  background: var(--bone);
+  color: var(--ink-soft);
+}
+
+.days-drag:active {
+  cursor: grabbing;
+}
+
+.days-panel__title {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.days-panel__kicker {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.days-panel__title h2 {
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: 27px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.days-panel__meta {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 8.5px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.days-panel__mapbadge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.days-toggle {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 1px;
+  margin: 9px 12px 4px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--paper);
+}
+
+.days-toggle button {
+  flex: 1;
+  height: 24px;
+  border-radius: 5px;
+  color: var(--muted);
+  font-size: 8.5px;
+  font-weight: 700;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.days-toggle button:hover {
+  color: var(--ink);
+}
+
+.days-toggle button.is-active {
+  background: var(--ink);
+  color: var(--cream);
+}
+
+.days-panel__list {
+  flex: 1;
+  min-height: 0;
+  padding: 8px 12px 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.days-route {
+  padding: 7px 0 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.days-route:last-child {
+  border-bottom: 0;
+}
+
+.days-route__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0 5px;
+}
+
+.days-route__dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(24, 36, 30, 0.045);
+}
+
+.days-route__head b {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.days-route__head > span:last-child {
+  flex: 0 0 auto;
+  color: var(--faint);
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.days-route__empty {
+  margin: 1px 0 2px 13px;
+  color: var(--faint);
+  font-size: 8.5px;
+}
+
+.days-hotel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.days-hotel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 20px;
+  padding: 2px 5px 2px 13px;
+  border-radius: 5px;
+}
+
+.days-hotel:hover {
+  background: var(--bone);
+}
+
+.days-hotel__dot {
+  flex: 0 0 auto;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  opacity: 0.8;
+}
+
+.days-hotel__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 9.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.days-tag {
+  flex: 0 0 auto;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 6.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.days-tag.is-daily {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.days-tag.is-alternative {
+  background: #f6ead7;
+  color: #8a5a1f;
+}
+
+.days-hotel__missing {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--faint);
+}
+
+.days-panel__foot {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--faint);
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.days-panel__missing {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  color: #8a5a1f;
+}
+
+.days-map-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--paper-strong);
+  box-shadow: 0 1px 2px rgba(24, 36, 30, 0.03);
+}
+
+.days-map-panel__head {
+  flex: 0 0 auto;
+  padding: 12px 13px 9px;
+  border-bottom: 1px solid var(--line);
+}
+
+.days-map-panel__head .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.days-map-panel__head h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-top: 3px;
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: 25px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.days-map-panel__head h2 span {
+  color: var(--muted);
+  font-family: var(--font-dm-sans), sans-serif;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.days-map-panel__head p {
+  margin-top: 3px;
+  color: var(--faint);
+  font-size: 8.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.day-map {
+  position: relative;
+  flex: 1;
+  min-height: 260px;
+  background: var(--map-bg);
+}
+
+.day-map__canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.day-map__caption {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(249, 246, 238, 0.92);
+  color: var(--muted);
+  font-size: 8px;
+  backdrop-filter: blur(4px);
+}
+
+.day-map__caption b {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.day-map__empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(245, 242, 235, 0.7);
+  color: var(--faint);
+  font-size: 10px;
+  pointer-events: none;
+}
+
+.day-map__routing {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(249, 246, 238, 0.92);
+  color: var(--muted);
+  font-size: 8px;
+  backdrop-filter: blur(4px);
+}
+
+.day-map__routing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: days-routing-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes days-routing-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.days-hq-pin {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 2px solid #fbbf24;
+  border-radius: 8px;
+  background: #18241e;
+  box-shadow: 0 4px 14px rgba(24, 36, 30, 0.35);
+}
+
+.days-hq-pin span {
+  color: #fbbf24;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.days-map-legend__item i.is-hq {
+  background: #fbbf24;
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
+}
+
+.days-map-legend {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  max-height: 74px;
+  padding: 8px 12px;
+  overflow-y: auto;
+  border-top: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.days-map-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 7.5px;
+}
+
+.days-map-legend__item i {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.days-map-legend__item span {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.days-map-legend__item b {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.days-map-note {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 7px 12px;
+  border-top: 1px solid var(--line);
+  background: var(--paper);
+  color: #8a5a1f;
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.days-status {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 16px;
+  height: 34px;
+  padding: 0 18px;
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 8.5px;
+  white-space: nowrap;
+}
+
+.days-status b {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.days-status__note {
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--faint);
+  text-overflow: ellipsis;
+}
+
+.leaflet-tooltip.day-map-tooltip-wrap {
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: #18241e;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(24, 36, 30, 0.24);
+}
+
+.leaflet-tooltip.day-map-tooltip-wrap::before {
+  border-top-color: #18241e;
+}
+
+.day-map-tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 120px;
+}
+
+.day-map-tooltip b {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.day-map-tooltip span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 8px;
+}
+
+.day-map-tooltip em {
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 7px;
+  font-style: normal;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1280px) {
+  .days-workspace {
+    grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .days-panel {
+    max-height: 360px;
+  }
+}
+
+@media (max-width: 900px) {
+  .days-app {
+    height: auto;
+    min-height: 100svh;
+    overflow: visible;
+  }
+
+  .days-topbar {
+    grid-template-columns: auto minmax(0, 1fr);
+    height: auto;
+    min-height: 58px;
+    padding: 9px 13px;
+  }
+
+  .days-heading {
+    display: none;
+  }
+
+  .days-actions {
+    justify-self: end;
+  }
+
+  .days-hint {
+    display: none;
+  }
+
+  .days-workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    padding: 9px;
+  }
+
+  .days-stack {
+    overflow: visible;
+  }
+
+  .days-panel {
+    max-height: 420px;
+  }
+
+  .days-map-panel {
+    height: 60vh;
+    min-height: 420px;
+  }
+}
+
+@media (max-width: 600px) {
+  .days-topbar {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .days-actions {
+    justify-self: start;
+  }
+
+  .days-brand__mark {
+    width: 30px;
+    height: 30px;
+  }
+
+  .days-actions .btn {
+    height: 29px;
+    font-size: 9px;
+  }
+
+  .days-panel__title h2 {
+    font-size: 23px;
+  }
+
+  .days-status {
+    gap: 10px;
+    font-size: 8px;
+  }
+
+  .days-status__note {
+    display: none;
+  }
+}

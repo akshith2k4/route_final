@@ -12,10 +12,11 @@ import {
 import {
   AlertTriangle,
   ArrowRightLeft,
+  CalendarDays,
   Check,
   ChevronDown,
-  Clock,
   ChevronUp,
+  Clock,
   Download,
   GripVertical,
   Hotel,
@@ -1300,6 +1301,10 @@ export default function PlanCanvas({
             <Check size={12} />
             {hydrated ? "Autosaved locally" : "Loading draft"}
           </span>
+          <Link href="/days" className="btn btn--ghost">
+            <CalendarDays size={14} />
+            Days
+          </Link>
           <button type="button" className="btn btn--ghost" onClick={resetPlan}>
             <RotateCcw size={14} />
             Reset

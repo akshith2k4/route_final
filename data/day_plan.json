@@ -1,0 +1,244 @@
+{
+  "routes": [
+    {
+      "route_id": "103501",
+      "route_name": "Route 1 - Whitefield",
+      "color": "#059669",
+      "daily_hotels": [
+        "DAY SUITES",
+        "AURUM KEY",
+        "OCTAVE HOTEL AND SPA - MARATHAHALLI",
+        "OCTAVE HOTEL AND SPA - SARJAPUR ROAD"
+      ],
+      "Day 1_Full": [
+        "DAY SUITES",
+        "AURUM KEY",
+        "OCTAVE HOTEL AND SPA - MARATHAHALLI",
+        "OCTAVE HOTEL AND SPA - SARJAPUR ROAD",
+        "FORTUNE STAY",
+        "SM COMFORTS HSR",
+        "HYATT WHITEFIELD MAHADEVPURA"
+      ],
+      "Day 2_Full": [
+        "DAY SUITES",
+        "AURUM KEY",
+        "OCTAVE HOTEL AND SPA - MARATHAHALLI",
+        "OCTAVE HOTEL AND SPA - SARJAPUR ROAD",
+        "GLOBAL STAY",
+        "PARK INN",
+        "Wandr - Brookefield"
+      ]
+    },
+    {
+      "route_id": "103601",
+      "route_name": "Route 2 - Electronic City",
+      "color": "#dc2626",
+      "daily_hotels": [],
+      "Day 1_Full": [
+        "OCTAVE HOTEL - DOUBLE ROAD",
+        "OCTAVE HOTEL AND SPA - JP NAGAR",
+        "BRIXTON LUXE",
+        "Wandr - HSR Layout",
+        "EKAA KEYS",
+        "EAST PARK PREMIUM",
+        "EAST PARK RIO",
+        "HOTEL VERTEX",
+        "GOLDEN SUITES",
+        "INVENTREE E-CITY",
+        "NIRANTARA RESORT",
+        "CELEBRITY SUITES",
+        "V.B.H INN",
+        "CLOVER A RIVIDO HOTELS",
+        "GOLDEN STAY",
+        "CASA PICOSSA E-CITY"
+      ],
+      "Day 2_Full": []
+    },
+    {
+      "route_id": "103602",
+      "route_name": "Route 2 - Jayanagara",
+      "color": "#d97706",
+      "daily_hotels": [],
+      "Day 1_Full": [],
+      "Day 2_Full": [
+        "Wandr - Richmond Road",
+        "LE GRANDEUR",
+        "LE-GRANDEUR (NK CIRCLE)",
+        "KINGSTON PALACE",
+        "UR COMFORTS",
+        "VP INTERNATIONAL",
+        "SHETTY GARDENIA HOTEL",
+        "SY COMFORTS",
+        "S V B R HOTEL",
+        "SK COMFORTS",
+        "HOLIDAY VILLAGE",
+        "NISARGA HOTEL",
+        "UM Comforts"
+      ]
+    },
+    {
+      "route_id": "103603",
+      "route_name": "Route 3 - B.G Road & Madiwala",
+      "color": "#e11d48",
+      "daily_hotels": [
+        "SV COMFORTS",
+        "OLIVE HULIMAVU HOTEL",
+        "FELICITY",
+        "FOUNTAIN TREE",
+        "STERLING KEYS",
+        "WESTERN KEYS HOTEL"
+      ],
+      "Day 1_Full": [
+        "SV COMFORTS",
+        "OLIVE HULIMAVU HOTEL",
+        "FELICITY",
+        "FOUNTAIN TREE",
+        "STERLING KEYS",
+        "WESTERN KEYS HOTEL",
+        "NEST BY RIVIDO",
+        "DD COMFORTS",
+        "UR STAY INN",
+        "SM COMFORTS BTM",
+        "EYRIE NEST",
+        "THE GRAND KRISHNA ROOMS",
+        "M R HAPPY STAY INN"
+      ],
+      "Day 2_Full": [
+        "SV COMFORTS",
+        "OLIVE HULIMAVU HOTEL",
+        "FELICITY",
+        "FOUNTAIN TREE",
+        "STERLING KEYS",
+        "WESTERN KEYS HOTEL",
+        "HOTEL MONARCH INTERNATIONAL",
+        "SM INTERNATIONAL",
+        "ARAMA SUITES",
+        "TEMPLE KEYS",
+        "SM STAY INN",
+        "GOLDEN INN ROOMS"
+      ]
+    },
+    {
+      "route_id": "103604",
+      "route_name": "Route 4 - TCH & TCP",
+      "color": "#7c3aed",
+      "daily_hotels": [
+        "THE CHANCERY HOTELS",
+        "THE CHANCERY PAVILION"
+      ],
+      "Day 1_Full": [
+        "THE CHANCERY HOTELS",
+        "THE CHANCERY PAVILION"
+      ],
+      "Day 2_Full": [
+        "THE CHANCERY HOTELS",
+        "THE CHANCERY PAVILION"
+      ]
+    },
+    {
+      "route_id": "103605",
+      "route_name": "Route 5 - Nagawara",
+      "color": "#0d9488",
+      "daily_hotels": [
+        "SAI SUITES INN",
+        "OLIVE NAGAWARA",
+        "ORCHID PARC",
+        "RIVIDO MANAYATA",
+        "TRUP GLOBAL KEMPAPUR NEW",
+        "HOWARD JOHNSON",
+        "FORTUNE COMFORTS",
+        "OCTAVE JAMAYCA",
+        "GOLDEN FORTUN INN",
+        "SRI SAI SUITES"
+      ],
+      "Day 1_Full": [
+        "SAI SUITES INN",
+        "OLIVE NAGAWARA",
+        "ORCHID PARC",
+        "RIVIDO MANAYATA",
+        "TRUP GLOBAL KEMPAPUR NEW",
+        "HOWARD JOHNSON",
+        "FORTUNE COMFORTS",
+        "OCTAVE JAMAYCA",
+        "GOLDEN FORTUN INN",
+        "SRI SAI SUITES",
+        "OCEAN SUITES",
+        "ATHULYA RESIDENCIES"
+      ],
+      "Day 2_Full": [
+        "SAI SUITES INN",
+        "OLIVE NAGAWARA",
+        "ORCHID PARC",
+        "RIVIDO MANAYATA",
+        "TRUP GLOBAL KEMPAPUR NEW",
+        "HOWARD JOHNSON",
+        "FORTUNE COMFORTS",
+        "OCTAVE JAMAYCA",
+        "GOLDEN FORTUN INN",
+        "SRI SAI SUITES",
+        "SRI SAI COMFORTS",
+        "HOTEL ERACREST"
+      ]
+    },
+    {
+      "route_id": "103606",
+      "route_name": "Route 6 - Indira Nagar / Shivaji Nagar",
+      "color": "#2563eb",
+      "daily_hotels": [
+        "KALINGA HOSPITALITY",
+        "PELICAN INN",
+        "OCTAVE STUDIO HOTEL - KORAMANGLA STU",
+        "THE MOCANA BANYAN"
+      ],
+      "Day 1_Full": [
+        "KALINGA HOSPITALITY",
+        "PELICAN INN",
+        "OCTAVE STUDIO HOTEL - KORAMANGLA STU",
+        "THE MOCANA BANYAN",
+        "LOCUL CENTRAL",
+        "REGENTA PALACE",
+        "OCTAVE CRYSTAL HEIGHT",
+        "LOCUL MIDTOWN",
+        "Wandr - Indiranagar",
+        "Wandr -100ft Indiranagar",
+        "Wandr - Kormangala"
+      ],
+      "Day 2_Full": [
+        "KALINGA HOSPITALITY",
+        "PELICAN INN",
+        "OCTAVE STUDIO HOTEL - KORAMANGLA STU",
+        "THE MOCANA BANYAN",
+        "BLUE BLISS HOTELS",
+        "ATHASRI INN- SHIVAJINAGAR",
+        "Wandr - Ulsoor",
+        "SM STAY INN KORAMANGALA",
+        "FORTY 1 HOSPITALITY",
+        "LOCUL UPTOWN",
+        "FORTUNE INN"
+      ]
+    },
+    {
+      "route_id": "103607",
+      "route_name": "Route 7 - BEL Road & Airport Road",
+      "color": "#ea580c",
+      "daily_hotels": [
+        "OCTAVE ROYAL OPERA",
+        "THALASSA SPA"
+      ],
+      "Day 1_Full": [
+        "OCTAVE ROYAL OPERA",
+        "THALASSA SPA",
+        "RAJ RESIDENCY",
+        "URBAN NEST",
+        "MANDALA RESORTS"
+      ],
+      "Day 2_Full": [
+        "OCTAVE ROYAL OPERA",
+        "THALASSA SPA",
+        "BRINDAVANA STAY",
+        "AVORA TREE SUITES",
+        "UK COMFORTS"
+      ]
+    }
+  ]
+}
