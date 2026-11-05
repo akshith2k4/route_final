@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
+  addNewHotelToRoute,
   addStopsToRoute,
   addVehicle,
   assignVehicleToRoute,
@@ -125,10 +126,12 @@ for (const route of computation.routes) {
     `computed room total mismatch for ${route.name}`,
   );
 }
-assert.ok(
-  computation.issues.filter((issue) => issue.code === "over_nominal_capacity")
-    .length >= 7,
-  "expected the seven overloaded routes to be flagged",
+assert.equal(
+  computation.issues.filter(
+    (issue) => issue.code === "over_nominal_capacity",
+  ).length,
+  0,
+  "routes without a vehicle should not be capacity-checked",
 );
 assert.ok(
   computation.issues.filter((issue) => issue.code === "shift_overrun").length >=
@@ -452,42 +455,26 @@ assert.throws(
 const vehicles = getPlanVehicles(plan);
 assert.equal(vehicles.length, 10, "expected the fleet inventory");
 assert.equal(
-  plan.routes.every((route) => route.vehicle_id),
+  plan.routes.every((route) => !route.vehicle_id),
   true,
-  "baseline routes should start with a vehicle",
+  "baseline routes should start without a vehicle",
 );
-for (const route of plan.routes) {
-  const vehicle = resolveVehicle(plan, route);
-  assert.ok(vehicle, `expected a vehicle for ${route.name}`);
-  assert.equal(route.nominal_cap, vehicle.nominal_cap);
-  assert.equal(route.max_load, vehicle.max_load);
-}
 assert.equal(
-  vehicles.filter(
+  vehicles.every(
     (vehicle) => routesUsingVehicle(plan, vehicle.id).length === 0,
-  ).length,
-  2,
-  "two fleet vehicles should be spare",
+  ),
+  true,
+  "every fleet vehicle should start unassigned",
 );
 assert.equal(safeLoadForCapacity(35), 31);
 assert.equal(safeLoadForCapacity(70), 63);
 
 const vehicleRoute1 = plan.routes[0];
-assert.equal(resolveVehicle(plan, vehicleRoute1).id, vehicleRoute1.vehicle_id);
-
-const manualRoute = assignVehicleToRoute(
-  plan,
-  vehicleRoute1.route_id,
-  null,
-);
-const manualRouteEntry = manualRoute.routes.find(
-  (route) => route.route_id === vehicleRoute1.route_id,
-);
-assert.equal(manualRouteEntry.vehicle_id, undefined);
+assert.equal(resolveVehicle(plan, vehicleRoute1), null);
 assert.equal(
-  manualRouteEntry.nominal_cap,
   vehicleRoute1.nominal_cap,
-  "clearing a vehicle keeps the route's manual capacity",
+  40,
+  "the route keeps its fallback capacity until a vehicle is assigned",
 );
 
 const onVehicle9 = assignVehicleToRoute(
@@ -508,6 +495,21 @@ assert.equal(
   "assignment must not mutate the original plan",
 );
 
+const manualRoute = assignVehicleToRoute(
+  onVehicle9,
+  vehicleRoute1.route_id,
+  null,
+);
+const manualRouteEntry = manualRoute.routes.find(
+  (route) => route.route_id === vehicleRoute1.route_id,
+);
+assert.equal(manualRouteEntry.vehicle_id, undefined);
+assert.equal(
+  manualRouteEntry.nominal_cap,
+  vehicle9.nominal_cap,
+  "releasing a vehicle keeps the current route capacity",
+);
+
 assert.throws(
   () => assignVehicleToRoute(onVehicle9, "103601", "vehicle-9"),
   /already allocated to/,
@@ -515,7 +517,9 @@ assert.throws(
 );
 
 const duplicatePlan = structuredClone(plan);
-duplicatePlan.routes[1].vehicle_id = duplicatePlan.routes[0].vehicle_id;
+const duplicateVehicleId = getPlanVehicles(duplicatePlan)[0].id;
+duplicatePlan.routes[0].vehicle_id = duplicateVehicleId;
+duplicatePlan.routes[1].vehicle_id = duplicateVehicleId;
 assert.equal(
   computePlan(duplicatePlan, matrix).issues.some(
     (issue) => issue.code === "vehicle_double_booked",
@@ -568,7 +572,7 @@ assert.equal(addedVehicle.max_load, 22);
 const afterDelete = deleteVehicle(addedVehiclePlan, addedVehicle.id);
 assert.equal(getPlanVehicles(afterDelete).length, 10);
 assert.throws(
-  () => deleteVehicle(plan, "vehicle-1"),
+  () => deleteVehicle(onVehicle9, "vehicle-9"),
   /assigned to/,
   "assigned vehicles cannot be deleted",
 );
@@ -713,8 +717,8 @@ oldNumberingDraft.vehicles = [...oldNumberingDraft.vehicles].reverse();
 const remappedVehicles = migratePlanDepots(oldNumberingDraft, plan);
 assert.deepEqual(
   remappedVehicles.routes.map((route) => route.vehicle_id),
-  plan.routes.map((route) => route.vehicle_id),
-  "old capacity-based fleet numbers should normalize to Vehicle 1..8",
+  oldVehicleIds,
+  "existing vehicle choices should be preserved",
 );
 assert.deepEqual(
   getPlanVehicles(remappedVehicles).map((vehicle) => vehicle.name),
@@ -803,6 +807,104 @@ assert.throws(
   "routes cannot be created at an unknown warehouse",
 );
 
+// ---------------------------------------------------------------------------
+// New hotels added from the Plan Canvas
+// ---------------------------------------------------------------------------
+
+const newHotelInput = {
+  name: "Test New Hotel",
+  lat: 13.0,
+  lon: 77.6,
+  region: 2,
+  service_mins: 10,
+  load_bags: 5,
+  rooms: 40,
+};
+const route7Before = plan.routes.find((route) => route.route_id === "103607");
+assert.equal(route7Before.stops.length, 8);
+const addedHotel = addNewHotelToRoute(plan, "103607", newHotelInput, matrix);
+assert.equal(
+  addedHotel.plan.routes.find((route) => route.route_id === "103607").stops
+    .length,
+  9,
+  "the new hotel should be inserted once",
+);
+assert.equal(
+  addedHotel.plan.routes.reduce((sum, route) => sum + route.stops.length, 0),
+  102,
+  "the plan should have one more stop",
+);
+assert.ok(
+  addedHotel.stop.hotel_id.startsWith("custom-"),
+  "new hotels should get a custom id",
+);
+assert.equal(addedHotel.stop.name, "Test New Hotel");
+assert.equal(addedHotel.stop.lat, 13.0);
+assert.equal(addedHotel.stop.lon, 77.6);
+assert.equal(addedHotel.stop.region, 2);
+assert.equal(addedHotel.stop.service_mins, 10);
+assert.equal(addedHotel.stop.load_bags, 5);
+assert.equal(addedHotel.stop.rooms, 40);
+assert.equal(
+  plan.routes.find((route) => route.route_id === "103607").stops.length,
+  8,
+  "adding a hotel must not mutate the original plan",
+);
+
+const computedWithHotel = computePlan(addedHotel.plan, matrix);
+const route7Computed = computedWithHotel.routes.find(
+  (route) => route.route_id === "103607",
+);
+assert.equal(route7Computed.total_bags, 31);
+assert.equal(route7Computed.total_rooms, 232);
+assert.ok(
+  route7Computed.estimated_legs > 0,
+  "a hotel outside the matrix should use estimated legs",
+);
+assert.equal(computedWithHotel.totals.hotels, 102);
+assert.equal(computedWithHotel.totals.rooms, 3463);
+
+const route7WithVehicle = assignVehicleToRoute(plan, "103607", "vehicle-8");
+assert.throws(
+  () =>
+    addNewHotelToRoute(
+      route7WithVehicle,
+      "103607",
+      { ...newHotelInput, load_bags: 50 },
+      matrix,
+    ),
+  /vehicle limit/,
+  "a new hotel that breaks the capacity should be blocked",
+);
+assert.throws(
+  () =>
+    addNewHotelToRoute(
+      plan,
+      "103607",
+      { ...newHotelInput, lat: 999 },
+      matrix,
+    ),
+  /Latitude/,
+  "invalid coordinates should be blocked",
+);
+
+const secondHotel = addNewHotelToRoute(
+  addedHotel.plan,
+  "103607",
+  newHotelInput,
+  matrix,
+);
+assert.equal(
+  secondHotel.stop.hotel_id,
+  "custom-test-new-hotel-2",
+  "duplicate hotel names should get unique ids",
+);
+assert.equal(
+  secondHotel.plan.routes.find((route) => route.route_id === "103607").stops
+    .length,
+  10,
+);
+
 console.log("");
 console.log("Warehouse assignment smoke test (Route 7, HQ -> Second Warehouse):");
 console.log(
@@ -832,6 +934,13 @@ console.log(
 console.log(
   `  Vehicle 9 capacity 40 -> ${getPlanVehicles(shrunk).find((vehicle) => vehicle.id === "vehicle-9").nominal_cap} (${routesUsingVehicle(shrunk, "vehicle-9").length} route${routesUsingVehicle(shrunk, "vehicle-9").length === 1 ? "" : "s"} updated)`,
 );
+
+console.log("");
+console.log("New hotel smoke test (Route 7 + Test New Hotel):");
+console.log(
+  `  stops 8 -> ${route7Computed.stops.length}, bags ${route7Before.stops.reduce((sum, stop) => sum + stop.load_bags, 0)} -> ${route7Computed.total_bags}, rooms 192 -> ${route7Computed.total_rooms}`,
+);
+console.log(`  estimated legs: ${route7Computed.estimated_legs}`);
 
 console.log("Route comparison (manual Google data vs OSRM recalculation)");
 console.log(
@@ -943,13 +1052,16 @@ assert.equal(
   "same-route move must not change the stop count",
 );
 
+const capacityPlan = assignVehicleToRoute(plan, "103501", "vehicle-1");
 assert.throws(
-  () => moveStop(plan, fountainTree.hotel_id, "103501", 0, matrix),
+  () => moveStop(capacityPlan, fountainTree.hotel_id, "103501", 0, matrix),
   /would exceed its 40-bag vehicle limit/,
   "moves into a route with insufficient capacity should be rejected",
 );
 
-const tightPlan = structuredClone(plan);
+const tightPlan = structuredClone(
+  assignVehicleToRoute(plan, "103607", "vehicle-8"),
+);
 const tightTarget = tightPlan.routes.find(
   (route) => route.route_id === "103607",
 );
@@ -1162,7 +1274,8 @@ const heavyStop = plan.routes
 assert.ok(heavyStop.load_bags > 1, "expected a multi-bag hotel in the fixture");
 const tinyPlan = createRoute(plan, {
   name: "Route 10 - Tiny",
-  capacity: heavyStop.load_bags - 1,
+  capacity: 20,
+  vehicle_id: "vehicle-4",
 });
 assert.throws(
   () =>

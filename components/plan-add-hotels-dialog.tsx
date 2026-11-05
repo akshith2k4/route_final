@@ -5,6 +5,7 @@ import { AlertTriangle, Check, Plus, Search, X } from "lucide-react";
 import type { RegionMeta } from "../lib/coverage";
 import {
   resolveLaundry,
+  resolveVehicle,
   routeDepot,
   type Plan,
   type PlanRoute,
@@ -120,6 +121,8 @@ export default function PlanAddHotelsDialog({
 
   const depot = routeDepot(plan, route);
   const laundry = resolveLaundry(plan, route);
+  const vehicle = resolveVehicle(plan, route);
+  const hasVehicle = vehicle !== null;
   const selectedCandidates = candidates.filter((candidate) =>
     selected.has(candidate.stop.hotel_id),
   );
@@ -132,8 +135,8 @@ export default function PlanAddHotelsDialog({
     0,
   );
   const projectedBags = currentBags + selectedBags;
-  const overCapacity = projectedBags > route.nominal_cap;
-  const overSafeLoad = projectedBags > route.max_load;
+  const overCapacity = hasVehicle && projectedBags > route.nominal_cap;
+  const overSafeLoad = hasVehicle && projectedBags > route.max_load;
   const capacityTone = overCapacity
     ? "over"
     : overSafeLoad
@@ -201,8 +204,10 @@ export default function PlanAddHotelsDialog({
           {laundry
             ? `via ${laundry.name} (${laundry.service_mins} min on site) to ${depot.name}`
             : `directly to ${depot.name}`}
-          . {route.nominal_cap} bag vehicle · safe load {route.max_load} ·
-          currently {bagLabel(currentBags)}.
+          .{" "}
+          {hasVehicle
+            ? `${route.nominal_cap} bag vehicle · safe load ${route.max_load} · currently ${bagLabel(currentBags)}.`
+            : `No vehicle assigned · currently ${bagLabel(currentBags)}.`}
         </p>
 
         <div className="plan-hotel-filters">
@@ -297,28 +302,37 @@ export default function PlanAddHotelsDialog({
           <div className="plan-capacity">
             <div className="plan-capacity__labels">
               <span>
-                {projectedBags} / {route.nominal_cap} bags
+                {projectedBags}
+                {hasVehicle ? ` / ${route.nominal_cap}` : ""} bags
               </span>
               <span>
-                safe {route.max_load} · {selectedBags} selected
+                {hasVehicle
+                  ? `safe ${route.max_load} · ${selectedBags} selected`
+                  : `${selectedBags} selected · no vehicle`}
               </span>
             </div>
-            <div className="plan-capacity__track">
-              <span
-                className={`plan-capacity__fill plan-capacity__fill--${capacityTone}`}
-                style={{
-                  width: `${Math.min(
-                    100,
-                    (projectedBags / Math.max(1, route.max_load)) * 100,
-                  )}%`,
-                }}
-              />
-            </div>
+            {hasVehicle && (
+              <div className="plan-capacity__track">
+                <span
+                  className={`plan-capacity__fill plan-capacity__fill--${capacityTone}`}
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      (projectedBags / Math.max(1, route.max_load)) * 100,
+                    )}%`,
+                  }}
+                />
+              </div>
+            )}
           </div>
           <p
-            className={`plan-dialog__capacity-note plan-dialog__capacity-note--${capacityTone}`}
+            className={`plan-dialog__capacity-note plan-dialog__capacity-note--${
+              hasVehicle ? capacityTone : "ok"
+            }`}
           >
-            {overCapacity ? (
+            {!hasVehicle ? (
+              <>No vehicle assigned — capacity will apply after you assign one.</>
+            ) : overCapacity ? (
               <>
                 <AlertTriangle size={12} />
                 {projectedBags - route.nominal_cap} bags over the vehicle limit —

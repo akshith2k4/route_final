@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { Plus, Route, X } from "lucide-react";
 import {
   depotLabel,
-  safeLoadForCapacity,
   sortVehicles,
   type PlanDepot,
   type PlanVehicle,
@@ -37,7 +36,7 @@ export default function PlanCreateRouteDialog({
   onCreate,
 }: PlanCreateRouteDialogProps) {
   const [name, setName] = useState(defaultName);
-  const [capacity, setCapacity] = useState("40");
+  const [capacity, setCapacity] = useState("");
   const [depotId, setDepotId] = useState(defaultDepotId);
   const [vehicleId, setVehicleId] = useState("");
   const nameRef = useRef<HTMLInputElement | null>(null);
@@ -46,14 +45,13 @@ export default function PlanCreateRouteDialog({
   const availableVehicles = sortedVehicles.filter(
     (vehicle) => !usedVehicleIds.includes(vehicle.id),
   );
-  const initialVehicle = availableVehicles[0] ?? null;
 
   useEffect(() => {
     if (!open) return;
     setName(defaultName);
-    setCapacity(initialVehicle ? String(initialVehicle.nominal_cap) : "40");
+    setCapacity("");
     setDepotId(defaultDepotId);
-    setVehicleId(initialVehicle?.id ?? "");
+    setVehicleId("");
     const timer = window.setTimeout(() => {
       nameRef.current?.focus();
       nameRef.current?.select();
@@ -89,11 +87,7 @@ export default function PlanCreateRouteDialog({
     capacityValid &&
     selectedVehicle !== null &&
     !selectedVehicleUsed;
-  const safeLoad = selectedVehicle
-    ? selectedVehicle.max_load
-    : capacityValid
-      ? safeLoadForCapacity(capacityValue)
-      : null;
+  const safeLoad = selectedVehicle ? selectedVehicle.max_load : null;
 
   return (
     <div
@@ -200,12 +194,8 @@ export default function PlanCreateRouteDialog({
             max={999}
             step={1}
             value={capacity}
-            disabled={selectedVehicle !== null}
-            title={
-              selectedVehicle
-                ? "Edit this vehicle's capacity from Manage vehicles"
-                : undefined
-            }
+            disabled
+            title="Choose a vehicle to set the route capacity"
             onChange={(event) => setCapacity(event.target.value)}
           />
         </label>
@@ -231,7 +221,7 @@ export default function PlanCreateRouteDialog({
           </div>
           <div>
             <span>Vehicle</span>
-            <b>{selectedVehicle ? selectedVehicle.name : "Manual"}</b>
+            <b>{selectedVehicle ? selectedVehicle.name : "Not selected"}</b>
           </div>
           <div>
             <span>Starts at</span>

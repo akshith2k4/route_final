@@ -6357,6 +6357,13 @@ a {
   gap: 7px;
 }
 
+.plan-sidebar__head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 .plan-new-route {
   display: inline-flex;
   align-items: center;
@@ -6439,6 +6446,21 @@ a {
   letter-spacing: 0.05em;
   text-transform: uppercase;
   vertical-align: 1px;
+}
+
+.plan-route__vehicle-missing {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 /* Warehouse board (assignment mode) */
@@ -6771,6 +6793,17 @@ a {
 .plan-vehicles-dialog {
   max-height: min(88vh, 780px);
   overflow-y: auto;
+}
+
+.plan-new-hotel-dialog {
+  max-height: min(88vh, 780px);
+  overflow-y: auto;
+}
+
+.plan-dialog__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 10px;
 }
 
 .plan-vehicle-add {
@@ -7355,6 +7388,10 @@ a {
   }
 
   .plan-vehicle-add {
+    grid-template-columns: 1fr;
+  }
+
+  .plan-dialog__grid {
     grid-template-columns: 1fr;
   }
 

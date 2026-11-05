@@ -18,6 +18,7 @@ import {
   ChevronUp,
   Download,
   GripVertical,
+  Hotel,
   MapPin,
   MoveRight,
   PanelRight,
@@ -35,12 +36,14 @@ import {
 } from "lucide-react";
 import PlanAddHotelsDialog from "./plan-add-hotels-dialog";
 import PlanCreateRouteDialog from "./plan-create-route-dialog";
+import PlanNewHotelDialog from "./plan-new-hotel-dialog";
 import PlanVehiclesDialog from "./plan-vehicles-dialog";
 import PlanCanvasMap, {
   type PlanCanvasMapHandle,
 } from "./plan-canvas-map";
 import type { HexMap, RegionMeta } from "../lib/coverage";
 import {
+  addNewHotelToRoute,
   addStopsToRoute,
   addVehicle,
   assignVehicleToRoute,
@@ -74,6 +77,7 @@ import {
   type PlanIssue,
   type PlanRoute,
   type PlanStop,
+  type NewHotelInput,
   type TravelMatrix,
 } from "../lib/plan";
 
@@ -182,6 +186,7 @@ export default function PlanCanvas({
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [createRouteOpen, setCreateRouteOpen] = useState(false);
   const [addHotelsOpen, setAddHotelsOpen] = useState(false);
+  const [newHotelOpen, setNewHotelOpen] = useState(false);
   const [vehiclesOpen, setVehiclesOpen] = useState(false);
 
   const planRef = useRef(plan);
@@ -482,9 +487,10 @@ export default function PlanCanvas({
         if (event.shiftKey) redo();
         else undo();
       } else if (event.key === "Escape") {
-        if (createRouteOpen || addHotelsOpen || vehiclesOpen) {
+        if (createRouteOpen || addHotelsOpen || newHotelOpen || vehiclesOpen) {
           setCreateRouteOpen(false);
           setAddHotelsOpen(false);
+          setNewHotelOpen(false);
           setVehiclesOpen(false);
           return;
         }
@@ -497,7 +503,7 @@ export default function PlanCanvas({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [addHotelsOpen, createRouteOpen, vehiclesOpen, undo, redo]);
+  }, [addHotelsOpen, createRouteOpen, newHotelOpen, vehiclesOpen, undo, redo]);
 
   const revealInspector = useCallback(() => {
     if (window.matchMedia("(max-width: 980px)").matches) {
@@ -511,6 +517,7 @@ export default function PlanCanvas({
       setMode(nextMode);
       setCreateRouteOpen(false);
       setAddHotelsOpen(false);
+      setNewHotelOpen(false);
       setVehiclesOpen(false);
       setDragState(null);
       setDropTarget(null);
@@ -640,6 +647,41 @@ export default function PlanCanvas({
       setCreateRouteOpen(false);
     },
     [commit, depots, notify],
+  );
+
+  const handleAddNewHotel = useCallback(
+    (values: NewHotelInput, routeId: string): boolean => {
+      const current = planRef.current;
+      const route = current.routes.find(
+        (candidate) => candidate.route_id === routeId,
+      );
+      let result: ReturnType<typeof addNewHotelToRoute>;
+      try {
+        result = addNewHotelToRoute(current, routeId, values, matrix);
+      } catch (error) {
+        notify(
+          error instanceof Error ? error.message : "Could not add the hotel.",
+          "error",
+        );
+        return false;
+      }
+
+      commit(
+        result.plan,
+        `Added ${result.stop.name} to ${
+          route ? shortRouteName(route.name) : "the route"
+        } · ${formatBags(result.stop.load_bags)} · ${formatRooms(
+          result.stop.rooms ?? 0,
+        )}`,
+      );
+      setSelectedRouteId(routeId);
+      setSelectedStopId(result.stop.hotel_id);
+      setNewHotelOpen(false);
+      mapRef.current?.focusStop(result.stop.lat, result.stop.lon);
+      revealInspector();
+      return true;
+    },
+    [commit, matrix, notify, revealInspector],
   );
 
   const handleAddStops = useCallback(
@@ -1284,14 +1326,24 @@ export default function PlanCanvas({
             <div className="plan-sidebar__head-tools">
               {mode === "plan" ? (
                 <>
-                  <button
-                    type="button"
-                    className="plan-new-route"
-                    onClick={() => setCreateRouteOpen(true)}
-                  >
-                    <Plus size={12} />
-                    New route
-                  </button>
+                  <div className="plan-sidebar__head-actions">
+                    <button
+                      type="button"
+                      className="plan-new-route"
+                      onClick={() => setCreateRouteOpen(true)}
+                    >
+                      <Plus size={12} />
+                      New route
+                    </button>
+                    <button
+                      type="button"
+                      className="plan-new-route plan-new-route--ghost"
+                      onClick={() => setNewHotelOpen(true)}
+                    >
+                      <Hotel size={12} />
+                      New hotel
+                    </button>
+                  </div>
                   <button
                     type="button"
                     className="plan-new-route plan-new-route--ghost"
@@ -1322,26 +1374,33 @@ export default function PlanCanvas({
               if (!computed) return null;
               const depot = routeDepot(plan, route);
               const laundry = resolveLaundry(plan, route);
+              const assignedVehicle = resolveVehicle(plan, route);
               const isSelected = selectedRouteId === route.route_id;
               const isDropRoute = dropTarget?.routeId === route.route_id;
               const isDropBlocked = Boolean(
                 dragState &&
                   draggedStop &&
                   dragState.sourceRouteId !== route.route_id &&
+                  assignedVehicle &&
                   computed.total_bags + draggedStop.load_bags >
                     route.nominal_cap,
               );
-              const tone = capacityTone(computed.total_bags, route);
+              const tone = assignedVehicle
+                ? capacityTone(computed.total_bags, route)
+                : "ok";
               const returnTone =
-                computed.total_bags > route.nominal_cap
+                assignedVehicle && computed.total_bags > route.nominal_cap
                   ? "over"
-                  : computed.total_bags > route.max_load ||
-                      computed.return_min > plan.shift.end_min
+                  : computed.return_min > plan.shift.end_min ||
+                      (assignedVehicle &&
+                        computed.total_bags > route.max_load)
                     ? "warn"
                     : "ok";
               const routeIssues = issuesByRoute.get(route.route_id) ?? [];
-              const cardWarnings = routeIssues.filter((issue) =>
-                ROUTE_WARNING_CODES.has(issue.code),
+              const cardWarnings = routeIssues.filter(
+                (issue) =>
+                  ROUTE_WARNING_CODES.has(issue.code) &&
+                  (assignedVehicle || !issue.code.startsWith("over_")),
               );
               const isUpdating = updatingRoutes.has(route.route_id);
               const dropLineIndex =
@@ -1388,13 +1447,19 @@ export default function PlanCanvas({
                             {laundryLabel(laundry)}
                           </span>
                         )}
+                        {!assignedVehicle && (
+                          <span className="plan-route__vehicle-missing">
+                            No vehicle
+                          </span>
+                        )}
                         {route.is_custom && (
                           <span className="plan-route__tag">Custom</span>
                         )}
                       </b>
                       <span className="plan-route__meta">
                         {computed.total_hotels} stops ·{" "}
-                        {computed.total_bags}/{route.max_load} bags ·{" "}
+                        {computed.total_bags}
+                        {assignedVehicle ? `/${route.max_load}` : ""} bags ·{" "}
                         {formatRooms(computed.total_rooms)}
                         {isUpdating ? " · updating path…" : ""}
                         {isDropBlocked ? " · not enough capacity" : ""}
@@ -1405,17 +1470,19 @@ export default function PlanCanvas({
                     </span>
                   </button>
 
-                  <div className="plan-route__capacity" aria-hidden="true">
-                    <span
-                      className={`plan-route__capacity-fill plan-route__capacity-fill--${tone}`}
-                      style={{
-                        width: `${Math.min(
-                          100,
-                          (computed.total_bags / route.max_load) * 100,
-                        )}%`,
-                      }}
-                    />
-                  </div>
+                  {assignedVehicle && (
+                    <div className="plan-route__capacity" aria-hidden="true">
+                      <span
+                        className={`plan-route__capacity-fill plan-route__capacity-fill--${tone}`}
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            (computed.total_bags / route.max_load) * 100,
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  )}
 
                   {cardWarnings.slice(0, 2).map((issue) => (
                     <div
@@ -1653,6 +1720,7 @@ export default function PlanCanvas({
                       ) : (
                         assigned.map(({ route, computed }) => {
                           const laundry = resolveLaundry(plan, route);
+                          const vehicle = resolveVehicle(plan, route);
                           return (
                           <div
                             key={route.route_id}
@@ -1675,8 +1743,9 @@ export default function PlanCanvas({
                                 <b>{shortRouteName(route.name)}</b>
                                 <span>
                                   {computed?.total_hotels ?? 0} stops ·{" "}
-                                  {computed?.total_bags ?? 0}/{route.max_load}{" "}
-                                  bags · {computed?.total_rooms ?? 0} rooms ·{" "}
+                                  {computed?.total_bags ?? 0}
+                                  {vehicle ? `/${route.max_load}` : ""} bags ·{" "}
+                                  {computed?.total_rooms ?? 0} rooms ·{" "}
                                   {laundry
                                     ? `via ${laundryLabel(laundry)}`
                                     : "direct"}{" "}
@@ -1988,9 +2057,12 @@ export default function PlanCanvas({
                 <h2>{shortRouteName(selectedRoute.name)}</h2>
                 <p>
                   {selectedComputed.total_hotels} stops ·{" "}
-                  {selectedComputed.total_bags}/{selectedRoute.max_load} bags ·{" "}
-                  {selectedComputed.total_rooms} rooms ·{" "}
-                  {selectedComputed.capacity_utilization_pct}% of safe load
+                  {selectedComputed.total_bags}
+                  {selectedVehicle ? `/${selectedRoute.max_load}` : ""} bags ·{" "}
+                  {selectedComputed.total_rooms} rooms
+                  {selectedVehicle
+                    ? ` · ${selectedComputed.capacity_utilization_pct}% of safe load`
+                    : ""}
                 </p>
               </div>
 
@@ -2073,7 +2145,7 @@ export default function PlanCanvas({
                   <p className="plan-inspector__note">
                     {selectedVehicle
                       ? `${selectedVehicle.name} · safe load ${selectedVehicle.max_load} bags.`
-                      : `No vehicle assigned · safe load ${selectedRoute.max_load} bags.`}
+                      : "No vehicle assigned. Choose one to set the route capacity."}
                   </p>
                   {otherRoutesOnVehicle.length > 0 && (
                     <p className="plan-inspector__note plan-inspector__note--warning">
@@ -2196,31 +2268,37 @@ export default function PlanCanvas({
 
               <div className="plan-inspector__section">
                 <h3>Capacity</h3>
-                <div className="plan-capacity">
-                  <div className="plan-capacity__labels">
-                    <span>{selectedComputed.total_bags} bags</span>
-                    <span>
-                      safe {selectedRoute.max_load} · vehicle{" "}
-                      {selectedRoute.nominal_cap}
-                    </span>
-                  </div>
-                  <div className="plan-capacity__track">
-                    <span
-                      className={`plan-capacity__fill plan-capacity__fill--${capacityTone(
-                        selectedComputed.total_bags,
-                        selectedRoute,
-                      )}`}
-                      style={{
-                        width: `${Math.min(
-                          100,
-                          (selectedComputed.total_bags /
-                            selectedRoute.max_load) *
+                {selectedVehicle ? (
+                  <div className="plan-capacity">
+                    <div className="plan-capacity__labels">
+                      <span>{selectedComputed.total_bags} bags</span>
+                      <span>
+                        safe {selectedRoute.max_load} · vehicle{" "}
+                        {selectedRoute.nominal_cap}
+                      </span>
+                    </div>
+                    <div className="plan-capacity__track">
+                      <span
+                        className={`plan-capacity__fill plan-capacity__fill--${capacityTone(
+                          selectedComputed.total_bags,
+                          selectedRoute,
+                        )}`}
+                        style={{
+                          width: `${Math.min(
                             100,
-                        )}%`,
-                      }}
-                    />
+                            (selectedComputed.total_bags /
+                              selectedRoute.max_load) *
+                              100,
+                          )}%`,
+                        }}
+                      />
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <p className="plan-muted">
+                    Assign a vehicle to see this route's capacity.
+                  </p>
+                )}
               </div>
 
               {mode === "plan" && (
@@ -2433,6 +2511,15 @@ export default function PlanCanvas({
           </span>
         </div>
       </footer>
+
+      <PlanNewHotelDialog
+        open={newHotelOpen}
+        plan={plan}
+        regions={regions}
+        defaultRouteId={selectedRouteId}
+        onClose={() => setNewHotelOpen(false)}
+        onAdd={handleAddNewHotel}
+      />
 
       <PlanCreateRouteDialog
         open={createRouteOpen}

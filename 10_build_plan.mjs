@@ -152,28 +152,6 @@ const routes = manualRoutes.map((route) => {
   };
 });
 
-const assignedVehicleIds = new Set();
-for (const route of routes) {
-  const vehicle =
-    vehicles.find(
-      (candidate) =>
-        !assignedVehicleIds.has(candidate.id) &&
-        candidate.nominal_cap === route.nominal_cap &&
-        candidate.max_load === route.max_load,
-    ) ??
-    vehicles.find(
-      (candidate) =>
-        !assignedVehicleIds.has(candidate.id) &&
-        candidate.nominal_cap === route.nominal_cap,
-    );
-  if (vehicle) {
-    route.vehicle_id = vehicle.id;
-    route.nominal_cap = vehicle.nominal_cap;
-    route.max_load = vehicle.max_load;
-    assignedVehicleIds.add(vehicle.id);
-  }
-}
-
 const totalStops = routes.reduce((sum, route) => sum + route.stops.length, 0);
 const totalBags = routes.reduce(
   (sum, route) => sum + route.stops.reduce((sub, stop) => sub + stop.load_bags, 0),

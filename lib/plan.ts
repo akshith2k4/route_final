@@ -393,12 +393,9 @@ export function migratePlanDepots(plan: Plan, reference: Plan): Plan {
   }
 
   // Vehicles are user-managed: seed them only when the draft predates the
-  // fleet inventory. Afterwards the draft's list wins, so edits and deletions
-  // survive reloads. Assigned routes always follow their vehicle capacity.
+  // fleet inventory. Routes start unassigned and the user picks a vehicle.
   let vehicles: PlanVehicle[];
   const vehicleIdByRoute = new Map<string, string | null>();
-  const needsVehicleNormalization =
-    (plan.vehicles_version ?? 0) < PLAN_VEHICLES_VERSION;
   if (Array.isArray(plan.vehicles)) {
     vehicles = plan.vehicles;
     for (const route of plan.routes) {
@@ -407,43 +404,12 @@ export function migratePlanDepots(plan: Plan, reference: Plan): Plan {
   } else {
     vehicles = reference.vehicles ?? [];
     for (const route of plan.routes) {
-      const referenceRoute = reference.routes.find(
-        (candidate) => candidate.route_id === route.route_id,
-      );
-      vehicleIdByRoute.set(route.route_id, referenceRoute?.vehicle_id ?? null);
+      vehicleIdByRoute.set(route.route_id, null);
     }
   }
   const vehicleById = new Map(
     vehicles.map((vehicle) => [vehicle.id, vehicle]),
   );
-  const referenceVehicleById = new Map(
-    getPlanVehicles(reference).map((vehicle) => [vehicle.id, vehicle]),
-  );
-
-  // Older layouts numbered the fleet by capacity rather than by vehicle
-  // number. On the first load after the fleet update, re-point routes to the
-  // numbered baseline when the capacity still matches; later user choices are
-  // preserved because the version is stored on the plan.
-  if (needsVehicleNormalization && Array.isArray(plan.vehicles)) {
-    for (const route of plan.routes) {
-      const currentId = vehicleIdByRoute.get(route.route_id);
-      if (!currentId) continue;
-      const currentVehicle = vehicleById.get(currentId);
-      const referenceRoute = reference.routes.find(
-        (candidate) => candidate.route_id === route.route_id,
-      );
-      const referenceVehicle = referenceRoute?.vehicle_id
-        ? referenceVehicleById.get(referenceRoute.vehicle_id)
-        : undefined;
-      if (
-        currentVehicle &&
-        referenceVehicle &&
-        currentVehicle.nominal_cap === referenceVehicle.nominal_cap
-      ) {
-        vehicleIdByRoute.set(route.route_id, referenceVehicle.id);
-      }
-    }
-  }
   vehicles = sortVehicles(vehicles);
 
   return {
@@ -553,8 +519,14 @@ export function formatDuration(totalMinutes: number): string {
   return `${hours}h ${String(minutes).padStart(2, "0")}m`;
 }
 
-export function createMatrixLookup(matrix: TravelMatrix): MatrixLookup {
+export function createMatrixLookup(
+  matrix: TravelMatrix,
+  extraPoints: MatrixPoint[] = [],
+): MatrixLookup {
   const pointsById = new Map(matrix.points.map((point) => [point.id, point]));
+  for (const point of extraPoints) {
+    if (!pointsById.has(point.id)) pointsById.set(point.id, point);
+  }
   const indexById = new Map(
     matrix.points.map((point, index) => [point.id, index]),
   );
@@ -608,12 +580,45 @@ export function createMatrixLookup(matrix: TravelMatrix): MatrixLookup {
   };
 }
 
+/** Every hotel on the plan, including hotels added after the matrix was built. */
+function planStopPoints(plan: Plan): MatrixPoint[] {
+  const points: MatrixPoint[] = [];
+  const seen = new Set<string>();
+  for (const route of plan.routes) {
+    for (const stop of route.stops) {
+      if (seen.has(stop.hotel_id)) continue;
+      seen.add(stop.hotel_id);
+      points.push({
+        id: stop.hotel_id,
+        name: stop.name,
+        lat: stop.lat,
+        lon: stop.lon,
+        kind: "hotel",
+      });
+    }
+  }
+  return points;
+}
+
+/**
+ * Uses the matrix for known points and falls back to straight-line estimates
+ * for hotels added from the Plan Canvas. Those legs are flagged as estimated.
+ */
+function createPlanLookup(
+  plan: Plan,
+  matrixOrLookup: TravelMatrix | MatrixLookup,
+): MatrixLookup {
+  return "leg" in matrixOrLookup
+    ? matrixOrLookup
+    : createMatrixLookup(matrixOrLookup, planStopPoints(plan));
+}
+
 export function computeRoute(
   plan: Plan,
   route: PlanRoute,
   matrixOrLookup: TravelMatrix | MatrixLookup,
 ): ComputedRoute {
-  const lookup = "leg" in matrixOrLookup ? matrixOrLookup : createMatrixLookup(matrixOrLookup);
+  const lookup = createPlanLookup(plan, matrixOrLookup);
   const depot = routeDepot(plan, route);
 
   let cursorS = route.departure_min * 60;
@@ -719,7 +724,7 @@ export function computeRoute(
 }
 
 export function computePlan(plan: Plan, matrix: TravelMatrix): PlanComputation {
-  const lookup = createMatrixLookup(matrix);
+  const lookup = createMatrixLookup(matrix, planStopPoints(plan));
   const routes = plan.routes.map((route) => computeRoute(plan, route, lookup));
   const issues = validateComputedPlan(plan, routes);
   const totals: PlanTotals = {
@@ -784,14 +789,20 @@ export function validateComputedPlan(
       });
     }
 
-    if (route.total_bags > route.nominal_cap) {
+    const planRoute = plan.routes.find(
+      (candidate) => candidate.route_id === route.route_id,
+    );
+    const hasVehicle = planRoute
+      ? resolveVehicle(plan, planRoute) !== null
+      : false;
+    if (hasVehicle && route.total_bags > route.nominal_cap) {
       issues.push({
         severity: "error",
         code: "over_nominal_capacity",
         message: `${route.name} carries ${route.total_bags} bags, above the vehicle capacity of ${route.nominal_cap}.`,
         route_id: route.route_id,
       });
-    } else if (route.total_bags > route.max_load) {
+    } else if (hasVehicle && route.total_bags > route.max_load) {
       issues.push({
         severity: "warning",
         code: "over_safe_capacity",
@@ -834,16 +845,6 @@ export function validateComputedPlan(
     }
   }
 
-  for (const route of plan.routes) {
-    if (!route.vehicle_id && route.stops.length > 0) {
-      issues.push({
-        severity: "warning",
-        code: "no_vehicle",
-        message: `${route.name} has no vehicle assigned.`,
-      });
-    }
-  }
-
   if (plan.unassigned_hotel_ids && plan.unassigned_hotel_ids.length > 0) {
     issues.push({
       severity: "warning",
@@ -862,6 +863,18 @@ export function validateComputedPlan(
     vehicleAssignments.set(route.vehicle_id, assigned);
   }
   const vehicleIssues: PlanIssue[] = [];
+  const routesWithoutVehicle = plan.routes.filter(
+    (route) => !route.vehicle_id && route.stops.length > 0,
+  );
+  if (routesWithoutVehicle.length > 0) {
+    vehicleIssues.push({
+      severity: "warning",
+      code: "no_vehicle",
+      message: `${routesWithoutVehicle.length} route${
+        routesWithoutVehicle.length === 1 ? " has" : "s have"
+      } no vehicle assigned.`,
+    });
+  }
   for (const [vehicleId, routeNames] of vehicleAssignments) {
     if (routeNames.length <= 1) continue;
     const vehicle = getPlanVehicles(plan).find(
@@ -938,8 +951,7 @@ export function cheapestInsertionIndex(
   stop: PlanStop,
   matrixOrLookup: TravelMatrix | MatrixLookup,
 ): number {
-  const lookup =
-    "leg" in matrixOrLookup ? matrixOrLookup : createMatrixLookup(matrixOrLookup);
+  const lookup = createPlanLookup(plan, matrixOrLookup);
   const depotId = routeDepotId(plan, route);
   const laundryId = routeLaundryId(plan, route);
   const endId = laundryId ?? depotId;
@@ -1007,7 +1019,10 @@ export function moveStop(
     0,
   );
   const projectedBags = targetBags + stop.load_bags;
-  if (projectedBags > targetRoute.nominal_cap) {
+  if (
+    resolveVehicle(plan, targetRoute) !== null &&
+    projectedBags > targetRoute.nominal_cap
+  ) {
     throw new Error(
       `${targetRoute.name} cannot take ${stop.name}: ${projectedBags} bags would exceed its ${targetRoute.nominal_cap}-bag vehicle limit.`,
     );
@@ -1232,8 +1247,7 @@ export function optimizeRouteOrder(
   if (!route) throw new Error(`Unknown route: ${routeId}`);
   if (route.stops.length < 3) return plan;
 
-  const lookup =
-    "leg" in matrixOrLookup ? matrixOrLookup : createMatrixLookup(matrixOrLookup);
+  const lookup = createPlanLookup(plan, matrixOrLookup);
   const optimized = twoOptStops(
     routeDepotId(plan, route),
     route.stops,
@@ -1558,7 +1572,10 @@ export function addStopsToRoute(
   );
   const addedBags = selected.reduce((sum, stop) => sum + stop.load_bags, 0);
   const projectedBags = currentBags + addedBags;
-  if (projectedBags > route.nominal_cap) {
+  if (
+    resolveVehicle(plan, route) !== null &&
+    projectedBags > route.nominal_cap
+  ) {
     throw new Error(
       `${route.name} cannot take ${requestedIds.length} hotel${
         requestedIds.length === 1 ? "" : "s"
@@ -1566,8 +1583,7 @@ export function addStopsToRoute(
     );
   }
 
-  const lookup =
-    "leg" in matrixOrLookup ? matrixOrLookup : createMatrixLookup(matrixOrLookup);
+  const lookup = createPlanLookup(plan, matrixOrLookup);
   const selectedIds = new Set(requestedIds);
 
   let targetStops = [...route.stops];
@@ -1603,6 +1619,128 @@ export function addStopsToRoute(
       }
       return candidate;
     }),
+  };
+}
+
+export type NewHotelInput = {
+  name: string;
+  lat: number;
+  lon: number;
+  region: number;
+  service_mins: number;
+  load_bags: number;
+  rooms?: number;
+};
+
+function nextCustomHotelId(plan: Plan, name: string): string {
+  const base =
+    name
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 48) || "hotel";
+  const used = new Set(
+    plan.routes.flatMap((route) => route.stops.map((stop) => stop.hotel_id)),
+  );
+  let id = `custom-${base}`;
+  let suffix = 2;
+  while (used.has(id)) {
+    id = `custom-${base}-${suffix}`;
+    suffix += 1;
+  }
+  return id;
+}
+
+/**
+ * Adds a brand-new hotel (not from the master hotel list) to one route and
+ * places it with cheapest insertion. The hotel is part of the plan draft only.
+ */
+export function addNewHotelToRoute(
+  plan: Plan,
+  routeId: string,
+  input: NewHotelInput,
+  matrix: TravelMatrix,
+): { plan: Plan; stop: PlanStop } {
+  const route = findRoute(plan, routeId);
+  if (!route) throw new Error(`Unknown route: ${routeId}`);
+
+  const name = input.name.trim();
+  if (!name) throw new Error("A hotel name is required.");
+  if (!Number.isFinite(input.lat) || input.lat < -90 || input.lat > 90) {
+    throw new Error("Latitude must be between -90 and 90.");
+  }
+  if (!Number.isFinite(input.lon) || input.lon < -180 || input.lon > 180) {
+    throw new Error("Longitude must be between -180 and 180.");
+  }
+  if (!Number.isInteger(input.region) || input.region < 0) {
+    throw new Error("Choose a region for this hotel.");
+  }
+  if (!Number.isInteger(input.service_mins) || input.service_mins < 0) {
+    throw new Error("Service time must be a whole number of minutes.");
+  }
+  if (!Number.isInteger(input.load_bags) || input.load_bags < 0) {
+    throw new Error("Bags must be a whole number.");
+  }
+  const rooms = input.rooms ?? 0;
+  if (!Number.isInteger(rooms) || rooms < 0) {
+    throw new Error("Rooms must be a whole number.");
+  }
+
+  const currentBags = route.stops.reduce(
+    (sum, stop) => sum + stop.load_bags,
+    0,
+  );
+  if (
+    resolveVehicle(plan, route) !== null &&
+    currentBags + input.load_bags > route.nominal_cap
+  ) {
+    throw new Error(
+      `${route.name} would carry ${currentBags + input.load_bags} bags, above its ${route.nominal_cap}-bag vehicle limit.`,
+    );
+  }
+
+  const stop: PlanStop = {
+    hotel_id: nextCustomHotelId(plan, name),
+    name,
+    lat: input.lat,
+    lon: input.lon,
+    region: input.region,
+    service_mins: input.service_mins,
+    load_bags: input.load_bags,
+    rooms,
+  };
+
+  const lookup = createMatrixLookup(matrix, [
+    ...planStopPoints(plan),
+    {
+      id: stop.hotel_id,
+      name: stop.name,
+      lat: stop.lat,
+      lon: stop.lon,
+      kind: "hotel",
+    },
+  ]);
+  const insertIndex = cheapestInsertionIndex(plan, route, stop, lookup);
+  const stops = [...route.stops];
+  stops.splice(insertIndex, 0, stop);
+  const optimized = twoOptStops(
+    routeDepotId(plan, route),
+    stops,
+    lookup,
+    routeLaundryId(plan, route),
+  );
+
+  return {
+    plan: {
+      ...plan,
+      routes: plan.routes.map((candidate) =>
+        candidate.route_id === routeId
+          ? { ...candidate, stops: optimized }
+          : candidate,
+      ),
+    },
+    stop,
   };
 }
 
