@@ -17,7 +17,6 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
-  Download,
   GripVertical,
   Hotel,
   MapPin,
@@ -27,6 +26,7 @@ import {
   Redo2,
   RotateCcw,
   Route,
+  Share2,
   Trash2,
   Truck,
   Undo2,
@@ -38,6 +38,7 @@ import {
 import PlanAddHotelsDialog from "./plan-add-hotels-dialog";
 import PlanCreateRouteDialog from "./plan-create-route-dialog";
 import PlanNewHotelDialog from "./plan-new-hotel-dialog";
+import PlanShareDialog from "./plan-share-dialog";
 import PlanVehiclesDialog from "./plan-vehicles-dialog";
 import PlanCanvasMap, {
   type PlanCanvasMapHandle,
@@ -63,6 +64,10 @@ import {
   migratePlanDepots,
   moveStop,
   optimizeRouteOrder,
+  parseClock,
+  parsePlanDraft,
+  PLAN_DRAFT_STORAGE_KEY,
+  PLAN_IMPORT_BACKUP_KEY,
   reassignRouteDepot,
   reorderStops,
   resolveLaundry,
@@ -73,6 +78,7 @@ import {
   routesUsingVehicle,
   setRouteLaundry,
   sortVehicles,
+  summarizePlan,
   updateVehicle,
   type Plan,
   type PlanIssue,
@@ -82,7 +88,7 @@ import {
   type TravelMatrix,
 } from "../lib/plan";
 
-const STORAGE_KEY = "linengrass.plan-canvas.v1";
+const STORAGE_KEY = PLAN_DRAFT_STORAGE_KEY;
 const OSRM_BASE_URL = "https://router.project-osrm.org";
 
 type PlanCanvasProps = {
@@ -189,6 +195,8 @@ export default function PlanCanvas({
   const [addHotelsOpen, setAddHotelsOpen] = useState(false);
   const [newHotelOpen, setNewHotelOpen] = useState(false);
   const [vehiclesOpen, setVehiclesOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [hasImportBackup, setHasImportBackup] = useState(false);
 
   const planRef = useRef(plan);
   const mapRef = useRef<PlanCanvasMapHandle | null>(null);
@@ -488,11 +496,18 @@ export default function PlanCanvas({
         if (event.shiftKey) redo();
         else undo();
       } else if (event.key === "Escape") {
-        if (createRouteOpen || addHotelsOpen || newHotelOpen || vehiclesOpen) {
+        if (
+          createRouteOpen ||
+          addHotelsOpen ||
+          newHotelOpen ||
+          vehiclesOpen ||
+          shareOpen
+        ) {
           setCreateRouteOpen(false);
           setAddHotelsOpen(false);
           setNewHotelOpen(false);
           setVehiclesOpen(false);
+          setShareOpen(false);
           return;
         }
         setSelectedStopId(null);
@@ -504,7 +519,15 @@ export default function PlanCanvas({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [addHotelsOpen, createRouteOpen, newHotelOpen, vehiclesOpen, undo, redo]);
+  }, [
+    addHotelsOpen,
+    createRouteOpen,
+    newHotelOpen,
+    shareOpen,
+    vehiclesOpen,
+    undo,
+    redo,
+  ]);
 
   const revealInspector = useCallback(() => {
     if (window.matchMedia("(max-width: 980px)").matches) {
@@ -520,6 +543,7 @@ export default function PlanCanvas({
       setAddHotelsOpen(false);
       setNewHotelOpen(false);
       setVehiclesOpen(false);
+      setShareOpen(false);
       setDragState(null);
       setDropTarget(null);
       setSelectedStopId(null);
@@ -1018,19 +1042,114 @@ export default function PlanCanvas({
   }, [commit, initialPlan]);
 
   const exportPlan = useCallback(() => {
-    const blob = new Blob([`${JSON.stringify(planRef.current, null, 2)}\n`], {
+    const exportedAt = new Date().toISOString();
+    const payload = { ...planRef.current, exported_at: exportedAt };
+    const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "linengrass-plan-draft.json";
+    anchor.download = `linengrass-plan-${exportedAt.slice(0, 10)}.json`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
-    notify("Plan exported as JSON");
+    notify("Plan file downloaded");
   }, [notify]);
+
+  const openShare = useCallback(() => {
+    try {
+      setHasImportBackup(
+        Boolean(window.localStorage.getItem(PLAN_IMPORT_BACKUP_KEY)),
+      );
+    } catch {
+      setHasImportBackup(false);
+    }
+    setShareOpen(true);
+  }, []);
+
+  const handleImportPlan = useCallback(
+    (imported: Plan, fileName: string): boolean => {
+      const current = planRef.current;
+      try {
+        const next = migratePlanDepots(
+          {
+            ...imported,
+            plan_id: initialPlan.plan_id,
+            shift: initialPlan.shift,
+          },
+          initialPlan,
+        );
+        try {
+          window.localStorage.setItem(
+            PLAN_IMPORT_BACKUP_KEY,
+            JSON.stringify(current),
+          );
+        } catch {
+          // The in-memory Undo history still protects this import.
+        }
+        setHasImportBackup(true);
+        const summary = summarizePlan(next);
+        commit(
+          next,
+          `Imported ${fileName} · ${summary.routes} routes · ${summary.stops} stops · ${summary.bags} bags`,
+        );
+        setSelectedRouteId(next.routes[0]?.route_id ?? null);
+        setSelectedStopId(null);
+        setInspectorOpen(false);
+        setShareOpen(false);
+        return true;
+      } catch (error) {
+        notify(
+          error instanceof Error
+            ? error.message
+            : "Could not import this plan.",
+          "error",
+        );
+        return false;
+      }
+    },
+    [commit, initialPlan, notify],
+  );
+
+  const handleRestoreBackup = useCallback((): boolean => {
+    let raw: string | null = null;
+    try {
+      raw = window.localStorage.getItem(PLAN_IMPORT_BACKUP_KEY);
+    } catch {
+      raw = null;
+    }
+    if (!raw) {
+      notify("No import backup found.", "error");
+      return false;
+    }
+    try {
+      const parsed = parsePlanDraft(JSON.parse(raw));
+      const restored = migratePlanDepots(
+        {
+          ...parsed,
+          plan_id: initialPlan.plan_id,
+          shift: initialPlan.shift,
+        },
+        initialPlan,
+      );
+      commit(restored, "Restored the draft from before the last import");
+      setSelectedRouteId(restored.routes[0]?.route_id ?? null);
+      setSelectedStopId(null);
+      setInspectorOpen(false);
+      setShareOpen(false);
+      return true;
+    } catch (error) {
+      notify(
+        error instanceof Error
+          ? error.message
+          : "Could not restore the previous draft.",
+        "error",
+      );
+      return false;
+    }
+  }, [commit, initialPlan, notify]);
 
   const beginDrag = useCallback(
     (
@@ -1309,9 +1428,14 @@ export default function PlanCanvas({
             <RotateCcw size={14} />
             Reset
           </button>
-          <button type="button" className="btn btn--primary" onClick={exportPlan}>
-            <Download size={14} />
-            Export
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={openShare}
+            title="Share or upload a plan file"
+          >
+            <Share2 size={14} />
+            Share
           </button>
         </div>
       </header>
@@ -2516,6 +2640,16 @@ export default function PlanCanvas({
           </span>
         </div>
       </footer>
+
+      <PlanShareDialog
+        open={shareOpen}
+        plan={plan}
+        hasBackup={hasImportBackup}
+        onClose={() => setShareOpen(false)}
+        onExport={exportPlan}
+        onImport={handleImportPlan}
+        onRestoreBackup={handleRestoreBackup}
+      />
 
       <PlanNewHotelDialog
         open={newHotelOpen}

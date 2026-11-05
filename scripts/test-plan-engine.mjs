@@ -21,6 +21,7 @@ import {
   moveStop,
   optimizeRouteOrder,
   parseClock,
+  parsePlanDraft,
   reassignRouteDepot,
   reorderStops,
   resolveLaundry,
@@ -32,6 +33,7 @@ import {
   safeLoadForCapacity,
   SECOND_DEPOT_ID,
   setRouteLaundry,
+  summarizePlan,
   updateVehicle,
 } from "../lib/plan.ts";
 import { buildDayData } from "../lib/day-plan.ts";
@@ -940,6 +942,57 @@ const umComforts = dayViews[2].routes
   .hotels.find((hotel) => hotel.name === "UM Comforts");
 assert.ok(umComforts);
 assert.equal(umComforts.lat, null, "unmatched hotels should be unpinned");
+
+// ---------------------------------------------------------------------------
+// Shared plan validation
+// ---------------------------------------------------------------------------
+
+const planSummary = summarizePlan(plan);
+assert.deepEqual(planSummary, {
+  routes: 8,
+  stops: 101,
+  bags: 387,
+  rooms: 3423,
+  vehicles: 10,
+  depots: 2,
+  laundries: 2,
+  customRoutes: 0,
+  unassigned: 0,
+});
+const parsedPlan = parsePlanDraft(structuredClone(plan));
+assert.equal(parsedPlan.plan_id, plan.plan_id);
+assert.equal(parsedPlan.routes.length, 8);
+assert.deepEqual(summarizePlan(parsedPlan), planSummary);
+assert.equal(
+  parsePlanDraft({ ...structuredClone(plan), exported_at: "2026-11-05T10:00:00.000Z" })
+    .routes.length,
+  8,
+  "export wrapper fields should be ignored",
+);
+assert.throws(
+  () => parsePlanDraft(null),
+  /not a shared plan/,
+  "empty files should be rejected",
+);
+assert.throws(
+  () => parsePlanDraft({ ...structuredClone(plan), schema_version: 99 }),
+  /Unsupported plan version/,
+  "unknown plan versions should be rejected",
+);
+const invalidCoordinatePlan = structuredClone(plan);
+invalidCoordinatePlan.routes[0].stops[0].lat = Number.NaN;
+assert.throws(
+  () => parsePlanDraft(invalidCoordinatePlan),
+  /latitude/,
+  "invalid hotel coordinates should be rejected",
+);
+const invalidStopsPlan = structuredClone(plan);
+invalidStopsPlan.routes[0].stops = null;
+assert.throws(
+  () => parsePlanDraft(invalidStopsPlan),
+  /stops/,
+  "routes without stop lists should be rejected",
+);
 
 console.log("");
 console.log("Warehouse assignment smoke test (Route 7, HQ -> Second Warehouse):");

@@ -2,6 +2,9 @@ export const PLAN_SCHEMA_VERSION = 1;
 export const PLAN_VEHICLES_VERSION = 2;
 export const MATRIX_SCHEMA_VERSION = 1;
 
+export const PLAN_DRAFT_STORAGE_KEY = "linengrass.plan-canvas.v1";
+export const PLAN_IMPORT_BACKUP_KEY = "linengrass.plan-canvas.pre-import";
+
 export type PlanDepot = {
   id: string;
   name: string;
@@ -313,6 +316,139 @@ export function routesUsingVehicle(
 /** Safe load for a capacity, matching the 90% fleet rule. */
 export function safeLoadForCapacity(capacity: number): number {
   return Math.max(1, Math.floor(capacity * 0.9));
+}
+
+export type PlanSummary = {
+  routes: number;
+  stops: number;
+  bags: number;
+  rooms: number;
+  vehicles: number;
+  depots: number;
+  laundries: number;
+  customRoutes: number;
+  unassigned: number;
+};
+
+export function summarizePlan(plan: Plan): PlanSummary {
+  return {
+    routes: plan.routes.length,
+    stops: plan.routes.reduce((sum, route) => sum + route.stops.length, 0),
+    bags: plan.routes.reduce(
+      (sum, route) =>
+        sum + route.stops.reduce((child, stop) => child + stop.load_bags, 0),
+      0,
+    ),
+    rooms: plan.routes.reduce(
+      (sum, route) =>
+        sum + route.stops.reduce((child, stop) => child + (stop.rooms ?? 0), 0),
+      0,
+    ),
+    vehicles: getPlanVehicles(plan).length,
+    depots: getPlanDepots(plan).length,
+    laundries: getPlanLaundries(plan).length,
+    customRoutes: plan.routes.filter((route) => route.is_custom).length,
+    unassigned: plan.unassigned_hotel_ids?.length ?? 0,
+  };
+}
+
+function requireNumber(value: unknown, label: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`${label} is missing or invalid.`);
+  }
+  return value;
+}
+
+function requireString(value: unknown, label: string): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`${label} is missing or invalid.`);
+  }
+  return value;
+}
+
+/**
+ * Validates a shared plan file before it is allowed to replace a local draft.
+ * It intentionally accepts the exported wrapper fields (for example
+ * `exported_at`) and only reads the plan fields it needs.
+ */
+export function parsePlanDraft(value: unknown): Plan {
+  if (!value || typeof value !== "object") {
+    throw new Error("This file is not a shared plan.");
+  }
+  const candidate = value as Partial<Plan>;
+  if (candidate.schema_version !== PLAN_SCHEMA_VERSION) {
+    throw new Error(
+      `Unsupported plan version: ${String(candidate.schema_version)}.`,
+    );
+  }
+  if (!candidate.depot || typeof candidate.depot !== "object") {
+    throw new Error("The shared plan has no warehouse.");
+  }
+  const depot = candidate.depot as PlanDepot;
+  requireString(depot.id, "Warehouse id");
+  requireString(depot.name, "Warehouse name");
+  requireNumber(depot.lat, "Warehouse latitude");
+  requireNumber(depot.lon, "Warehouse longitude");
+
+  const shift = candidate.shift ?? { start_min: 390, end_min: 990 };
+  requireNumber(shift.start_min, "Shift start");
+  requireNumber(shift.end_min, "Shift end");
+
+  if (!Array.isArray(candidate.routes)) {
+    throw new Error("The shared plan has no routes.");
+  }
+
+  for (const route of candidate.routes) {
+    if (!route || typeof route !== "object") {
+      throw new Error("The shared plan contains an invalid route.");
+    }
+    const name = route.name || route.route_id || "Unnamed route";
+    requireString(route.route_id, `Route id (${name})`);
+    requireString(route.name, `Route name (${name})`);
+    requireString(route.color, `Route color (${name})`);
+    requireNumber(route.nominal_cap, `Vehicle capacity (${name})`);
+    requireNumber(route.max_load, `Safe load (${name})`);
+    requireNumber(route.departure_min, `Departure time (${name})`);
+    if (!Array.isArray(route.stops)) {
+      throw new Error(`Route stops (${name}) are missing.`);
+    }
+    for (const stop of route.stops) {
+      if (!stop || typeof stop !== "object") {
+        throw new Error(`Route ${name} contains an invalid stop.`);
+      }
+      requireString(stop.hotel_id, `Hotel id on ${name}`);
+      requireString(stop.name, `Hotel name on ${name}`);
+      requireNumber(stop.lat, `${stop.name} latitude`);
+      requireNumber(stop.lon, `${stop.name} longitude`);
+      requireNumber(stop.service_mins, `${stop.name} service time`);
+      requireNumber(stop.load_bags, `${stop.name} bags`);
+      if (stop.rooms !== undefined) {
+        requireNumber(stop.rooms, `${stop.name} rooms`);
+      }
+    }
+  }
+
+  if (candidate.unassigned_hotel_ids !== undefined) {
+    if (!Array.isArray(candidate.unassigned_hotel_ids)) {
+      throw new Error("Unassigned hotel ids are invalid.");
+    }
+  }
+
+  return {
+    ...(candidate as Plan),
+    plan_id: candidate.plan_id || "imported-plan",
+    name: candidate.name || "Imported plan",
+    status: candidate.status === "published" ? "published" : "draft",
+    shift: {
+      start_min: shift.start_min,
+      end_min: shift.end_min,
+    },
+    routes: candidate.routes.map((route) => ({
+      ...route,
+      route_key: route.route_key || route.route_id.replace(/-/g, "_"),
+      stops: route.stops.map((stop) => ({ ...stop, rooms: stop.rooms ?? 0 })),
+    })),
+  };
 }
 
 /**
