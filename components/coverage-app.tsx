@@ -402,10 +402,6 @@ const SHOW_DISPATCH_AND_STUDIO = false;
             Plan canvas
             <ArrowUpRight size={11} />
           </Link>
-          <Link className="topnav__item" href="/days">
-            Day board
-            <ArrowUpRight size={11} />
-          </Link>
           {SHOW_DISPATCH_AND_STUDIO && (
             <>
               <button

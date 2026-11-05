@@ -9,11 +9,14 @@ import {
   type Plan,
 } from "../lib/plan";
 
+type NewHotelDayValue = "both" | "day1" | "day2" | "none";
+
 type PlanNewHotelDialogProps = {
   open: boolean;
   plan: Plan;
   regions: RegionMeta[];
   defaultRouteId: string | null;
+  defaultDay: NewHotelDayValue;
   onClose: () => void;
   onAdd: (values: NewHotelInput, routeId: string) => boolean;
 };
@@ -35,6 +38,7 @@ export default function PlanNewHotelDialog({
   plan,
   regions,
   defaultRouteId,
+  defaultDay,
   onClose,
   onAdd,
 }: PlanNewHotelDialogProps) {
@@ -46,6 +50,7 @@ export default function PlanNewHotelDialog({
   const [serviceMins, setServiceMins] = useState("15");
   const [regionId, setRegionId] = useState("");
   const [routeId, setRouteId] = useState(defaultRouteId ?? "");
+  const [dayValue, setDayValue] = useState<NewHotelDayValue>(defaultDay);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,8 +63,9 @@ export default function PlanNewHotelDialog({
     setServiceMins("15");
     setRegionId("");
     setRouteId(defaultRouteId ?? plan.routes[0]?.route_id ?? "");
+    setDayValue(defaultDay);
     setError(null);
-  }, [open, defaultRouteId, plan.routes]);
+  }, [open, defaultDay, defaultRouteId, plan.routes]);
 
   useEffect(() => {
     if (!open) return;
@@ -141,6 +147,14 @@ export default function PlanNewHotelDialog({
         service_mins: serviceValue,
         load_bags: bagsValue,
         rooms: roomsValue,
+        days:
+          dayValue === "both"
+            ? ["day1", "day2"]
+            : dayValue === "day1"
+              ? ["day1"]
+              : dayValue === "day2"
+                ? ["day2"]
+                : [],
       },
       selectedRoute.route_id,
     );
@@ -270,6 +284,21 @@ export default function PlanNewHotelDialog({
             </select>
           </label>
         </div>
+
+        <label className="plan-dialog__field">
+          <span>Days</span>
+          <select
+            value={dayValue}
+            onChange={(event) =>
+              setDayValue(event.target.value as NewHotelDayValue)
+            }
+          >
+            <option value="both">Both days (daily)</option>
+            <option value="day1">Day 1 only</option>
+            <option value="day2">Day 2 only</option>
+            <option value="none">Unscheduled</option>
+          </select>
+        </label>
 
         <label className="plan-dialog__field">
           <span>Assign to route</span>

@@ -3,6 +3,7 @@ import fs from "node:fs";
 const HOTELS_PATH = "data/hotels.json";
 const ROUTES_PATH = "data/manual_routes.json";
 const FLEET_PATH = "data/fleet.json";
+const DAY_PLAN_PATH = "data/day_plan.json";
 const PLAN_PATH = "data/plan.json";
 
 function normalizeName(value) {
@@ -39,6 +40,37 @@ function haversineKm(lat1, lon1, lat2, lon2) {
 const hotels = JSON.parse(fs.readFileSync(HOTELS_PATH, "utf8"));
 const manualRoutes = JSON.parse(fs.readFileSync(ROUTES_PATH, "utf8"));
 const fleet = JSON.parse(fs.readFileSync(FLEET_PATH, "utf8"));
+const dayPlan = JSON.parse(fs.readFileSync(DAY_PLAN_PATH, "utf8"));
+
+const DAY_ALIASES = {
+  "HYATT WHITEFIELD MAHADEVPURA": "HYATT CENTRIC WHITEFIELD BENGALURU",
+  "CASA PICOSSA E CITY": "CASA PICCOSA E CITY",
+  "WANDR 100FT INDIRANAGAR": "WANDR INDIRANAGAR",
+};
+
+function canonicalDayName(value) {
+  const key = String(value)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .trim();
+  return DAY_ALIASES[key] ?? key;
+}
+
+const hotelByCanonicalName = new Map(
+  hotels.map((hotel) => [canonicalDayName(hotel.name), hotel]),
+);
+const dayPlanByRoute = new Map(
+  (dayPlan.routes ?? []).map((route) => [route.route_id, route]),
+);
+
+function dayIdsFor(names) {
+  const ids = new Set();
+  for (const name of names ?? []) {
+    const hotel = hotelByCanonicalName.get(canonicalDayName(name));
+    if (hotel) ids.add(hotel.id);
+  }
+  return ids;
+}
 
 const fleetDepots =
   Array.isArray(fleet.depots) && fleet.depots.length > 0
@@ -107,6 +139,11 @@ function resolveHotel(stop) {
 }
 
 const routes = manualRoutes.map((route) => {
+  const dayRoute = dayPlanByRoute.get(route.route_id);
+  const dailyIds = dayIdsFor(dayRoute?.daily_hotels);
+  const day1Ids = dayIdsFor(dayRoute?.["Day 1_Full"]);
+  const day2Ids = dayIdsFor(dayRoute?.["Day 2_Full"]);
+
   const stops = route.stops.map((stop) => {
     const { hotel, method } = resolveHotel(stop);
     if (!hotel) {
@@ -126,6 +163,12 @@ const routes = manualRoutes.map((route) => {
         `  matched "${stop.name}" -> ${hotel.name} via ${method}`,
       );
     }
+    const days = dailyIds.has(hotel.id)
+      ? ["day1", "day2"]
+      : [
+          ...(day1Ids.has(hotel.id) ? ["day1"] : []),
+          ...(day2Ids.has(hotel.id) ? ["day2"] : []),
+        ];
     return {
       hotel_id: hotel.id,
       name: hotel.name,
@@ -135,6 +178,7 @@ const routes = manualRoutes.map((route) => {
       service_mins: hotel.stop_mins,
       load_bags: hotel.load,
       rooms: hotel.rooms ?? 0,
+      days,
     };
   });
 
@@ -184,6 +228,7 @@ const plan = {
   laundries,
   vehicles,
   vehicles_version: 2,
+  days_version: 1,
   shift: {
     start_min: 6 * 60 + 30,
     end_min: 16 * 60 + 30,

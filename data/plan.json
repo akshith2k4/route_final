@@ -3,7 +3,7 @@
   "plan_id": "manual-current",
   "name": "Manual Dispatch Plan",
   "status": "draft",
-  "created_at": "2026-11-05T05:20:31.641Z",
+  "created_at": "2026-11-05T08:08:02.257Z",
   "source": "data/manual_routes.json",
   "depot": {
     "id": "depot-yeshwanthpur",
@@ -119,6 +119,7 @@
     }
   ],
   "vehicles_version": 2,
+  "days_version": 1,
   "shift": {
     "start_min": 390,
     "end_min": 990
@@ -141,7 +142,10 @@
           "region": 3,
           "service_mins": 12,
           "load_bags": 4,
-          "rooms": 28
+          "rooms": 28,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "day-suites",
@@ -151,7 +155,11 @@
           "region": 3,
           "service_mins": 29,
           "load_bags": 15,
-          "rooms": 122
+          "rooms": 122,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "aurum-key",
@@ -161,7 +169,11 @@
           "region": 3,
           "service_mins": 11,
           "load_bags": 6,
-          "rooms": 47
+          "rooms": 47,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "octave-hotel-and-spa-marathahalli",
@@ -171,7 +183,11 @@
           "region": 3,
           "service_mins": 12,
           "load_bags": 4,
-          "rooms": 41
+          "rooms": 41,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "global-stay",
@@ -181,7 +197,10 @@
           "region": 0,
           "service_mins": 14,
           "load_bags": 3,
-          "rooms": 27
+          "rooms": 27,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "octave-hotel-and-spa-sarjapur-road",
@@ -191,7 +210,11 @@
           "region": 0,
           "service_mins": 8,
           "load_bags": 4,
-          "rooms": 38
+          "rooms": 38,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "sm-comforts-hsr",
@@ -201,7 +224,10 @@
           "region": 0,
           "service_mins": 13,
           "load_bags": 3,
-          "rooms": 22
+          "rooms": 22,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "park-inn",
@@ -211,7 +237,10 @@
           "region": 3,
           "service_mins": 6,
           "load_bags": 4,
-          "rooms": 35
+          "rooms": 35,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "wandr-brookefield",
@@ -221,7 +250,10 @@
           "region": 3,
           "service_mins": 15,
           "load_bags": 4,
-          "rooms": 25
+          "rooms": 25,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "hyatt-centric-whitefield-bengaluru",
@@ -231,7 +263,10 @@
           "region": 3,
           "service_mins": 21,
           "load_bags": 3,
-          "rooms": 55
+          "rooms": 55,
+          "days": [
+            "day1"
+          ]
         }
       ],
       "depot_id": "depot-yeshwanthpur"
@@ -253,7 +288,10 @@
           "region": 1,
           "service_mins": 12,
           "load_bags": 3,
-          "rooms": 36
+          "rooms": 36,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "octave-hotel-and-spa-jp-nagar",
@@ -263,7 +301,10 @@
           "region": 4,
           "service_mins": 16,
           "load_bags": 3,
-          "rooms": 30
+          "rooms": 30,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "brixton-luxe",
@@ -273,7 +314,10 @@
           "region": 0,
           "service_mins": 13,
           "load_bags": 3,
-          "rooms": 24
+          "rooms": 24,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "wandr-hsr-layout",
@@ -283,7 +327,10 @@
           "region": 0,
           "service_mins": 15,
           "load_bags": 3,
-          "rooms": 32
+          "rooms": 32,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "ekaa-keys",
@@ -293,7 +340,10 @@
           "region": 0,
           "service_mins": 18,
           "load_bags": 3,
-          "rooms": 32
+          "rooms": 32,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "east-park-premium",
@@ -303,7 +353,10 @@
           "region": 0,
           "service_mins": 17,
           "load_bags": 4,
-          "rooms": 25
+          "rooms": 25,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "east-park-rio",
@@ -313,7 +366,10 @@
           "region": 0,
           "service_mins": 12,
           "load_bags": 2,
-          "rooms": 10
+          "rooms": 10,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "hotel-vertex",
@@ -323,7 +379,10 @@
           "region": 0,
           "service_mins": 14,
           "load_bags": 2,
-          "rooms": 28
+          "rooms": 28,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "golden-suites",
@@ -333,7 +392,10 @@
           "region": 0,
           "service_mins": 17,
           "load_bags": 3,
-          "rooms": 16
+          "rooms": 16,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "inventree-e-city",
@@ -343,7 +405,10 @@
           "region": 0,
           "service_mins": 39,
           "load_bags": 1,
-          "rooms": 70
+          "rooms": 70,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "casa-piccosa-e-city",
@@ -353,7 +418,10 @@
           "region": 0,
           "service_mins": 14,
           "load_bags": 3,
-          "rooms": 15
+          "rooms": 15,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "celestial-suites",
@@ -363,7 +431,8 @@
           "region": 0,
           "service_mins": 15,
           "load_bags": 3,
-          "rooms": 20
+          "rooms": 20,
+          "days": []
         },
         {
           "hotel_id": "nirantara-resort",
@@ -373,7 +442,10 @@
           "region": 0,
           "service_mins": 25,
           "load_bags": 4,
-          "rooms": 20
+          "rooms": 20,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "celebrity-suites",
@@ -383,7 +455,10 @@
           "region": 0,
           "service_mins": 15,
           "load_bags": 3,
-          "rooms": 23
+          "rooms": 23,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "v-b-h-inn",
@@ -393,7 +468,10 @@
           "region": 0,
           "service_mins": 9,
           "load_bags": 2,
-          "rooms": 14
+          "rooms": 14,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "clover-a-rivido-hotels",
@@ -403,7 +481,10 @@
           "region": 0,
           "service_mins": 13,
           "load_bags": 3,
-          "rooms": 28
+          "rooms": 28,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "golden-stay",
@@ -413,7 +494,10 @@
           "region": 0,
           "service_mins": 8,
           "load_bags": 2,
-          "rooms": 10
+          "rooms": 10,
+          "days": [
+            "day1"
+          ]
         }
       ],
       "depot_id": "depot-yeshwanthpur"
@@ -435,7 +519,10 @@
           "region": 1,
           "service_mins": 15,
           "load_bags": 3,
-          "rooms": 35
+          "rooms": 35,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "le-grandeur",
@@ -445,7 +532,10 @@
           "region": 4,
           "service_mins": 18,
           "load_bags": 4,
-          "rooms": 18
+          "rooms": 18,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "le-grandeur-nk-circle",
@@ -455,7 +545,10 @@
           "region": 4,
           "service_mins": 28,
           "load_bags": 4,
-          "rooms": 42
+          "rooms": 42,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "kingston-palace",
@@ -465,7 +558,10 @@
           "region": 4,
           "service_mins": 21,
           "load_bags": 3,
-          "rooms": 30
+          "rooms": 30,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "ur-comforts",
@@ -475,7 +571,10 @@
           "region": 4,
           "service_mins": 39,
           "load_bags": 5,
-          "rooms": 23
+          "rooms": 23,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "vp-international",
@@ -485,7 +584,10 @@
           "region": 4,
           "service_mins": 28,
           "load_bags": 3,
-          "rooms": 20
+          "rooms": 20,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "shetty-gardenia-hotel",
@@ -495,7 +597,10 @@
           "region": 4,
           "service_mins": 10,
           "load_bags": 3,
-          "rooms": 18
+          "rooms": 18,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "sy-comforts",
@@ -505,7 +610,10 @@
           "region": 4,
           "service_mins": 12,
           "load_bags": 2,
-          "rooms": 20
+          "rooms": 20,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "s-v-b-r-hotel",
@@ -515,7 +623,10 @@
           "region": 4,
           "service_mins": 2,
           "load_bags": 1,
-          "rooms": 16
+          "rooms": 16,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "sk-comforts",
@@ -525,7 +636,10 @@
           "region": 4,
           "service_mins": 9,
           "load_bags": 3,
-          "rooms": 15
+          "rooms": 15,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "holiday-village",
@@ -535,7 +649,10 @@
           "region": 4,
           "service_mins": 29,
           "load_bags": 5,
-          "rooms": 23
+          "rooms": 23,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "nisarga-hotel",
@@ -545,7 +662,10 @@
           "region": 4,
           "service_mins": 15,
           "load_bags": 3,
-          "rooms": 10
+          "rooms": 10,
+          "days": [
+            "day2"
+          ]
         }
       ],
       "depot_id": "depot-yeshwanthpur"
@@ -567,7 +687,11 @@
           "region": 4,
           "service_mins": 22,
           "load_bags": 3,
-          "rooms": 28
+          "rooms": 28,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "nest-by-rivido",
@@ -577,7 +701,10 @@
           "region": 4,
           "service_mins": 11,
           "load_bags": 3,
-          "rooms": 15
+          "rooms": 15,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "hotel-monarch-international",
@@ -587,7 +714,10 @@
           "region": 4,
           "service_mins": 15,
           "load_bags": 4,
-          "rooms": 32
+          "rooms": 32,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "dd-comforts",
@@ -597,7 +727,10 @@
           "region": 4,
           "service_mins": 20,
           "load_bags": 5,
-          "rooms": 26
+          "rooms": 26,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "sm-international",
@@ -607,7 +740,10 @@
           "region": 4,
           "service_mins": 20,
           "load_bags": 3,
-          "rooms": 31
+          "rooms": 31,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "arama-suites",
@@ -617,7 +753,10 @@
           "region": 4,
           "service_mins": 13,
           "load_bags": 3,
-          "rooms": 30
+          "rooms": 30,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "temple-keys",
@@ -627,7 +766,10 @@
           "region": 4,
           "service_mins": 11,
           "load_bags": 2,
-          "rooms": 15
+          "rooms": 15,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "m-r-happy-stay-inn",
@@ -637,7 +779,10 @@
           "region": 4,
           "service_mins": 30,
           "load_bags": 1,
-          "rooms": 18
+          "rooms": 18,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "olive-hulimavu-hotel",
@@ -647,7 +792,11 @@
           "region": 4,
           "service_mins": 24,
           "load_bags": 6,
-          "rooms": 55
+          "rooms": 55,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "felicity",
@@ -657,7 +806,11 @@
           "region": 4,
           "service_mins": 19,
           "load_bags": 5,
-          "rooms": 44
+          "rooms": 44,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "sm-stay-inn",
@@ -667,7 +820,10 @@
           "region": 4,
           "service_mins": 39,
           "load_bags": 3,
-          "rooms": 22
+          "rooms": 22,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "fountain-tree",
@@ -677,7 +833,11 @@
           "region": 4,
           "service_mins": 27,
           "load_bags": 6,
-          "rooms": 36
+          "rooms": 36,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "sterling-keys",
@@ -687,7 +847,11 @@
           "region": 4,
           "service_mins": 22,
           "load_bags": 4,
-          "rooms": 28
+          "rooms": 28,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "ur-stay-inn",
@@ -697,7 +861,10 @@
           "region": 4,
           "service_mins": 23,
           "load_bags": 3,
-          "rooms": 16
+          "rooms": 16,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "golden-inn-rooms",
@@ -707,7 +874,10 @@
           "region": 0,
           "service_mins": 22,
           "load_bags": 3,
-          "rooms": 14
+          "rooms": 14,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "sm-comforts-btm",
@@ -717,7 +887,10 @@
           "region": 4,
           "service_mins": 19,
           "load_bags": 3,
-          "rooms": 28
+          "rooms": 28,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "western-keys-hotel",
@@ -727,7 +900,11 @@
           "region": 0,
           "service_mins": 11,
           "load_bags": 6,
-          "rooms": 44
+          "rooms": 44,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "eyrie-nest",
@@ -737,7 +914,10 @@
           "region": 0,
           "service_mins": 19,
           "load_bags": 3,
-          "rooms": 28
+          "rooms": 28,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "the-grand-krishna-rooms",
@@ -747,7 +927,10 @@
           "region": 0,
           "service_mins": 21,
           "load_bags": 3,
-          "rooms": 36
+          "rooms": 36,
+          "days": [
+            "day1"
+          ]
         }
       ],
       "depot_id": "depot-yeshwanthpur"
@@ -769,7 +952,11 @@
           "region": 1,
           "service_mins": 195,
           "load_bags": 14,
-          "rooms": 125
+          "rooms": 125,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "the-chancery-pavilion",
@@ -779,7 +966,11 @@
           "region": 1,
           "service_mins": 127,
           "load_bags": 26,
-          "rooms": 225
+          "rooms": 225,
+          "days": [
+            "day1",
+            "day2"
+          ]
         }
       ],
       "depot_id": "depot-yeshwanthpur"
@@ -801,7 +992,11 @@
           "region": 2,
           "service_mins": 17,
           "load_bags": 3,
-          "rooms": 36
+          "rooms": 36,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "sri-sai-comforts",
@@ -811,7 +1006,10 @@
           "region": 2,
           "service_mins": 19,
           "load_bags": 2,
-          "rooms": 34
+          "rooms": 34,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "olive-nagawara",
@@ -821,7 +1019,11 @@
           "region": 2,
           "service_mins": 15,
           "load_bags": 3,
-          "rooms": 88
+          "rooms": 88,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "ocean-suites",
@@ -831,7 +1033,10 @@
           "region": 2,
           "service_mins": 10,
           "load_bags": 3,
-          "rooms": 15
+          "rooms": 15,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "orchid-parc",
@@ -841,7 +1046,11 @@
           "region": 2,
           "service_mins": 52,
           "load_bags": 20,
-          "rooms": 194
+          "rooms": 194,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "rivido-manayata",
@@ -851,7 +1060,11 @@
           "region": 2,
           "service_mins": 5,
           "load_bags": 2,
-          "rooms": 28
+          "rooms": 28,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "trup-global-kempapur-new",
@@ -861,7 +1074,11 @@
           "region": 2,
           "service_mins": 9,
           "load_bags": 2,
-          "rooms": 10
+          "rooms": 10,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "howard-johnson",
@@ -871,7 +1088,11 @@
           "region": 2,
           "service_mins": 67,
           "load_bags": 10,
-          "rooms": 117
+          "rooms": 117,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "fortune-comforts",
@@ -881,7 +1102,11 @@
           "region": 2,
           "service_mins": 21,
           "load_bags": 3,
-          "rooms": 20
+          "rooms": 20,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "octave-jamayca",
@@ -891,7 +1116,11 @@
           "region": 2,
           "service_mins": 20,
           "load_bags": 3,
-          "rooms": 23
+          "rooms": 23,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "athulya-residencies",
@@ -901,7 +1130,10 @@
           "region": 2,
           "service_mins": 10,
           "load_bags": 3,
-          "rooms": 18
+          "rooms": 18,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "golden-fortun-inn",
@@ -911,7 +1143,11 @@
           "region": 2,
           "service_mins": 14,
           "load_bags": 2,
-          "rooms": 20
+          "rooms": 20,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "sri-sai-suites",
@@ -921,7 +1157,11 @@
           "region": 2,
           "service_mins": 9,
           "load_bags": 3,
-          "rooms": 10
+          "rooms": 10,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "golden-vista",
@@ -931,7 +1171,8 @@
           "region": 2,
           "service_mins": 6,
           "load_bags": 3,
-          "rooms": 37
+          "rooms": 37,
+          "days": []
         },
         {
           "hotel_id": "hotel-eracrest",
@@ -941,7 +1182,10 @@
           "region": 2,
           "service_mins": 15,
           "load_bags": 3,
-          "rooms": 26
+          "rooms": 26,
+          "days": [
+            "day2"
+          ]
         }
       ],
       "depot_id": "depot-yeshwanthpur"
@@ -963,7 +1207,11 @@
           "region": 1,
           "service_mins": 27,
           "load_bags": 4,
-          "rooms": 46
+          "rooms": 46,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "regenta-palace",
@@ -973,7 +1221,10 @@
           "region": 1,
           "service_mins": 58,
           "load_bags": 3,
-          "rooms": 79
+          "rooms": 79,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "locul-central",
@@ -983,7 +1234,10 @@
           "region": 1,
           "service_mins": 19,
           "load_bags": 2,
-          "rooms": 16
+          "rooms": 16,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "pelican-inn",
@@ -993,7 +1247,11 @@
           "region": 1,
           "service_mins": 26,
           "load_bags": 3,
-          "rooms": 20
+          "rooms": 20,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "octave-church-inn-chh",
@@ -1003,7 +1261,8 @@
           "region": 1,
           "service_mins": 15,
           "load_bags": 2,
-          "rooms": 23
+          "rooms": 23,
+          "days": []
         },
         {
           "hotel_id": "octave-crystal-height",
@@ -1013,7 +1272,10 @@
           "region": 1,
           "service_mins": 37,
           "load_bags": 3,
-          "rooms": 30
+          "rooms": 30,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "locul-midtown",
@@ -1023,7 +1285,10 @@
           "region": 1,
           "service_mins": 24,
           "load_bags": 3,
-          "rooms": 29
+          "rooms": 29,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "wandr-kormangala",
@@ -1033,7 +1298,10 @@
           "region": 0,
           "service_mins": 18,
           "load_bags": 3,
-          "rooms": 23
+          "rooms": 23,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "sm-stay-inn-koramangala",
@@ -1043,7 +1311,10 @@
           "region": 0,
           "service_mins": 11,
           "load_bags": 3,
-          "rooms": 20
+          "rooms": 20,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "forty-1-hospitality",
@@ -1053,7 +1324,10 @@
           "region": 0,
           "service_mins": 13,
           "load_bags": 2,
-          "rooms": 5
+          "rooms": 5,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "blue-bliss-hotels",
@@ -1063,7 +1337,10 @@
           "region": 1,
           "service_mins": 18,
           "load_bags": 3,
-          "rooms": 28
+          "rooms": 28,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "athasri-inn-shivajinagar",
@@ -1073,7 +1350,10 @@
           "region": 1,
           "service_mins": 22,
           "load_bags": 3,
-          "rooms": 29
+          "rooms": 29,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "locul-uptown",
@@ -1083,7 +1363,10 @@
           "region": 1,
           "service_mins": 22,
           "load_bags": 2,
-          "rooms": 22
+          "rooms": 22,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "octave-studio-hotel-koramangla-stu",
@@ -1093,7 +1376,11 @@
           "region": 0,
           "service_mins": 12,
           "load_bags": 3,
-          "rooms": 34
+          "rooms": 34,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "the-mocana-banyan",
@@ -1103,7 +1390,11 @@
           "region": 0,
           "service_mins": 25,
           "load_bags": 4,
-          "rooms": 50
+          "rooms": 50,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "fortune-inn",
@@ -1113,7 +1404,10 @@
           "region": 0,
           "service_mins": 7,
           "load_bags": 2,
-          "rooms": 14
+          "rooms": 14,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "wandr-indiranagar",
@@ -1123,7 +1417,10 @@
           "region": 1,
           "service_mins": 15,
           "load_bags": 2,
-          "rooms": 18
+          "rooms": 18,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "wandr-ulsoor",
@@ -1133,7 +1430,10 @@
           "region": 1,
           "service_mins": 15,
           "load_bags": 4,
-          "rooms": 30
+          "rooms": 30,
+          "days": [
+            "day2"
+          ]
         }
       ],
       "depot_id": "depot-yeshwanthpur"
@@ -1155,7 +1455,10 @@
           "region": 2,
           "service_mins": 28,
           "load_bags": 4,
-          "rooms": 20
+          "rooms": 20,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "octave-royal-opera",
@@ -1165,7 +1468,11 @@
           "region": 2,
           "service_mins": 9,
           "load_bags": 3,
-          "rooms": 28
+          "rooms": 28,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "raj-residency",
@@ -1175,7 +1482,10 @@
           "region": 2,
           "service_mins": 11,
           "load_bags": 3,
-          "rooms": 23
+          "rooms": 23,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "thalassa-spa",
@@ -1185,7 +1495,11 @@
           "region": 2,
           "service_mins": 6,
           "load_bags": 3,
-          "rooms": 20
+          "rooms": 20,
+          "days": [
+            "day1",
+            "day2"
+          ]
         },
         {
           "hotel_id": "urban-nest",
@@ -1195,7 +1509,10 @@
           "region": 2,
           "service_mins": 5,
           "load_bags": 3,
-          "rooms": 18
+          "rooms": 18,
+          "days": [
+            "day1"
+          ]
         },
         {
           "hotel_id": "brindavana-stay",
@@ -1205,7 +1522,10 @@
           "region": 2,
           "service_mins": 38,
           "load_bags": 2,
-          "rooms": 20
+          "rooms": 20,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "avora-tree-suites",
@@ -1215,7 +1535,10 @@
           "region": 2,
           "service_mins": 30,
           "load_bags": 5,
-          "rooms": 21
+          "rooms": 21,
+          "days": [
+            "day2"
+          ]
         },
         {
           "hotel_id": "uk-comforts",
@@ -1225,7 +1548,10 @@
           "region": 2,
           "service_mins": 19,
           "load_bags": 3,
-          "rooms": 42
+          "rooms": 42,
+          "days": [
+            "day2"
+          ]
         }
       ],
       "depot_id": "depot-yeshwanthpur"

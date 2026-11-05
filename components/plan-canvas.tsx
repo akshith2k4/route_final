@@ -54,6 +54,7 @@ import {
   deleteRoute,
   deleteVehicle,
   depotLabel,
+  filterPlanForView,
   findStop,
   formatClock,
   formatDuration,
@@ -63,6 +64,7 @@ import {
   laundryLabel,
   migratePlanDepots,
   moveStop,
+  normalizeStopDays,
   optimizeRouteOrder,
   parseClock,
   parsePlanDraft,
@@ -77,13 +79,19 @@ import {
   routeLaundryId,
   routesUsingVehicle,
   setRouteLaundry,
+  setStopDays,
   sortVehicles,
+  stopIsDaily,
+  stopIsUnscheduled,
+  stopRunsOnDay,
   summarizePlan,
   updateVehicle,
   type Plan,
+  type PlanDay,
   type PlanIssue,
   type PlanRoute,
   type PlanStop,
+  type PlanView,
   type NewHotelInput,
   type TravelMatrix,
 } from "../lib/plan";
@@ -154,6 +162,13 @@ const ROUTE_WARNING_CODES = new Set([
   "shift_overrun",
 ]);
 
+const DAY_VIEW_OPTIONS: { key: PlanView; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "daily", label: "Daily" },
+  { key: "day1", label: "Day 1" },
+  { key: "day2", label: "Day 2" },
+];
+
 function formatKm(value: number): string {
   return `${value.toFixed(1)} km`;
 }
@@ -190,6 +205,7 @@ export default function PlanCanvas({
   const [toast, setToast] = useState<Toast | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [mode, setMode] = useState<PlanMode>("plan");
+  const [view, setView] = useState<PlanView>("all");
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [createRouteOpen, setCreateRouteOpen] = useState(false);
   const [addHotelsOpen, setAddHotelsOpen] = useState(false);
@@ -198,16 +214,44 @@ export default function PlanCanvas({
   const [shareOpen, setShareOpen] = useState(false);
   const [hasImportBackup, setHasImportBackup] = useState(false);
 
+  const viewPlan = useMemo(
+    () => filterPlanForView(plan, view),
+    [plan, view],
+  );
   const planRef = useRef(plan);
+  const viewPlanRef = useRef(viewPlan);
   const mapRef = useRef<PlanCanvasMapHandle | null>(null);
   const toastTimerRef = useRef<number | null>(null);
-  const previousPlanRef = useRef(plan);
+  const previousViewPlanRef = useRef(viewPlan);
 
   useEffect(() => {
     planRef.current = plan;
   }, [plan]);
 
-  const computation = useMemo(() => computePlan(plan, matrix), [plan, matrix]);
+  useEffect(() => {
+    viewPlanRef.current = viewPlan;
+  }, [viewPlan]);
+
+  const computation = useMemo(
+    () => computePlan(viewPlan, matrix),
+    [viewPlan, matrix],
+  );
+  const day1Plan = useMemo(
+    () => filterPlanForView(plan, "day1"),
+    [plan],
+  );
+  const day2Plan = useMemo(
+    () => filterPlanForView(plan, "day2"),
+    [plan],
+  );
+  const day1Computation = useMemo(
+    () => computePlan(day1Plan, matrix),
+    [day1Plan, matrix],
+  );
+  const day2Computation = useMemo(
+    () => computePlan(day2Plan, matrix),
+    [day2Plan, matrix],
+  );
   const depots = useMemo(() => getPlanDepots(plan), [plan]);
   const laundries = useMemo(() => getPlanLaundries(plan), [plan]);
   const vehicles = useMemo(
@@ -228,10 +272,24 @@ export default function PlanCanvas({
       ),
     [computation.routes],
   );
+  const day1ById = useMemo(
+    () =>
+      new Map(
+        day1Computation.routes.map((route) => [route.route_id, route]),
+      ),
+    [day1Computation.routes],
+  );
+  const day2ById = useMemo(
+    () =>
+      new Map(
+        day2Computation.routes.map((route) => [route.route_id, route]),
+      ),
+    [day2Computation.routes],
+  );
   const depotTotals = useMemo(
     () =>
       depots.map((depot) => {
-        const routes = plan.routes.filter(
+        const routes = viewPlan.routes.filter(
           (route) => routeDepotId(plan, route) === depot.id,
         );
         return {
@@ -249,13 +307,20 @@ export default function PlanCanvas({
           ),
         };
       }),
-    [computedById, depots, plan],
+    [computedById, depots, plan, viewPlan],
   );
 
   const selectedRoute =
-    plan.routes.find((route) => route.route_id === selectedRouteId) ?? null;
+    viewPlan.routes.find((route) => route.route_id === selectedRouteId) ??
+    null;
   const selectedComputed = selectedRouteId
     ? computedById.get(selectedRouteId) ?? null
+    : null;
+  const selectedDay1 = selectedRouteId
+    ? day1ById.get(selectedRouteId) ?? null
+    : null;
+  const selectedDay2 = selectedRouteId
+    ? day2ById.get(selectedRouteId) ?? null
     : null;
   const selectedLaundry =
     selectedRoute === null ? null : resolveLaundry(plan, selectedRoute);
@@ -281,10 +346,81 @@ export default function PlanCanvas({
         )
       : -1;
 
-  const errors = computation.issues.filter(
+  const viewCounts = useMemo(() => {
+    const stops = plan.routes.flatMap((route) => route.stops);
+    return {
+      all: stops.length,
+      daily: stops.filter((stop) => stopIsDaily(stop)).length,
+      day1: stops.filter((stop) => stopRunsOnDay(stop, "day1")).length,
+      day2: stops.filter((stop) => stopRunsOnDay(stop, "day2")).length,
+    };
+  }, [plan]);
+
+  const viewLabel =
+    view === "all"
+      ? "All hotels"
+      : view === "daily"
+        ? "Daily core"
+        : view === "day1"
+          ? "Day 1"
+          : "Day 2";
+  const isAllView = view === "all";
+  const isDailyView = view === "daily";
+  const isDayView = view === "day1" || view === "day2";
+
+  const viewIssues = useMemo<PlanIssue[]>(() => {
+    const planLevelCodes = new Set([
+      "no_vehicle",
+      "vehicle_double_booked",
+      "unassigned_hotels",
+      "unscheduled_hotels",
+    ]);
+    const tagDay = (issues: PlanIssue[], day: PlanDay): PlanIssue[] =>
+      issues
+        .filter((issue) => !planLevelCodes.has(issue.code))
+        .map((issue) => ({
+          ...issue,
+          day,
+          message: `${day === "day1" ? "Day 1" : "Day 2"} · ${issue.message}`,
+        }));
+    const planLevel = day1Computation.issues.filter((issue) =>
+      planLevelCodes.has(issue.code),
+    );
+
+    if (view === "daily") return planLevel;
+    if (view === "day1" || view === "day2") return computation.issues;
+
+    const unscheduled = plan.routes
+      .flatMap((route) => route.stops)
+      .filter((stop) => stopIsUnscheduled(stop));
+    return [
+      ...tagDay(day1Computation.issues, "day1"),
+      ...tagDay(day2Computation.issues, "day2"),
+      ...planLevel,
+      ...(unscheduled.length > 0
+        ? [
+            {
+              severity: "warning" as const,
+              code: "unscheduled_hotels",
+              message: `${unscheduled.length} hotel${
+                unscheduled.length === 1 ? " is" : "s are"
+              } not assigned to any day.`,
+            },
+          ]
+        : []),
+    ];
+  }, [
+    computation.issues,
+    day1Computation.issues,
+    day2Computation.issues,
+    plan,
+    view,
+  ]);
+
+  const errors = viewIssues.filter(
     (issue) => issue.severity === "error",
   );
-  const warnings = computation.issues.filter(
+  const warnings = viewIssues.filter(
     (issue) => issue.severity === "warning",
   );
   const healthTone =
@@ -292,14 +428,14 @@ export default function PlanCanvas({
 
   const issuesByRoute = useMemo(() => {
     const map = new Map<string, PlanIssue[]>();
-    for (const issue of computation.issues) {
+    for (const issue of viewIssues) {
       if (!issue.route_id) continue;
       const list = map.get(issue.route_id) ?? [];
       list.push(issue);
       map.set(issue.route_id, list);
     }
     return map;
-  }, [computation.issues]);
+  }, [viewIssues]);
 
   const notify = useCallback(
     (message: string, tone: Toast["tone"] = "info") => {
@@ -375,8 +511,8 @@ export default function PlanCanvas({
     });
 
     try {
-      const depot = routeDepot(planRef.current, route);
-      const laundry = resolveLaundry(planRef.current, route);
+      const depot = routeDepot(viewPlanRef.current, route);
+      const laundry = resolveLaundry(viewPlanRef.current, route);
       const points = [
         [depot.lat, depot.lon],
         ...route.stops.map((stop) => [stop.lat, stop.lon]),
@@ -399,7 +535,7 @@ export default function PlanCanvas({
         throw new Error("OSRM returned no geometry");
       }
 
-      const currentRoute = planRef.current.routes.find(
+      const currentRoute = viewPlanRef.current.routes.find(
         (candidate) => candidate.route_id === route.route_id,
       );
       if (!currentRoute || routeSignature(currentRoute) !== signature) {
@@ -424,11 +560,11 @@ export default function PlanCanvas({
   }, []);
 
   useEffect(() => {
-    const previous = previousPlanRef.current;
-    if (previous === plan) return;
-    previousPlanRef.current = plan;
+    const previous = previousViewPlanRef.current;
+    if (previous === viewPlan) return;
+    previousViewPlanRef.current = viewPlan;
 
-    const changed = changedRouteIds(previous, plan);
+    const changed = changedRouteIds(previous, viewPlan);
     if (changed.length === 0) return;
 
     setGeometries((current) => {
@@ -438,12 +574,12 @@ export default function PlanCanvas({
     });
 
     for (const routeId of changed) {
-      const route = plan.routes.find(
+      const route = viewPlan.routes.find(
         (candidate) => candidate.route_id === routeId,
       );
       if (route) void fetchRouteGeometry(route);
     }
-  }, [plan, fetchRouteGeometry]);
+  }, [viewPlan, fetchRouteGeometry]);
 
   const commit = useCallback(
     (next: Plan, message: string) => {
@@ -539,6 +675,7 @@ export default function PlanCanvas({
     (nextMode: PlanMode) => {
       if (nextMode === mode) return;
       setMode(nextMode);
+      if (nextMode === "warehouse") setView("all");
       setCreateRouteOpen(false);
       setAddHotelsOpen(false);
       setNewHotelOpen(false);
@@ -549,6 +686,53 @@ export default function PlanCanvas({
       setSelectedStopId(null);
     },
     [mode],
+  );
+
+  const changeView = useCallback(
+    (nextView: PlanView) => {
+      if (nextView === view) return;
+      setView(nextView);
+      setSelectedStopId(null);
+      setDragState(null);
+      setDropTarget(null);
+    },
+    [view],
+  );
+
+  const handleSetStopDays = useCallback(
+    (hotelId: string, days: PlanDay[]) => {
+      const current = planRef.current;
+      const found = findStop(current, hotelId);
+      if (!found) return;
+      let next: Plan;
+      try {
+        next = setStopDays(current, hotelId, days);
+      } catch (error) {
+        notify(
+          error instanceof Error
+            ? error.message
+            : "Could not change this hotel's day.",
+          "error",
+        );
+        return;
+      }
+      if (next === current) return;
+      const normalized = normalizeStopDays({ ...found.stop, days });
+      const label =
+        normalized.length === 2
+          ? "Daily (both days)"
+          : normalized.length === 0
+            ? "Unscheduled"
+            : normalized[0] === "day1"
+              ? "Day 1"
+              : "Day 2";
+      commit(next, `${found.stop.name} → ${label}`);
+      const stillVisible = filterPlanForView(next, view).routes.some((route) =>
+        route.stops.some((stop) => stop.hotel_id === hotelId),
+      );
+      if (!stillVisible) setSelectedStopId(null);
+    },
+    [commit, notify, view],
   );
 
   const selectRoute = useCallback(
@@ -1420,10 +1604,6 @@ export default function PlanCanvas({
             <Check size={12} />
             {hydrated ? "Autosaved locally" : "Loading draft"}
           </span>
-          <Link href="/days" className="btn btn--ghost">
-            <CalendarDays size={14} />
-            Days
-          </Link>
           <button type="button" className="btn btn--ghost" onClick={resetPlan}>
             <RotateCcw size={14} />
             Reset
@@ -1447,7 +1627,7 @@ export default function PlanCanvas({
               <span className="eyebrow">
                 <span className="eyebrow__dot" />
                 {mode === "plan"
-                  ? `${plan.routes.length} routes · ${computation.totals.hotels} stops`
+                  ? `${viewLabel} · ${viewPlan.routes.length} routes · ${computation.totals.hotels} stops`
                   : `${depots.length} warehouses · ${plan.routes.length} routes`}
               </span>
               <h2>{mode === "plan" ? "Route board" : "Warehouse board"}</h2>
@@ -1482,8 +1662,17 @@ export default function PlanCanvas({
                     Vehicles
                   </button>
                   <span className="plan-sidebar__hint">
-                    <GripVertical size={13} />
-                    Drag to reorder
+                    {isAllView ? (
+                      <>
+                        <GripVertical size={13} />
+                        Drag to reorder
+                      </>
+                    ) : (
+                      <>
+                        <CalendarDays size={13} />
+                        Move hotels by day
+                      </>
+                    )}
                   </span>
                 </>
               ) : (
@@ -1496,9 +1685,30 @@ export default function PlanCanvas({
             </div>
           </div>
 
+          {mode === "plan" && (
+            <div
+              className="plan-day-filter"
+              role="group"
+              aria-label="Hotel day view"
+            >
+              {DAY_VIEW_OPTIONS.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  className={view === option.key ? "is-active" : ""}
+                  aria-pressed={view === option.key}
+                  onClick={() => changeView(option.key)}
+                >
+                  <span>{option.label}</span>
+                  <b>{viewCounts[option.key]}</b>
+                </button>
+              ))}
+            </div>
+          )}
+
           {mode === "plan" ? (
             <div className="plan-sidebar__routes">
-              {plan.routes.map((route) => {
+              {viewPlan.routes.map((route) => {
               const computed = computedById.get(route.route_id);
               if (!computed) return null;
               const depot = routeDepot(plan, route);
@@ -1507,30 +1717,27 @@ export default function PlanCanvas({
               const isSelected = selectedRouteId === route.route_id;
               const isDropRoute = dropTarget?.routeId === route.route_id;
               const isDropBlocked = Boolean(
-                dragState &&
+                isAllView &&
+                  dragState &&
                   draggedStop &&
                   dragState.sourceRouteId !== route.route_id &&
                   assignedVehicle &&
                   computed.total_bags + draggedStop.load_bags >
                     route.nominal_cap,
               );
-              const tone = assignedVehicle
-                ? capacityTone(computed.total_bags, route)
-                : "ok";
-              const returnTone =
-                assignedVehicle && computed.total_bags > route.nominal_cap
-                  ? "over"
-                  : computed.return_min > plan.shift.end_min ||
-                      (assignedVehicle &&
-                        computed.total_bags > route.max_load)
-                    ? "warn"
-                    : "ok";
+              const tone =
+                isDayView && assignedVehicle
+                  ? capacityTone(computed.total_bags, route)
+                  : "ok";
               const routeIssues = issuesByRoute.get(route.route_id) ?? [];
-              const cardWarnings = routeIssues.filter(
-                (issue) =>
-                  ROUTE_WARNING_CODES.has(issue.code) &&
-                  (assignedVehicle || !issue.code.startsWith("over_")),
-              );
+              const cardWarnings = isDayView
+                ? routeIssues.filter(
+                    (issue) =>
+                      ROUTE_WARNING_CODES.has(issue.code) &&
+                      (assignedVehicle ||
+                        !issue.code.startsWith("over_")),
+                  )
+                : [];
               const isUpdating = updatingRoutes.has(route.route_id);
               const dropLineIndex =
                 isDropRoute && dropTarget?.index !== null
@@ -1587,19 +1794,14 @@ export default function PlanCanvas({
                       </b>
                       <span className="plan-route__meta">
                         {computed.total_hotels} stops ·{" "}
-                        {computed.total_bags}
-                        {assignedVehicle ? `/${route.max_load}` : ""} bags ·{" "}
                         {formatRooms(computed.total_rooms)}
                         {isUpdating ? " · updating path…" : ""}
                         {isDropBlocked ? " · not enough capacity" : ""}
                       </span>
                     </span>
-                    <span className={`plan-route__return plan-route__return--${returnTone}`}>
-                      {computed.return_hq}
-                    </span>
                   </button>
 
-                  {assignedVehicle && (
+                  {isDayView && assignedVehicle && (
                     <div className="plan-route__capacity" aria-hidden="true">
                       <span
                         className={`plan-route__capacity-fill plan-route__capacity-fill--${tone}`}
@@ -1615,7 +1817,9 @@ export default function PlanCanvas({
 
                   {cardWarnings.slice(0, 2).map((issue) => (
                     <div
-                      key={issue.code}
+                      key={`${issue.day ?? "day"}-${issue.code}-${
+                        issue.stop_id ?? "route"
+                      }`}
                       className={`plan-route__warning plan-route__warning--${issue.severity}`}
                     >
                       <AlertTriangle size={12} />
@@ -1631,7 +1835,7 @@ export default function PlanCanvas({
                     </div>
                   ))}
 
-                  {route.is_custom && (
+                  {isAllView && route.is_custom && (
                     <div className="plan-route__tools">
                       <button
                         type="button"
@@ -1681,7 +1885,13 @@ export default function PlanCanvas({
                         <MapPin size={13} />
                         {route.is_custom
                           ? "New route · add hotels to start"
-                          : "Drop a stop here"}
+                          : isDailyView
+                            ? "No daily hotels on this route."
+                            : isDayView
+                              ? `No hotels on ${
+                                  view === "day1" ? "Day 1" : "Day 2"
+                                }.`
+                              : "Drop a stop here"}
                       </div>
                     )}
                     {route.stops.map((stop, index) => {
@@ -1689,6 +1899,13 @@ export default function PlanCanvas({
                       const isStopSelected =
                         selectedRouteId === route.route_id &&
                         selectedStopId === stop.hotel_id;
+                      const stopDays = normalizeStopDays(stop);
+                      const dayValue =
+                        stopDays.length === 2
+                          ? "both"
+                          : stopDays.length === 0
+                            ? "none"
+                            : stopDays[0];
                       return (
                         <Fragment key={stop.hotel_id}>
                           {dropLineIndex === index && (
@@ -1712,18 +1929,20 @@ export default function PlanCanvas({
                               handleStopDrop(event, route, index)
                             }
                           >
-                            <span
-                              className="plan-stop__handle"
-                              draggable
-                              onDragStart={(event) =>
-                                beginDrag(event, route, stop)
-                              }
-                              onDragEnd={endDrag}
-                              title="Drag to reorder or move to another route"
-                              aria-label={`Drag ${stop.name}`}
-                            >
-                              <GripVertical size={14} />
-                            </span>
+                            {isAllView && (
+                              <span
+                                className="plan-stop__handle"
+                                draggable
+                                onDragStart={(event) =>
+                                  beginDrag(event, route, stop)
+                                }
+                                onDragEnd={endDrag}
+                                title="Drag to reorder or move to another route"
+                                aria-label={`Drag ${stop.name}`}
+                              >
+                                <GripVertical size={14} />
+                              </span>
+                            )}
                             <span
                               className="plan-stop__number"
                               style={{ background: route.color }}
@@ -1734,16 +1953,33 @@ export default function PlanCanvas({
                               <span className="plan-stop__name">
                                 {stop.name}
                               </span>
-                              <span className="plan-stop__meta">
-                                {computedStop?.arrival_time ?? "—"} ·{" "}
-                                {formatBags(stop.load_bags)} ·{" "}
-                                {formatRooms(stop.rooms ?? 0)} ·{" "}
-                                {computedStop
-                                  ? formatKm(computedStop.leg_distance_km)
-                                  : "—"}
-                              </span>
                             </span>
-                            <span className="plan-stop__actions">
+                            <select
+                              className="plan-stop__day"
+                              value={dayValue}
+                              onClick={(event) => event.stopPropagation()}
+                              onChange={(event) => {
+                                const value = event.target.value;
+                                const nextDays: PlanDay[] =
+                                  value === "both"
+                                    ? ["day1", "day2"]
+                                    : value === "day1"
+                                      ? ["day1"]
+                                      : value === "day2"
+                                        ? ["day2"]
+                                        : [];
+                                handleSetStopDays(stop.hotel_id, nextDays);
+                              }}
+                              title="Change this hotel's day"
+                              aria-label={`Day assignment for ${stop.name}`}
+                            >
+                              <option value="both">Both</option>
+                              <option value="day1">Day 1</option>
+                              <option value="day2">Day 2</option>
+                              <option value="none">Unscheduled</option>
+                            </select>
+                            {isAllView && (
+                              <span className="plan-stop__actions">
                               <button
                                 type="button"
                                 className="plan-stop__action"
@@ -1778,7 +2014,8 @@ export default function PlanCanvas({
                               >
                                 <ChevronDown size={13} />
                               </button>
-                            </span>
+                              </span>
+                            )}
                           </div>
                         </Fragment>
                       );
@@ -1933,7 +2170,7 @@ export default function PlanCanvas({
         <section className="plan-map-stage" aria-label="Plan map">
           <PlanCanvasMap
             ref={mapRef}
-            plan={plan}
+            plan={viewPlan}
             routes={computation.routes}
             selectedRouteId={selectedRouteId}
             selectedStopId={selectedStopId}
@@ -1983,7 +2220,9 @@ export default function PlanCanvas({
           </div>
 
           <div className="plan-map-overlay">
-            <span className="plan-map-overlay__kicker">Plan canvas</span>
+            <span className="plan-map-overlay__kicker">
+              Plan canvas{view === "all" ? "" : ` · ${viewLabel}`}
+            </span>
             <b>
               {selectedRoute
                 ? shortRouteName(selectedRoute.name)
@@ -1996,7 +2235,7 @@ export default function PlanCanvas({
                   } bags · ${selectedComputed?.total_rooms ?? 0} rooms · ${selectedComputed?.total_dist_km ?? 0} km · ${
                     depotLabel(routeDepot(plan, selectedRoute))
                   }${selectedLaundry ? ` · via ${laundryLabel(selectedLaundry)}` : ""}`
-                : `${plan.routes.length} routes · ${computation.totals.hotels} hotels · ${computation.totals.rooms} rooms`}
+                : `${viewPlan.routes.length} routes · ${computation.totals.hotels} hotels · ${computation.totals.rooms} rooms`}
             </span>
           </div>
         </section>
@@ -2063,74 +2302,40 @@ export default function PlanCanvas({
               </div>
 
               <div className="plan-inspector__section">
-                <h3>Adjust this stop</h3>
-                <div className="plan-inspector__row">
-                  <button
-                    type="button"
-                    className="btn btn--ghost"
-                    onClick={() =>
-                      moveWithinRoute(
-                        selectedRoute?.route_id ?? "",
-                        selectedStopIndex,
-                        -1,
-                      )
-                    }
-                    disabled={selectedStopIndex <= 0}
-                  >
-                    <ChevronUp size={14} />
-                    Move up
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn--ghost"
-                    onClick={() =>
-                      moveWithinRoute(
-                        selectedRoute?.route_id ?? "",
-                        selectedStopIndex,
-                        1,
-                      )
-                    }
-                    disabled={
-                      !selectedRoute ||
-                      selectedStopIndex >= selectedRoute.stops.length - 1
-                    }
-                  >
-                    <ChevronDown size={14} />
-                    Move down
-                  </button>
-                </div>
-
+                <h3>Day assignment</h3>
                 <label className="plan-field">
-                  <span>Move to another route</span>
+                  <span>Visits on</span>
                   <select
-                    value=""
+                    value={(() => {
+                      const days = normalizeStopDays(selectedStop);
+                      return days.length === 2
+                        ? "both"
+                        : days.length === 0
+                          ? "none"
+                          : days[0];
+                    })()}
                     onChange={(event) => {
-                      if (!event.target.value) return;
-                      handleMove(selectedStop.hotel_id, event.target.value);
+                      const value = event.target.value;
+                      const nextDays: PlanDay[] =
+                        value === "both"
+                          ? ["day1", "day2"]
+                          : value === "day1"
+                            ? ["day1"]
+                            : value === "day2"
+                              ? ["day2"]
+                              : [];
+                      handleSetStopDays(selectedStop.hotel_id, nextDays);
                     }}
                   >
-                    <option value="">Choose a route…</option>
-                    {moveTargets.map((route) => {
-                      const target = computedById.get(route.route_id);
-                      const targetBags = target?.total_bags ?? 0;
-                      const fits =
-                        targetBags + selectedStop.load_bags <=
-                        route.nominal_cap;
-                      return (
-                        <option
-                          key={route.route_id}
-                          value={route.route_id}
-                          disabled={!fits}
-                        >
-                          {shortRouteName(route.name)} · {targetBags}/
-                          {route.max_load} bags
-                          {fits ? "" : " · over capacity"}
-                        </option>
-                      );
-                    })}
+                    <option value="both">Both days (daily)</option>
+                    <option value="day1">Day 1 only</option>
+                    <option value="day2">Day 2 only</option>
+                    <option value="none">Unscheduled</option>
                   </select>
                 </label>
-
+                <p className="plan-inspector__note">
+                  Daily hotels are part of both Day 1 and Day 2 trips.
+                </p>
                 <button
                   type="button"
                   className="btn btn--ghost plan-inspector__wide"
@@ -2146,6 +2351,78 @@ export default function PlanCanvas({
                 </button>
               </div>
 
+              {isAllView && (
+                <div className="plan-inspector__section">
+                  <h3>Adjust this stop</h3>
+                  <div className="plan-inspector__row">
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      onClick={() =>
+                        moveWithinRoute(
+                          selectedRoute?.route_id ?? "",
+                          selectedStopIndex,
+                          -1,
+                        )
+                      }
+                      disabled={selectedStopIndex <= 0}
+                    >
+                      <ChevronUp size={14} />
+                      Move up
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      onClick={() =>
+                        moveWithinRoute(
+                          selectedRoute?.route_id ?? "",
+                          selectedStopIndex,
+                          1,
+                        )
+                      }
+                      disabled={
+                        !selectedRoute ||
+                        selectedStopIndex >= selectedRoute.stops.length - 1
+                      }
+                    >
+                      <ChevronDown size={14} />
+                      Move down
+                    </button>
+                  </div>
+
+                  <label className="plan-field">
+                    <span>Move to another route</span>
+                    <select
+                      value=""
+                      onChange={(event) => {
+                        if (!event.target.value) return;
+                        handleMove(selectedStop.hotel_id, event.target.value);
+                      }}
+                    >
+                      <option value="">Choose a route…</option>
+                      {moveTargets.map((route) => {
+                        const target = computedById.get(route.route_id);
+                        const targetBags = target?.total_bags ?? 0;
+                        const fits =
+                          targetBags + selectedStop.load_bags <=
+                          route.nominal_cap;
+                        return (
+                          <option
+                            key={route.route_id}
+                            value={route.route_id}
+                            disabled={!fits}
+                          >
+                            {shortRouteName(route.name)} · {targetBags}/
+                            {route.max_load} bags
+                            {fits ? "" : " · over capacity"}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </label>
+                </div>
+              )}
+
               <div className="plan-inspector__section">
                 <h3>Route signals</h3>
                 {(
@@ -2160,7 +2437,9 @@ export default function PlanCanvas({
                       issuesByRoute.get(selectedRoute?.route_id ?? "") ?? []
                     ).map((issue) => (
                       <button
-                        key={`${issue.code}-${issue.stop_id ?? "route"}`}
+                        key={`${issue.day ?? "plan"}-${issue.code}-${
+                          issue.stop_id ?? "route"
+                        }`}
                         type="button"
                         className={`plan-issue plan-issue--${issue.severity}`}
                         onClick={() => focusIssue(issue)}
@@ -2185,13 +2464,30 @@ export default function PlanCanvas({
                 </span>
                 <h2>{shortRouteName(selectedRoute.name)}</h2>
                 <p>
-                  {selectedComputed.total_hotels} stops ·{" "}
-                  {selectedComputed.total_bags}
-                  {selectedVehicle ? `/${selectedRoute.max_load}` : ""} bags ·{" "}
-                  {selectedComputed.total_rooms} rooms
-                  {selectedVehicle
-                    ? ` · ${selectedComputed.capacity_utilization_pct}% of safe load`
-                    : ""}
+                  {isAllView ? (
+                    <>
+                      {selectedComputed.total_hotels} stops ·{" "}
+                      {selectedComputed.total_rooms} rooms · D1{" "}
+                      {selectedDay1?.total_bags ?? 0} bags · D2{" "}
+                      {selectedDay2?.total_bags ?? 0} bags
+                    </>
+                  ) : isDailyView ? (
+                    <>
+                      {selectedComputed.total_hotels} daily hotels ·{" "}
+                      {selectedComputed.total_bags} bags ·{" "}
+                      {selectedComputed.total_rooms} rooms · shared by both days
+                    </>
+                  ) : (
+                    <>
+                      {selectedComputed.total_hotels} stops ·{" "}
+                      {selectedComputed.total_bags}
+                      {selectedVehicle ? `/${selectedRoute.max_load}` : ""} bags ·{" "}
+                      {selectedComputed.total_rooms} rooms
+                      {selectedVehicle
+                        ? ` · ${selectedComputed.capacity_utilization_pct}% of safe load`
+                        : ""}
+                    </>
+                  )}
                 </p>
               </div>
 
@@ -2218,9 +2514,11 @@ export default function PlanCanvas({
                 <p className="plan-inspector__note">
                   {mode === "warehouse"
                     ? `All ${selectedComputed.total_hotels} hotels move with this route. The vehicle starts and ends at ${selectedComputed.depot_name}.`
-                    : selectedLaundry
-                      ? `Distance and return time follow ${selectedComputed.depot_name} → hotels → ${selectedLaundry.name} → ${selectedComputed.depot_name}.`
-                      : `Distance and return time are calculated from ${selectedComputed.depot_name}.`}
+                    : isAllView || isDailyView
+                      ? `The vehicle starts and ends at ${selectedComputed.depot_name} on both Day 1 and Day 2.`
+                      : selectedLaundry
+                        ? `Distance and return time follow ${selectedComputed.depot_name} → hotels → ${selectedLaundry.name} → ${selectedComputed.depot_name}.`
+                        : `Distance and return time are calculated from ${selectedComputed.depot_name}.`}
                 </p>
               </div>
 
@@ -2349,88 +2647,146 @@ export default function PlanCanvas({
                     </select>
                   </label>
                   <p className="plan-inspector__note">
-                    {selectedLaundry && selectedComputed.laundry_arrival_time
-                      ? `Arrive ${selectedComputed.laundry_arrival_time} · depart ${selectedComputed.laundry_departure_time} · ${selectedComputed.depot_name} return ${selectedComputed.return_hq}.`
-                      : `No laundry stop. The vehicle returns straight to ${selectedComputed.depot_name}.`}
+                    {isAllView || isDailyView
+                      ? "Laundry applies to both day trips. Open Day 1 or Day 2 to see the timings."
+                      : selectedLaundry && selectedComputed.laundry_arrival_time
+                        ? `Arrive ${selectedComputed.laundry_arrival_time} · depart ${selectedComputed.laundry_departure_time} · ${selectedComputed.depot_name} return ${selectedComputed.return_hq}.`
+                        : `No laundry stop. The vehicle returns straight to ${selectedComputed.depot_name}.`}
                   </p>
                 </div>
               )}
 
-              <div className="plan-metrics">
-                <div className="plan-metric">
-                  <span>Depart</span>
-                  <b>{selectedComputed.departure_hq}</b>
+              {isDailyView && (
+                <p className="plan-inspector__note">
+                  Daily core subset — these hotels are part of both Day 1 and
+                  Day 2 trips, not a standalone trip.
+                </p>
+              )}
+
+              {isAllView ? (
+                <div className="plan-day-compare">
+                  {[
+                    { label: "Day 1", data: selectedDay1 },
+                    { label: "Day 2", data: selectedDay2 },
+                  ].map(({ label, data }) => (
+                    <div className="plan-day-card" key={label}>
+                      <span className="plan-day-card__label">{label}</span>
+                      <div className="plan-day-card__stats">
+                        <span>
+                          <b>{data?.total_hotels ?? 0}</b> stops
+                        </span>
+                        <span>
+                          <b>
+                            {data?.total_bags ?? 0}
+                            {selectedVehicle
+                              ? `/${selectedRoute.max_load}`
+                              : ""}
+                          </b>{" "}
+                          bags
+                        </span>
+                        <span>
+                          <b>{data?.total_rooms ?? 0}</b> rooms
+                        </span>
+                        <span>
+                          <b>{formatKm(data?.total_dist_km ?? 0)}</b>
+                        </span>
+                        <span>
+                          <b>
+                            {data && data.total_hotels > 0
+                              ? data.return_hq
+                              : "—"}
+                          </b>{" "}
+                          return
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="plan-metric">
-                  <span>Return</span>
-                  <b>{selectedComputed.return_hq}</b>
+              ) : (
+                <div className="plan-metrics">
+                  <div className="plan-metric">
+                    <span>Depart</span>
+                    <b>{selectedComputed.departure_hq}</b>
+                  </div>
+                  <div className="plan-metric">
+                    <span>Return</span>
+                    <b>{selectedComputed.return_hq}</b>
+                  </div>
+                  <div className="plan-metric">
+                    <span>Distance</span>
+                    <b>{formatKm(selectedComputed.total_dist_km)}</b>
+                  </div>
+                  <div className="plan-metric">
+                    <span>Drive</span>
+                    <b>{formatDuration(selectedComputed.total_drive_mins)}</b>
+                  </div>
+                  <div className="plan-metric">
+                    <span>Hotel service</span>
+                    <b>{formatDuration(selectedComputed.total_service_mins)}</b>
+                  </div>
+                  <div className="plan-metric">
+                    <span>Laundry</span>
+                    <b>
+                      {selectedLaundry
+                        ? formatDuration(selectedComputed.laundry_service_mins)
+                        : "Direct"}
+                    </b>
+                  </div>
+                  <div className="plan-metric">
+                    <span>Stops</span>
+                    <b>{selectedComputed.total_hotels}</b>
+                  </div>
+                  <div className="plan-metric">
+                    <span>Rooms</span>
+                    <b>{selectedComputed.total_rooms}</b>
+                  </div>
                 </div>
-                <div className="plan-metric">
-                  <span>Distance</span>
-                  <b>{formatKm(selectedComputed.total_dist_km)}</b>
-                </div>
-                <div className="plan-metric">
-                  <span>Drive</span>
-                  <b>{formatDuration(selectedComputed.total_drive_mins)}</b>
-                </div>
-                <div className="plan-metric">
-                  <span>Hotel service</span>
-                  <b>{formatDuration(selectedComputed.total_service_mins)}</b>
-                </div>
-                <div className="plan-metric">
-                  <span>Laundry</span>
-                  <b>
-                    {selectedLaundry
-                      ? formatDuration(selectedComputed.laundry_service_mins)
-                      : "Direct"}
-                  </b>
-                </div>
-                <div className="plan-metric">
-                  <span>Stops</span>
-                  <b>{selectedComputed.total_hotels}</b>
-                </div>
-                <div className="plan-metric">
-                  <span>Rooms</span>
-                  <b>{selectedComputed.total_rooms}</b>
-                </div>
-              </div>
+              )}
 
               <div className="plan-inspector__section">
                 <h3>Capacity</h3>
-                {selectedVehicle ? (
-                  <div className="plan-capacity">
-                    <div className="plan-capacity__labels">
-                      <span>{selectedComputed.total_bags} bags</span>
-                      <span>
-                        safe {selectedRoute.max_load} · vehicle{" "}
-                        {selectedRoute.nominal_cap}
-                      </span>
-                    </div>
-                    <div className="plan-capacity__track">
-                      <span
-                        className={`plan-capacity__fill plan-capacity__fill--${capacityTone(
-                          selectedComputed.total_bags,
-                          selectedRoute,
-                        )}`}
-                        style={{
-                          width: `${Math.min(
-                            100,
-                            (selectedComputed.total_bags /
-                              selectedRoute.max_load) *
+                {isDayView ? (
+                  selectedVehicle ? (
+                    <div className="plan-capacity">
+                      <div className="plan-capacity__labels">
+                        <span>{selectedComputed.total_bags} bags</span>
+                        <span>
+                          safe {selectedRoute.max_load} · vehicle{" "}
+                          {selectedRoute.nominal_cap}
+                        </span>
+                      </div>
+                      <div className="plan-capacity__track">
+                        <span
+                          className={`plan-capacity__fill plan-capacity__fill--${capacityTone(
+                            selectedComputed.total_bags,
+                            selectedRoute,
+                          )}`}
+                          style={{
+                            width: `${Math.min(
                               100,
-                          )}%`,
-                        }}
-                      />
+                              (selectedComputed.total_bags /
+                                selectedRoute.max_load) *
+                                100,
+                            )}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <p className="plan-muted">
+                      Assign a vehicle to see this route's capacity.
+                    </p>
+                  )
                 ) : (
                   <p className="plan-muted">
-                    Assign a vehicle to see this route's capacity.
+                    {isDailyView
+                      ? "Daily core is shared by both days; capacity is checked on Day 1 and Day 2."
+                      : "Capacity is checked separately on the Day 1 and Day 2 views."}
                   </p>
                 )}
               </div>
 
-              {mode === "plan" && (
+              {mode === "plan" && isAllView && (
                 <div className="plan-inspector__section">
                   <h3>Route tools</h3>
                   <div className="plan-inspector__row">
@@ -2506,7 +2862,9 @@ export default function PlanCanvas({
                     {(issuesByRoute.get(selectedRoute.route_id) ?? []).map(
                       (issue) => (
                         <button
-                          key={`${issue.code}-${issue.stop_id ?? "route"}`}
+                          key={`${issue.day ?? "plan"}-${issue.code}-${
+                            issue.stop_id ?? "route"
+                          }`}
                           type="button"
                           className={`plan-issue plan-issue--${issue.severity}`}
                           onClick={() => focusIssue(issue)}
@@ -2525,7 +2883,9 @@ export default function PlanCanvas({
                 <p className="plan-muted">
                   {mode === "warehouse"
                     ? "Choose a warehouse above or use the move button on a route in the warehouse board. A route and all of its hotels move together, then the stop order is re-optimized from the new start."
-                    : "Drag a stop by its grip to reorder it in this route. Drag it onto another route card to reassign it. Drop on a card header to use the cheapest insertion point."}
+                    : isAllView
+                      ? "Change a hotel's day with the selector on its row. Drag by the grip to reorder stops or move them between routes."
+                      : "Use the day selector on each hotel row to move it to Both, Day 1, Day 2 or Unscheduled. Switch to All to reorder stops or add hotels."}
                 </p>
               </div>
             </>
@@ -2553,14 +2913,20 @@ export default function PlanCanvas({
               </span>
             </div>
             <div className="plan-issues">
-              {computation.issues.length === 0 ? (
+              {isDailyView && (
+                <p className="plan-muted">
+                  Daily core is shared by both days. Capacity and shift checks
+                  run on Day 1 and Day 2.
+                </p>
+              )}
+              {viewIssues.length === 0 ? (
                 <p className="plan-muted">No issues found.</p>
               ) : (
-                computation.issues.slice(0, 8).map((issue) => (
+                viewIssues.slice(0, 8).map((issue) => (
                   <button
-                    key={`${issue.code}-${issue.route_id ?? "plan"}-${
-                      issue.stop_id ?? ""
-                    }`}
+                    key={`${issue.day ?? "plan"}-${issue.code}-${
+                      issue.route_id ?? "plan"
+                    }-${issue.stop_id ?? ""}`}
                     type="button"
                     className={`plan-issue plan-issue--${issue.severity}`}
                     onClick={() => focusIssue(issue)}
@@ -2636,7 +3002,11 @@ export default function PlanCanvas({
               ? `${errors.length} error${errors.length === 1 ? "" : "s"} · ${warnings.length} warning${warnings.length === 1 ? "" : "s"}`
               : warnings.length > 0
                 ? `${warnings.length} warning${warnings.length === 1 ? "" : "s"} to review`
-                : "All routes within capacity"}
+                : isDailyView
+                  ? "Daily core view"
+                  : isAllView
+                    ? "All day trips within capacity"
+                    : "All routes within capacity"}
           </span>
         </div>
       </footer>
@@ -2656,6 +3026,9 @@ export default function PlanCanvas({
         plan={plan}
         regions={regions}
         defaultRouteId={selectedRouteId}
+        defaultDay={
+          view === "day1" ? "day1" : view === "day2" ? "day2" : "both"
+        }
         onClose={() => setNewHotelOpen(false)}
         onAdd={handleAddNewHotel}
       />

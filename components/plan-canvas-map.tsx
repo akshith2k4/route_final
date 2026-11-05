@@ -474,7 +474,7 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
       const fitKey = selected
         ? `${selected}:${selectedRoute?.depot_id ?? ""}:${
             selectedRoute?.laundry_id ?? ""
-          }`
+          }:${selectedRoute?.stops.map((stop) => stop.hotel_id).join(",") ?? ""}`
         : "all";
       if (lastFitKeyRef.current !== fitKey) {
         lastFitKeyRef.current = fitKey;

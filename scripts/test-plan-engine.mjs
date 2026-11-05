@@ -11,6 +11,7 @@ import {
   deleteRoute,
   deleteVehicle,
   depotLabel,
+  filterPlanForView,
   findStop,
   formatClock,
   getPlanDepots,
@@ -19,6 +20,7 @@ import {
   laundryLabel,
   migratePlanDepots,
   moveStop,
+  normalizeStopDays,
   optimizeRouteOrder,
   parseClock,
   parsePlanDraft,
@@ -26,6 +28,7 @@ import {
   reorderStops,
   resolveLaundry,
   resolveVehicle,
+  routeDayTotals,
   routeDepot,
   routeDepotId,
   routeLaundryId,
@@ -33,18 +36,19 @@ import {
   safeLoadForCapacity,
   SECOND_DEPOT_ID,
   setRouteLaundry,
+  setStopDays,
+  stopIsDaily,
+  stopIsUnscheduled,
+  stopRunsOnDay,
   summarizePlan,
   updateVehicle,
 } from "../lib/plan.ts";
-import { buildDayData } from "../lib/day-plan.ts";
 
 const plan = JSON.parse(fs.readFileSync("data/plan.json", "utf8"));
 const matrix = JSON.parse(fs.readFileSync("data/travel_matrix.json", "utf8"));
 const manualRoutes = JSON.parse(
   fs.readFileSync("data/manual_routes.json", "utf8"),
 );
-const dayPlan = JSON.parse(fs.readFileSync("data/day_plan.json", "utf8"));
-const hotels = JSON.parse(fs.readFileSync("data/hotels.json", "utf8"));
 
 assert.equal(plan.routes.length, 8, "expected 8 routes");
 assert.equal(
@@ -801,6 +805,198 @@ assert.equal(
   "migration should heal zeroed room counts from the current plan",
 );
 
+// ---------------------------------------------------------------------------
+// Day-wise plan model
+// ---------------------------------------------------------------------------
+
+const allStops = plan.routes.flatMap((route) => route.stops);
+assert.equal(allStops.length, 101);
+assert.equal(allStops.filter((stop) => stopIsDaily(stop)).length, 28);
+assert.equal(allStops.filter((stop) => stopIsUnscheduled(stop)).length, 3);
+assert.deepEqual(
+  allStops.filter((stop) => stopIsUnscheduled(stop)).map((stop) => stop.name),
+  ["CELESTIAL SUITES", "GOLDEN VISTA", "OCTAVE CHURCH INN CHH"],
+);
+assert.equal(
+  allStops.filter((stop) => stopRunsOnDay(stop, "day1")).length,
+  65,
+);
+assert.equal(
+  allStops.filter((stop) => stopRunsOnDay(stop, "day2")).length,
+  61,
+);
+assert.equal(plan.days_version, 1, "the seed plan should be day-versioned");
+
+const legacyStop = structuredClone(allStops[0]);
+delete legacyStop.days;
+assert.deepEqual(
+  normalizeStopDays(legacyStop),
+  ["day1", "day2"],
+  "legacy stops should default to both days",
+);
+assert.deepEqual(
+  normalizeStopDays({ ...legacyStop, days: ["day2", "day2", "day1"] }),
+  ["day1", "day2"],
+  "day assignments should be deduplicated and ordered",
+);
+assert.deepEqual(normalizeStopDays({ ...legacyStop, days: [] }), []);
+assert.equal(stopIsDaily({ ...legacyStop, days: ["day1", "day2"] }), true);
+assert.equal(stopIsUnscheduled({ ...legacyStop, days: [] }), true);
+assert.equal(
+  stopRunsOnDay({ ...legacyStop, days: ["day2"] }, "day1"),
+  false,
+);
+
+assert.deepEqual(routeDayTotals(plan.routes[0], "day1"), {
+  stops: 7,
+  bags: 39,
+  rooms: 353,
+});
+assert.deepEqual(routeDayTotals(plan.routes[0], "day2"), {
+  stops: 7,
+  bags: 40,
+  rooms: 335,
+});
+
+const viewSummaries = {};
+for (const view of ["all", "daily", "day1", "day2"]) {
+  const filtered = filterPlanForView(plan, view);
+  const stops = filtered.routes.flatMap((route) => route.stops);
+  viewSummaries[view] = {
+    stops: stops.length,
+    bags: stops.reduce((sum, stop) => sum + stop.load_bags, 0),
+    rooms: stops.reduce((sum, stop) => sum + (stop.rooms ?? 0), 0),
+  };
+  assert.deepEqual(
+    filtered.routes.map((route) => route.route_id),
+    plan.routes.map((route) => route.route_id),
+    `${view} should preserve the route board`,
+  );
+}
+assert.deepEqual(viewSummaries, {
+  all: { stops: 101, bags: 387, rooms: 3423 },
+  daily: { stops: 28, bags: 170, rooms: 1577 },
+  day1: { stops: 65, bags: 277, rooms: 2551 },
+  day2: { stops: 61, bags: 272, rooms: 2369 },
+});
+
+const unscheduledIds = new Set(
+  allStops.filter((stop) => stopIsUnscheduled(stop)).map((stop) => stop.hotel_id),
+);
+for (const view of ["daily", "day1", "day2"]) {
+  const filtered = filterPlanForView(plan, view);
+  assert.equal(
+    filtered.routes
+      .flatMap((route) => route.stops)
+      .some((stop) => unscheduledIds.has(stop.hotel_id)),
+    false,
+    `${view} should hide unscheduled hotels`,
+  );
+}
+assert.equal(
+  filterPlanForView(plan, "daily")
+    .routes.flatMap((route) => route.stops)
+    .every((stop) => stopIsDaily(stop)),
+  true,
+  "the daily view should contain only hotels visited on both days",
+);
+
+const daySuites = findStop(plan, "day-suites");
+assert.ok(daySuites, "expected DAY SUITES in the plan");
+assert.deepEqual(normalizeStopDays(daySuites.stop), ["day1", "day2"]);
+const stopOrderBefore = plan.routes.map((route) => [
+  route.route_id,
+  ...route.stops.map((stop) => stop.hotel_id),
+]);
+
+const dayEditedPlan = setStopDays(plan, "day-suites", ["day2"]);
+assert.deepEqual(
+  dayEditedPlan.routes.map((route) => [
+    route.route_id,
+    ...route.stops.map((stop) => stop.hotel_id),
+  ]),
+  stopOrderBefore,
+  "changing days must not change route or stop order",
+);
+assert.deepEqual(findStop(dayEditedPlan, "day-suites")?.stop.days, ["day2"]);
+assert.deepEqual(
+  normalizeStopDays(daySuites.stop),
+  ["day1", "day2"],
+  "setStopDays must not mutate the original plan",
+);
+assert.equal(
+  filterPlanForView(dayEditedPlan, "daily").routes.flatMap(
+    (route) => route.stops,
+  ).length,
+  27,
+);
+assert.equal(
+  filterPlanForView(dayEditedPlan, "day1").routes.flatMap(
+    (route) => route.stops,
+  ).length,
+  64,
+);
+assert.equal(
+  filterPlanForView(dayEditedPlan, "day2").routes.flatMap(
+    (route) => route.stops,
+  ).length,
+  61,
+);
+assert.deepEqual(routeDayTotals(dayEditedPlan.routes[0], "day1"), {
+  stops: 6,
+  bags: 24,
+  rooms: 231,
+});
+assert.equal(
+  stopIsUnscheduled(findStop(setStopDays(plan, "day-suites", []), "day-suites").stop),
+  true,
+  "a stop can be moved to Unscheduled",
+);
+
+// Pre-feature drafts defaulted every hotel to Both. A one-time version bump
+// should seed the real day split from the current plan without touching
+// drafts that already have day assignments.
+const preDayDraft = structuredClone(plan);
+delete preDayDraft.days_version;
+for (const route of preDayDraft.routes) {
+  for (const stop of route.stops) stop.days = ["day1", "day2"];
+}
+const migratedPreDay = migratePlanDepots(preDayDraft, plan);
+assert.equal(migratedPreDay.days_version, 1);
+const migratedPreDayStops = migratedPreDay.routes.flatMap(
+  (route) => route.stops,
+);
+assert.equal(
+  migratedPreDayStops.filter((stop) => stopIsDaily(stop)).length,
+  28,
+);
+assert.equal(
+  migratedPreDayStops.filter((stop) => stopRunsOnDay(stop, "day1")).length,
+  65,
+);
+assert.equal(
+  migratedPreDayStops.filter((stop) => stopRunsOnDay(stop, "day2")).length,
+  61,
+);
+assert.equal(
+  migratedPreDayStops.filter((stop) => stopIsUnscheduled(stop)).length,
+  3,
+);
+assert.deepEqual(findStop(migratedPreDay, "fortune-stay")?.stop.days, [
+  "day1",
+]);
+assert.deepEqual(findStop(migratedPreDay, "celestial-suites")?.stop.days, []);
+
+const userDayDraft = structuredClone(plan);
+userDayDraft.routes
+  .flatMap((route) => route.stops)
+  .find((stop) => stop.hotel_id === "day-suites").days = ["day2"];
+assert.deepEqual(
+  findStop(migratePlanDepots(userDayDraft, plan), "day-suites")?.stop.days,
+  ["day2"],
+  "existing day edits must survive migration",
+);
+
 assert.throws(
   () =>
     createRoute(plan, {
@@ -824,6 +1020,7 @@ const newHotelInput = {
   service_mins: 10,
   load_bags: 5,
   rooms: 40,
+  days: ["day2"],
 };
 const route7Before = plan.routes.find((route) => route.route_id === "103607");
 assert.equal(route7Before.stops.length, 8);
@@ -850,6 +1047,11 @@ assert.equal(addedHotel.stop.region, 2);
 assert.equal(addedHotel.stop.service_mins, 10);
 assert.equal(addedHotel.stop.load_bags, 5);
 assert.equal(addedHotel.stop.rooms, 40);
+assert.deepEqual(
+  addedHotel.stop.days,
+  ["day2"],
+  "new hotels should keep their chosen day",
+);
 assert.equal(
   plan.routes.find((route) => route.route_id === "103607").stops.length,
   8,
@@ -911,39 +1113,6 @@ assert.equal(
 );
 
 // ---------------------------------------------------------------------------
-// Day board data
-// ---------------------------------------------------------------------------
-
-const dayViews = buildDayData(dayPlan, hotels);
-assert.equal(dayViews.length, 3, "expected Day 0, Day 1 and Day 2");
-assert.equal(dayViews[0].total, 28, "Day 0 should contain the daily hotels");
-assert.equal(dayViews[0].unique, 28);
-assert.equal(dayViews[1].total, 66, "Day 1 should contain the full list");
-assert.equal(dayViews[1].dailyTotal, 28);
-assert.equal(dayViews[1].alternativeTotal, 38);
-assert.equal(dayViews[2].total, 62, "Day 2 should contain the full list");
-assert.equal(dayViews[2].dailyTotal, 28);
-assert.equal(dayViews[2].alternativeTotal, 34);
-assert.deepEqual(dayViews[2].missing, ["UM Comforts"]);
-const day1Route1 = dayViews[1].routes.find(
-  (route) => route.routeId === "103501",
-);
-assert.equal(day1Route1.hotels.length, 7);
-assert.equal(day1Route1.dailyCount, 4);
-assert.equal(day1Route1.alternativeCount, 3);
-const hyatt = day1Route1.hotels.find(
-  (hotel) => hotel.name === "HYATT WHITEFIELD MAHADEVPURA",
-);
-assert.ok(hyatt, "expected the Hyatt alias to be present");
-assert.ok(hyatt.lat !== null, "the Hyatt alias should resolve to coordinates");
-assert.equal(hyatt.mappedName, "Hyatt Centric Whitefield Bengaluru");
-const umComforts = dayViews[2].routes
-  .find((route) => route.routeId === "103602")
-  .hotels.find((hotel) => hotel.name === "UM Comforts");
-assert.ok(umComforts);
-assert.equal(umComforts.lat, null, "unmatched hotels should be unpinned");
-
-// ---------------------------------------------------------------------------
 // Shared plan validation
 // ---------------------------------------------------------------------------
 
@@ -992,6 +1161,13 @@ assert.throws(
   () => parsePlanDraft(invalidStopsPlan),
   /stops/,
   "routes without stop lists should be rejected",
+);
+const invalidDaysPlan = structuredClone(plan);
+invalidDaysPlan.routes[0].stops[0].days = ["day3"];
+assert.throws(
+  () => parsePlanDraft(invalidDaysPlan),
+  /invalid day assignments/,
+  "unknown day assignments should be rejected",
 );
 
 console.log("");
