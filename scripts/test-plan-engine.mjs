@@ -38,7 +38,6 @@ import {
   setRouteLaundry,
   setStopDays,
   stopIsDaily,
-  stopIsUnscheduled,
   stopRunsOnDay,
   summarizePlan,
   updateVehicle,
@@ -811,19 +810,25 @@ assert.equal(
 
 const allStops = plan.routes.flatMap((route) => route.stops);
 assert.equal(allStops.length, 101);
-assert.equal(allStops.filter((stop) => stopIsDaily(stop)).length, 28);
-assert.equal(allStops.filter((stop) => stopIsUnscheduled(stop)).length, 3);
-assert.deepEqual(
-  allStops.filter((stop) => stopIsUnscheduled(stop)).map((stop) => stop.name),
-  ["CELESTIAL SUITES", "GOLDEN VISTA", "OCTAVE CHURCH INN CHH"],
-);
+assert.equal(allStops.filter((stop) => stopIsDaily(stop)).length, 31);
 assert.equal(
   allStops.filter((stop) => stopRunsOnDay(stop, "day1")).length,
-  65,
+  68,
 );
 assert.equal(
   allStops.filter((stop) => stopRunsOnDay(stop, "day2")).length,
-  61,
+  64,
+);
+assert.deepEqual(
+  ["CELESTIAL SUITES", "GOLDEN VISTA", "OCTAVE CHURCH INN CHH"].map(
+    (name) => allStops.find((stop) => stop.name === name)?.days,
+  ),
+  [
+    ["day1", "day2"],
+    ["day1", "day2"],
+    ["day1", "day2"],
+  ],
+  "every hotel should belong to at least one day",
 );
 assert.equal(plan.days_version, 1, "the seed plan should be day-versioned");
 
@@ -839,9 +844,12 @@ assert.deepEqual(
   ["day1", "day2"],
   "day assignments should be deduplicated and ordered",
 );
-assert.deepEqual(normalizeStopDays({ ...legacyStop, days: [] }), []);
+assert.deepEqual(
+  normalizeStopDays({ ...legacyStop, days: [] }),
+  ["day1", "day2"],
+  "empty day assignments should default to both days",
+);
 assert.equal(stopIsDaily({ ...legacyStop, days: ["day1", "day2"] }), true);
-assert.equal(stopIsUnscheduled({ ...legacyStop, days: [] }), true);
 assert.equal(
   stopRunsOnDay({ ...legacyStop, days: ["day2"] }, "day1"),
   false,
@@ -875,24 +883,11 @@ for (const view of ["all", "daily", "day1", "day2"]) {
 }
 assert.deepEqual(viewSummaries, {
   all: { stops: 101, bags: 387, rooms: 3423 },
-  daily: { stops: 28, bags: 170, rooms: 1577 },
-  day1: { stops: 65, bags: 277, rooms: 2551 },
-  day2: { stops: 61, bags: 272, rooms: 2369 },
+  daily: { stops: 31, bags: 178, rooms: 1657 },
+  day1: { stops: 68, bags: 285, rooms: 2631 },
+  day2: { stops: 64, bags: 280, rooms: 2449 },
 });
 
-const unscheduledIds = new Set(
-  allStops.filter((stop) => stopIsUnscheduled(stop)).map((stop) => stop.hotel_id),
-);
-for (const view of ["daily", "day1", "day2"]) {
-  const filtered = filterPlanForView(plan, view);
-  assert.equal(
-    filtered.routes
-      .flatMap((route) => route.stops)
-      .some((stop) => unscheduledIds.has(stop.hotel_id)),
-    false,
-    `${view} should hide unscheduled hotels`,
-  );
-}
 assert.equal(
   filterPlanForView(plan, "daily")
     .routes.flatMap((route) => route.stops)
@@ -928,29 +923,29 @@ assert.equal(
   filterPlanForView(dayEditedPlan, "daily").routes.flatMap(
     (route) => route.stops,
   ).length,
-  27,
+  30,
 );
 assert.equal(
   filterPlanForView(dayEditedPlan, "day1").routes.flatMap(
     (route) => route.stops,
   ).length,
-  64,
+  67,
 );
 assert.equal(
   filterPlanForView(dayEditedPlan, "day2").routes.flatMap(
     (route) => route.stops,
   ).length,
-  61,
+  64,
 );
 assert.deepEqual(routeDayTotals(dayEditedPlan.routes[0], "day1"), {
   stops: 6,
   bags: 24,
   rooms: 231,
 });
-assert.equal(
-  stopIsUnscheduled(findStop(setStopDays(plan, "day-suites", []), "day-suites").stop),
-  true,
-  "a stop can be moved to Unscheduled",
+assert.deepEqual(
+  findStop(setStopDays(plan, "day-suites", []), "day-suites")?.stop.days,
+  ["day1", "day2"],
+  "empty day input should keep a hotel on both days",
 );
 
 // Pre-feature drafts defaulted every hotel to Both. A one-time version bump
@@ -968,24 +963,23 @@ const migratedPreDayStops = migratedPreDay.routes.flatMap(
 );
 assert.equal(
   migratedPreDayStops.filter((stop) => stopIsDaily(stop)).length,
-  28,
+  31,
 );
 assert.equal(
   migratedPreDayStops.filter((stop) => stopRunsOnDay(stop, "day1")).length,
-  65,
+  68,
 );
 assert.equal(
   migratedPreDayStops.filter((stop) => stopRunsOnDay(stop, "day2")).length,
-  61,
-);
-assert.equal(
-  migratedPreDayStops.filter((stop) => stopIsUnscheduled(stop)).length,
-  3,
+  64,
 );
 assert.deepEqual(findStop(migratedPreDay, "fortune-stay")?.stop.days, [
   "day1",
 ]);
-assert.deepEqual(findStop(migratedPreDay, "celestial-suites")?.stop.days, []);
+assert.deepEqual(findStop(migratedPreDay, "celestial-suites")?.stop.days, [
+  "day1",
+  "day2",
+]);
 
 const userDayDraft = structuredClone(plan);
 userDayDraft.routes

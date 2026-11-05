@@ -82,7 +82,6 @@ import {
   setStopDays,
   sortVehicles,
   stopIsDaily,
-  stopIsUnscheduled,
   stopRunsOnDay,
   summarizePlan,
   updateVehicle,
@@ -373,7 +372,6 @@ export default function PlanCanvas({
       "no_vehicle",
       "vehicle_double_booked",
       "unassigned_hotels",
-      "unscheduled_hotels",
     ]);
     const tagDay = (issues: PlanIssue[], day: PlanDay): PlanIssue[] =>
       issues
@@ -390,30 +388,15 @@ export default function PlanCanvas({
     if (view === "daily") return planLevel;
     if (view === "day1" || view === "day2") return computation.issues;
 
-    const unscheduled = plan.routes
-      .flatMap((route) => route.stops)
-      .filter((stop) => stopIsUnscheduled(stop));
     return [
       ...tagDay(day1Computation.issues, "day1"),
       ...tagDay(day2Computation.issues, "day2"),
       ...planLevel,
-      ...(unscheduled.length > 0
-        ? [
-            {
-              severity: "warning" as const,
-              code: "unscheduled_hotels",
-              message: `${unscheduled.length} hotel${
-                unscheduled.length === 1 ? " is" : "s are"
-              } not assigned to any day.`,
-            },
-          ]
-        : []),
     ];
   }, [
     computation.issues,
     day1Computation.issues,
     day2Computation.issues,
-    plan,
     view,
   ]);
 
@@ -721,11 +704,9 @@ export default function PlanCanvas({
       const label =
         normalized.length === 2
           ? "Daily (both days)"
-          : normalized.length === 0
-            ? "Unscheduled"
-            : normalized[0] === "day1"
-              ? "Day 1"
-              : "Day 2";
+          : normalized[0] === "day1"
+            ? "Day 1"
+            : "Day 2";
       commit(next, `${found.stop.name} → ${label}`);
       const stillVisible = filterPlanForView(next, view).routes.some((route) =>
         route.stops.some((stop) => stop.hotel_id === hotelId),
@@ -1604,6 +1585,10 @@ export default function PlanCanvas({
             <Check size={12} />
             {hydrated ? "Autosaved locally" : "Loading draft"}
           </span>
+          <Link href="/hotels" className="btn btn--ghost">
+            <Hotel size={14} />
+            Hotels
+          </Link>
           <button type="button" className="btn btn--ghost" onClick={resetPlan}>
             <RotateCcw size={14} />
             Reset
@@ -1976,7 +1961,6 @@ export default function PlanCanvas({
                               <option value="both">Both</option>
                               <option value="day1">Day 1</option>
                               <option value="day2">Day 2</option>
-                              <option value="none">Unscheduled</option>
                             </select>
                             {isAllView && (
                               <span className="plan-stop__actions">
@@ -2330,7 +2314,6 @@ export default function PlanCanvas({
                     <option value="both">Both days (daily)</option>
                     <option value="day1">Day 1 only</option>
                     <option value="day2">Day 2 only</option>
-                    <option value="none">Unscheduled</option>
                   </select>
                 </label>
                 <p className="plan-inspector__note">
@@ -2885,7 +2868,7 @@ export default function PlanCanvas({
                     ? "Choose a warehouse above or use the move button on a route in the warehouse board. A route and all of its hotels move together, then the stop order is re-optimized from the new start."
                     : isAllView
                       ? "Change a hotel's day with the selector on its row. Drag by the grip to reorder stops or move them between routes."
-                      : "Use the day selector on each hotel row to move it to Both, Day 1, Day 2 or Unscheduled. Switch to All to reorder stops or add hotels."}
+                      : "Use the day selector on each hotel row to move it to Both, Day 1 or Day 2. Switch to All to reorder stops or add hotels."}
                 </p>
               </div>
             </>

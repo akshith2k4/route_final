@@ -53,7 +53,7 @@ export type PlanStop = {
   load_bags: number;
   /** Number of guest rooms at this hotel. Missing values are treated as 0. */
   rooms?: number;
-  /** Days this hotel is visited. [] means unscheduled; missing means both days. */
+  /** Days this hotel is visited. Missing or empty means both days. */
   days?: PlanDay[];
 };
 
@@ -327,13 +327,19 @@ export function safeLoadForCapacity(capacity: number): number {
   return Math.max(1, Math.floor(capacity * 0.9));
 }
 
-/** Missing day assignments default to both days for legacy stops. */
+/**
+ * Missing or empty day assignments default to both days. Every hotel must
+ * belong to at least one day, so there is no unscheduled state.
+ */
 export function normalizeStopDays(stop: PlanStop): PlanDay[] {
   if (!Array.isArray(stop.days)) return ["day1", "day2"];
   const requested = new Set(
     stop.days.filter((day): day is PlanDay => day === "day1" || day === "day2"),
   );
-  return (["day1", "day2"] as const).filter((day) => requested.has(day));
+  const normalized = (["day1", "day2"] as const).filter((day) =>
+    requested.has(day),
+  );
+  return normalized.length > 0 ? normalized : ["day1", "day2"];
 }
 
 export function stopRunsOnDay(stop: PlanStop, day: PlanDay): boolean {
@@ -342,10 +348,6 @@ export function stopRunsOnDay(stop: PlanStop, day: PlanDay): boolean {
 
 export function stopIsDaily(stop: PlanStop): boolean {
   return normalizeStopDays(stop).length === 2;
-}
-
-export function stopIsUnscheduled(stop: PlanStop): boolean {
-  return normalizeStopDays(stop).length === 0;
 }
 
 export function routeDayTotals(
@@ -1072,19 +1074,6 @@ export function validateComputedPlan(
     });
   }
 
-  const unscheduledStops = plan.routes
-    .flatMap((route) => route.stops)
-    .filter((stop) => stopIsUnscheduled(stop));
-  if (unscheduledStops.length > 0) {
-    issues.push({
-      severity: "warning",
-      code: "unscheduled_hotels",
-      message: `${unscheduledStops.length} hotel${
-        unscheduledStops.length === 1 ? " is" : "s are"
-      } not assigned to any day.`,
-    });
-  }
-
   const vehicleAssignments = new Map<string, string[]>();
   for (const route of plan.routes) {
     if (!route.vehicle_id) continue;
@@ -1154,12 +1143,15 @@ export function setStopDays(
   const requested = new Set(
     days.filter((day): day is PlanDay => day === "day1" || day === "day2"),
   );
-  const normalized = (["day1", "day2"] as const).filter((day) =>
+  const requestedDays = (["day1", "day2"] as const).filter((day) =>
     requested.has(day),
   );
+  const normalized: PlanDay[] =
+    requestedDays.length > 0 ? [...requestedDays] : ["day1", "day2"];
+  const currentDays = normalizeStopDays(found.stop);
   if (
-    normalized.length === normalizeStopDays(found.stop).length &&
-    normalized.every((day, index) => day === normalizeStopDays(found.stop)[index])
+    normalized.length === currentDays.length &&
+    normalized.every((day, index) => day === currentDays[index])
   ) {
     return plan;
   }

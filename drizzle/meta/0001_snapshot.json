@@ -1,0 +1,188 @@
+{
+  "id": "a3650c73-47c0-46e4-8587-b1bc6159866b",
+  "prevId": "2c5dcc05-8ee4-4166-a1b4-0afc2e57a3ed",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.hotels": {
+      "name": "hotels",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "latitude": {
+          "name": "latitude",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "longitude": {
+          "name": "longitude",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "region_name": {
+          "name": "region_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stop_mins": {
+          "name": "stop_mins",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 15
+        },
+        "load_bags": {
+          "name": "load_bags",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "rooms": {
+          "name": "rooms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "day_plan": {
+          "name": "day_plan",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'daily'"
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "hotels_region_idx": {
+          "name": "hotels_region_idx",
+          "columns": [
+            {
+              "expression": "region_name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "hotels_day_idx": {
+          "name": "hotels_day_idx",
+          "columns": [
+            {
+              "expression": "day_plan",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "hotels_name_idx": {
+          "name": "hotels_name_idx",
+          "columns": [
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "hotels_day_plan_check": {
+          "name": "hotels_day_plan_check",
+          "value": "\"hotels\".\"day_plan\" in ('daily', 'day1', 'day2')"
+        },
+        "hotels_latitude_check": {
+          "name": "hotels_latitude_check",
+          "value": "\"hotels\".\"latitude\" between -90 and 90"
+        },
+        "hotels_longitude_check": {
+          "name": "hotels_longitude_check",
+          "value": "\"hotels\".\"longitude\" between -180 and 180"
+        },
+        "hotels_stop_mins_check": {
+          "name": "hotels_stop_mins_check",
+          "value": "\"hotels\".\"stop_mins\" >= 0"
+        },
+        "hotels_load_bags_check": {
+          "name": "hotels_load_bags_check",
+          "value": "\"hotels\".\"load_bags\" >= 0"
+        },
+        "hotels_rooms_check": {
+          "name": "hotels_rooms_check",
+          "value": "\"hotels\".\"rooms\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

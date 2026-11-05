@@ -9,7 +9,7 @@ import {
   type Plan,
 } from "../lib/plan";
 
-type NewHotelDayValue = "both" | "day1" | "day2" | "none";
+type NewHotelDayValue = "both" | "day1" | "day2";
 
 type PlanNewHotelDialogProps = {
   open: boolean;
@@ -148,13 +148,11 @@ export default function PlanNewHotelDialog({
         load_bags: bagsValue,
         rooms: roomsValue,
         days:
-          dayValue === "both"
-            ? ["day1", "day2"]
-            : dayValue === "day1"
-              ? ["day1"]
-              : dayValue === "day2"
-                ? ["day2"]
-                : [],
+          dayValue === "day1"
+            ? ["day1"]
+            : dayValue === "day2"
+              ? ["day2"]
+              : ["day1", "day2"],
       },
       selectedRoute.route_id,
     );
@@ -296,7 +294,6 @@ export default function PlanNewHotelDialog({
             <option value="both">Both days (daily)</option>
             <option value="day1">Day 1 only</option>
             <option value="day2">Day 2 only</option>
-            <option value="none">Unscheduled</option>
           </select>
         </label>
 

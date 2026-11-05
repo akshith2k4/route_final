@@ -163,12 +163,15 @@ const routes = manualRoutes.map((route) => {
         `  matched "${stop.name}" -> ${hotel.name} via ${method}`,
       );
     }
-    const days = dailyIds.has(hotel.id)
+    const requestedDays = dailyIds.has(hotel.id)
       ? ["day1", "day2"]
       : [
           ...(day1Ids.has(hotel.id) ? ["day1"] : []),
           ...(day2Ids.has(hotel.id) ? ["day2"] : []),
         ];
+    // Every hotel must belong to at least one day. Hotels missing from the
+    // day plan are treated as daily rather than unscheduled.
+    const days = requestedDays.length > 0 ? requestedDays : ["day1", "day2"];
     return {
       hotel_id: hotel.id,
       name: hotel.name,
