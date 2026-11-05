@@ -2046,8 +2046,13 @@ a {
   color: var(--ink-soft);
 }
 
-.btn--ghost:hover {
+.btn--ghost:hover:not(:disabled) {
   background: var(--bone);
+}
+
+.btn--ghost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .lookup-coords {

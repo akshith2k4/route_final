@@ -1608,12 +1608,21 @@ export default function PlanCanvas({
     [commit, computedById, matrix, notify],
   );
 
+  const canResetPlan = currentPlanId === baselinePlan.plan_id;
+
   const resetPlan = useCallback(() => {
+    if (!canResetPlan) {
+      notify(
+        "Reset is only available for the Manual Dispatch Plan.",
+        "error",
+      );
+      return;
+    }
     if (planRef.current === baselinePlan) return;
     commit(baselinePlan, "Reset to the published manual plan");
     setSelectedRouteId(baselinePlan.routes[0]?.route_id ?? null);
     setSelectedStopId(null);
-  }, [baselinePlan, commit]);
+  }, [baselinePlan, canResetPlan, commit, notify]);
 
   const beginDrag = useCallback(
     (
@@ -1913,7 +1922,17 @@ export default function PlanCanvas({
             <Hotel size={14} />
             Hotels
           </Link>
-          <button type="button" className="btn btn--ghost" onClick={resetPlan}>
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={resetPlan}
+            disabled={!canResetPlan}
+            title={
+              canResetPlan
+                ? "Reset to the published Manual Dispatch Plan"
+                : "Reset is only available for the Manual Dispatch Plan"
+            }
+          >
             <RotateCcw size={14} />
             Reset
           </button>
