@@ -18,7 +18,7 @@ type PlanNewHotelDialogProps = {
   defaultRouteId: string | null;
   defaultDay: NewHotelDayValue;
   onClose: () => void;
-  onAdd: (values: NewHotelInput, routeId: string) => boolean;
+  onAdd: (values: NewHotelInput, routeId: string) => Promise<boolean>;
 };
 
 function shortRouteName(name: string): string {
@@ -52,6 +52,7 @@ export default function PlanNewHotelDialog({
   const [routeId, setRouteId] = useState(defaultRouteId ?? "");
   const [dayValue, setDayValue] = useState<NewHotelDayValue>(defaultDay);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -65,6 +66,7 @@ export default function PlanNewHotelDialog({
     setRouteId(defaultRouteId ?? plan.routes[0]?.route_id ?? "");
     setDayValue(defaultDay);
     setError(null);
+    setSubmitting(false);
   }, [open, defaultDay, defaultRouteId, plan.routes]);
 
   useEffect(() => {
@@ -129,7 +131,8 @@ export default function PlanNewHotelDialog({
     routeValid &&
     !overCapacity;
 
-  function submit() {
+  async function submit() {
+    if (submitting) return;
     if (!valid || !selectedRoute) {
       if (overCapacity) setError("This hotel would exceed the route's vehicle limit.");
       else if (!nameValid) setError("Give the hotel a name.");
@@ -138,26 +141,32 @@ export default function PlanNewHotelDialog({
       else if (!routeValid) setError("Choose a route.");
       return;
     }
-    const added = onAdd(
-      {
-        name: name.trim(),
-        lat: latValue,
-        lon: lonValue,
-        region: effectiveRegion,
-        service_mins: serviceValue,
-        load_bags: bagsValue,
-        rooms: roomsValue,
-        days:
-          dayValue === "day1"
-            ? ["day1"]
-            : dayValue === "day2"
-              ? ["day2"]
-              : ["day1", "day2"],
-      },
-      selectedRoute.route_id,
-    );
-    if (!added) {
-      setError("Could not add this hotel to the route.");
+
+    setSubmitting(true);
+    try {
+      const added = await onAdd(
+        {
+          name: name.trim(),
+          lat: latValue,
+          lon: lonValue,
+          region: effectiveRegion,
+          service_mins: serviceValue,
+          load_bags: bagsValue,
+          rooms: roomsValue,
+          days:
+            dayValue === "day1"
+              ? ["day1"]
+              : dayValue === "day2"
+                ? ["day2"]
+                : ["day1", "day2"],
+        },
+        selectedRoute.route_id,
+      );
+      if (!added) {
+        setError("Could not add this hotel to the route.");
+      }
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -358,9 +367,13 @@ export default function PlanNewHotelDialog({
           <button type="button" className="btn btn--ghost" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="btn btn--primary" disabled={!valid}>
+          <button
+            type="submit"
+            className="btn btn--primary"
+            disabled={!valid || submitting}
+          >
             <Plus size={14} />
-            Add hotel
+            {submitting ? "Adding…" : "Add hotel"}
           </button>
         </div>
       </form>

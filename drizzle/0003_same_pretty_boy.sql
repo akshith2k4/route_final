@@ -1,0 +1,1 @@
+ALTER TABLE "vehicles" ALTER COLUMN "safe_capacity" SET NOT NULL;

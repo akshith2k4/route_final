@@ -406,6 +406,10 @@ const SHOW_DISPATCH_AND_STUDIO = false;
             Hotels
             <ArrowUpRight size={11} />
           </Link>
+          <Link className="topnav__item" href="/vehicles">
+            Vehicles
+            <ArrowUpRight size={11} />
+          </Link>
           {SHOW_DISPATCH_AND_STUDIO && (
             <>
               <button

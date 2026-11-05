@@ -16,6 +16,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed:hotels": "tsx --env-file=.env.local scripts/seed-hotels.ts",
+    "db:seed:plan": "tsx --env-file=.env.local scripts/seed-plan.ts",
     "db:studio": "drizzle-kit studio",
     "test:plan": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-plan-engine.mjs"
   },

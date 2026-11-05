@@ -3,8 +3,6 @@ export const PLAN_VEHICLES_VERSION = 2;
 export const PLAN_DAYS_VERSION = 1;
 export const MATRIX_SCHEMA_VERSION = 1;
 
-export const PLAN_DRAFT_STORAGE_KEY = "linengrass.plan-canvas.v1";
-export const PLAN_IMPORT_BACKUP_KEY = "linengrass.plan-canvas.pre-import";
 
 export type PlanDepot = {
   id: string;
@@ -1632,6 +1630,7 @@ function pickVehicleColor(plan: Plan): string {
 }
 
 export type AddVehicleInput = {
+  id?: string;
   name: string;
   capacity: number;
   color?: string;
@@ -1647,7 +1646,7 @@ export function addVehicle(plan: Plan, input: AddVehicleInput): Plan {
   }
 
   const vehicle: PlanVehicle = {
-    id: nextVehicleId(plan),
+    id: input.id ?? nextVehicleId(plan),
     name,
     nominal_cap: capacity,
     max_load: safeLoadForCapacity(capacity),
@@ -1881,6 +1880,7 @@ export function addStopsToRoute(
 }
 
 export type NewHotelInput = {
+  id?: string;
   name: string;
   lat: number;
   lon: number;
@@ -1960,7 +1960,7 @@ export function addNewHotelToRoute(
   }
 
   const stop: PlanStop = {
-    hotel_id: nextCustomHotelId(plan, name),
+    hotel_id: input.id ?? nextCustomHotelId(plan, name),
     name,
     lat: input.lat,
     lon: input.lon,

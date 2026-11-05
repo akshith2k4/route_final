@@ -21,9 +21,13 @@ type PlanVehiclesDialogProps = {
   open: boolean;
   plan: Plan;
   onClose: () => void;
-  onAdd: (name: string, capacity: number) => void;
-  onUpdate: (vehicleId: string, name: string, capacity: number) => void;
-  onDelete: (vehicleId: string) => void;
+  onAdd: (name: string, capacity: number) => Promise<void>;
+  onUpdate: (
+    vehicleId: string,
+    name: string,
+    capacity: number,
+  ) => Promise<void>;
+  onDelete: (vehicleId: string) => Promise<void>;
 };
 
 function shortRouteName(name: string): string {
@@ -53,6 +57,7 @@ export default function PlanVehiclesDialog({
   const [editName, setEditName] = useState("");
   const [editCapacity, setEditCapacity] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -62,6 +67,7 @@ export default function PlanVehiclesDialog({
     setEditName("");
     setEditCapacity("");
     setError(null);
+    setSaving(false);
   }, [open]);
 
   useEffect(() => {
@@ -116,7 +122,8 @@ export default function PlanVehiclesDialog({
     setError(null);
   }
 
-  function submitAdd() {
+  async function submitAdd() {
+    if (saving) return;
     const capacity = capacityValue(addCapacity);
     if (!addName.trim()) {
       setError("Give the vehicle a name.");
@@ -126,18 +133,21 @@ export default function PlanVehiclesDialog({
       setError("Vehicle capacity must be a whole number of at least 1 bag.");
       return;
     }
+    setSaving(true);
     try {
-      onAdd(addName.trim(), capacity);
+      await onAdd(addName.trim(), capacity);
       setAddName("");
       setAddCapacity("40");
       setError(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not add the vehicle.");
+    } finally {
+      setSaving(false);
     }
   }
 
-  function submitEdit() {
-    if (!editingVehicle) return;
+  async function submitEdit() {
+    if (!editingVehicle || saving) return;
     const capacity = capacityValue(editCapacity);
     if (!editName.trim()) {
       setError("Give the vehicle a name.");
@@ -147,20 +157,25 @@ export default function PlanVehiclesDialog({
       setError("Vehicle capacity must be a whole number of at least 1 bag.");
       return;
     }
+    setSaving(true);
     try {
-      onUpdate(editingVehicle.id, editName.trim(), capacity);
+      await onUpdate(editingVehicle.id, editName.trim(), capacity);
       setEditingId(null);
       setError(null);
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : "Could not update the vehicle.",
       );
+    } finally {
+      setSaving(false);
     }
   }
 
-  function submitDelete(vehicle: PlanVehicle) {
+  async function submitDelete(vehicle: PlanVehicle) {
+    if (saving) return;
+    setSaving(true);
     try {
-      onDelete(vehicle.id);
+      await onDelete(vehicle.id);
       setError(null);
     } catch (caught) {
       setError(
@@ -168,6 +183,8 @@ export default function PlanVehiclesDialog({
           ? caught.message
           : "Could not delete the vehicle.",
       );
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -231,9 +248,10 @@ export default function PlanVehiclesDialog({
             type="button"
             className="btn btn--primary plan-vehicle-add__button"
             onClick={submitAdd}
+            disabled={saving}
           >
             <Plus size={14} />
-            Add vehicle
+            {saving ? "Saving…" : "Add vehicle"}
           </button>
         </div>
 
@@ -296,6 +314,7 @@ export default function PlanVehiclesDialog({
                         type="button"
                         className="plan-vehicle__icon-btn plan-vehicle__icon-btn--save"
                         onClick={submitEdit}
+                        disabled={saving}
                         title="Save vehicle"
                         aria-label="Save vehicle"
                       >
@@ -340,7 +359,7 @@ export default function PlanVehiclesDialog({
                         type="button"
                         className="plan-vehicle__icon-btn plan-vehicle__icon-btn--danger"
                         onClick={() => submitDelete(vehicle)}
-                        disabled={assigned.length > 0}
+                        disabled={assigned.length > 0 || saving}
                         title={
                           assigned.length > 0
                             ? "Reassign this vehicle's routes before deleting it"

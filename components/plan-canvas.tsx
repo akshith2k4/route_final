@@ -24,9 +24,9 @@ import {
   PanelRight,
   Plus,
   Redo2,
+  RefreshCw,
   RotateCcw,
   Route,
-  Share2,
   Trash2,
   Truck,
   Undo2,
@@ -38,12 +38,12 @@ import {
 import PlanAddHotelsDialog from "./plan-add-hotels-dialog";
 import PlanCreateRouteDialog from "./plan-create-route-dialog";
 import PlanNewHotelDialog from "./plan-new-hotel-dialog";
-import PlanShareDialog from "./plan-share-dialog";
 import PlanVehiclesDialog from "./plan-vehicles-dialog";
 import PlanCanvasMap, {
   type PlanCanvasMapHandle,
 } from "./plan-canvas-map";
 import type { HexMap, RegionMeta } from "../lib/coverage";
+import type { PlanSummary } from "../lib/plan-store";
 import {
   addNewHotelToRoute,
   addStopsToRoute,
@@ -62,14 +62,10 @@ import {
   getPlanLaundries,
   getPlanVehicles,
   laundryLabel,
-  migratePlanDepots,
   moveStop,
   normalizeStopDays,
   optimizeRouteOrder,
   parseClock,
-  parsePlanDraft,
-  PLAN_DRAFT_STORAGE_KEY,
-  PLAN_IMPORT_BACKUP_KEY,
   reassignRouteDepot,
   reorderStops,
   resolveLaundry,
@@ -83,7 +79,6 @@ import {
   sortVehicles,
   stopIsDaily,
   stopRunsOnDay,
-  summarizePlan,
   updateVehicle,
   type Plan,
   type PlanDay,
@@ -95,16 +90,21 @@ import {
   type TravelMatrix,
 } from "../lib/plan";
 
-const STORAGE_KEY = PLAN_DRAFT_STORAGE_KEY;
 const OSRM_BASE_URL = "https://router.project-osrm.org";
 
 type PlanCanvasProps = {
   initialPlan: Plan;
+  initialPlanId: string;
+  initialPlans: PlanSummary[];
+  initialVersion: number;
+  baselinePlan: Plan;
   matrix: TravelMatrix;
   regions: RegionMeta[];
   hexMap: HexMap;
   initialGeometries: Record<string, [number, number][]>;
 };
+
+type SaveState = "saved" | "saving" | "error";
 
 type DropTarget = {
   routeId: string;
@@ -182,12 +182,23 @@ function formatRooms(value: number): string {
 
 export default function PlanCanvas({
   initialPlan,
+  initialPlanId,
+  initialPlans,
+  initialVersion,
+  baselinePlan,
   matrix,
   regions,
   hexMap,
   initialGeometries,
 }: PlanCanvasProps) {
   const [plan, setPlan] = useState<Plan>(initialPlan);
+  const [currentPlanId, setCurrentPlanId] = useState(initialPlanId);
+  const [planList, setPlanList] = useState<PlanSummary[]>(initialPlans);
+  const [planSwitching, setPlanSwitching] = useState(false);
+  const [saveAsOpen, setSaveAsOpen] = useState(false);
+  const [saveAsName, setSaveAsName] = useState("");
+  const [saveAsError, setSaveAsError] = useState<string | null>(null);
+  const [saveAsBusy, setSaveAsBusy] = useState(false);
   const [history, setHistory] = useState<Plan[]>([]);
   const [future, setFuture] = useState<Plan[]>([]);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(
@@ -202,7 +213,8 @@ export default function PlanCanvas({
     () => new Set(),
   );
   const [toast, setToast] = useState<Toast | null>(null);
-  const [hydrated, setHydrated] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>("saved");
+  const [remoteUpdate, setRemoteUpdate] = useState(false);
   const [mode, setMode] = useState<PlanMode>("plan");
   const [view, setView] = useState<PlanView>("all");
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -210,8 +222,6 @@ export default function PlanCanvas({
   const [addHotelsOpen, setAddHotelsOpen] = useState(false);
   const [newHotelOpen, setNewHotelOpen] = useState(false);
   const [vehiclesOpen, setVehiclesOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
-  const [hasImportBackup, setHasImportBackup] = useState(false);
 
   const viewPlan = useMemo(
     () => filterPlanForView(plan, view),
@@ -222,6 +232,9 @@ export default function PlanCanvas({
   const mapRef = useRef<PlanCanvasMapHandle | null>(null);
   const toastTimerRef = useRef<number | null>(null);
   const previousViewPlanRef = useRef(viewPlan);
+  const versionRef = useRef(initialVersion);
+  const lastSavedPlanRef = useRef(initialPlan);
+  const firstPlanEffectRef = useRef(true);
 
   useEffect(() => {
     planRef.current = plan;
@@ -438,50 +451,313 @@ export default function PlanCanvas({
     };
   }, []);
 
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Plan;
-        if (
-          parsed?.schema_version === 1 &&
-          parsed.plan_id === initialPlan.plan_id &&
-          Array.isArray(parsed.routes)
-        ) {
-          const restored: Plan = migratePlanDepots(
-            { ...parsed, shift: initialPlan.shift },
-            initialPlan,
+  const refreshPlan = useCallback(
+    async (silent = false) => {
+      const dirty = planRef.current !== lastSavedPlanRef.current;
+      if (silent && dirty) return;
+      if (
+        !silent &&
+        dirty &&
+        !window.confirm(
+          "Discard your unsaved local changes and load the latest plan?",
+        )
+      ) {
+        return;
+      }
+
+      try {
+        const [response, listResponse] = await Promise.all([
+          fetch(`/api/plans/${currentPlanId}`, { cache: "no-store" }),
+          fetch("/api/plans", { cache: "no-store" }),
+        ]);
+        const data = (await response.json().catch(() => null)) as
+          | {
+              id?: string;
+              name?: string;
+              plan?: Plan;
+              version?: number;
+              updatedAt?: string;
+              error?: string;
+            }
+          | null;
+        const listData = (await listResponse.json().catch(() => null)) as
+          | { plans?: PlanSummary[] }
+          | null;
+
+        if (listResponse.ok && listData?.plans) {
+          setPlanList(listData.plans);
+        }
+
+        if (!response.ok || !data?.plan || typeof data.version !== "number") {
+          throw new Error(data?.error ?? "Could not load the latest plan.");
+        }
+
+        if (!dirty && data.version === versionRef.current) {
+          if (!silent) notify("Already up to date");
+          return;
+        }
+
+        setPlan(data.plan);
+        planRef.current = data.plan;
+        versionRef.current = data.version;
+        lastSavedPlanRef.current = data.plan;
+        setSaveState("saved");
+        setRemoteUpdate(false);
+        setHistory([]);
+        setFuture([]);
+        setSelectedRouteId((current) =>
+          current &&
+          data.plan?.routes.some((route) => route.route_id === current)
+            ? current
+            : (data.plan?.routes[0]?.route_id ?? null),
+        );
+        setSelectedStopId(null);
+        if (!silent) notify("Loaded the latest plan from the cloud");
+      } catch (error) {
+        if (!silent) {
+          notify(
+            error instanceof Error
+              ? error.message
+              : "Could not refresh the plan.",
+            "error",
           );
-          setPlan(restored);
-          planRef.current = restored;
-          setSelectedRouteId((current) =>
-            current && restored.routes.some((route) => route.route_id === current)
-              ? current
-              : (restored.routes[0]?.route_id ?? null),
-          );
-          notify("Restored your local draft");
         }
       }
-    } catch {
-      // Ignore malformed local drafts.
-    } finally {
-      setHydrated(true);
-    }
-  }, [
-    initialPlan.plan_id,
-    initialPlan.shift.start_min,
-    initialPlan.shift.end_min,
-    notify,
-  ]);
+    },
+    [currentPlanId, notify],
+  );
 
   useEffect(() => {
-    if (!hydrated) return;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(plan));
-    } catch {
-      // Storage can be unavailable in private mode; the canvas still works.
+    if (firstPlanEffectRef.current) {
+      firstPlanEffectRef.current = false;
+      return;
     }
-  }, [plan, hydrated]);
+    if (plan === lastSavedPlanRef.current) return;
+
+    setSaveState("saving");
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/plans/${currentPlanId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            plan,
+            version: versionRef.current,
+          }),
+        });
+        const data = (await response.json().catch(() => null)) as
+          | {
+              plan?: Plan;
+              name?: string;
+              version?: number;
+              updatedAt?: string;
+              error?: string;
+              conflict?: boolean;
+            }
+          | null;
+
+        if (!response.ok || typeof data?.version !== "number") {
+          setSaveState("error");
+          if (response.status === 409) {
+            setRemoteUpdate(true);
+            notify(
+              "The plan changed in another session. Refresh to load the latest.",
+              "error",
+            );
+          } else {
+            notify(data?.error ?? "Could not save the plan.", "error");
+          }
+          return;
+        }
+
+        versionRef.current = data.version;
+        lastSavedPlanRef.current = plan;
+        setSaveState("saved");
+        setRemoteUpdate(false);
+        setPlanList((current) =>
+          current
+            .map((entry) =>
+              entry.id === currentPlanId
+                ? {
+                    ...entry,
+                    name: data.name ?? entry.name,
+                    version: data.version as number,
+                    updatedAt: data.updatedAt ?? entry.updatedAt,
+                  }
+                : entry,
+            )
+            .sort(
+              (a, b) =>
+                Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+            ),
+        );
+      } catch {
+        setSaveState("error");
+        notify("Could not reach the server. Changes are not saved.", "error");
+      }
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [currentPlanId, plan, notify]);
+
+  const switchPlan = useCallback(
+    async (nextPlanId: string) => {
+      if (nextPlanId === currentPlanId || planSwitching) return;
+      const dirty = planRef.current !== lastSavedPlanRef.current;
+      if (
+        dirty &&
+        !window.confirm(
+          "Discard your unsaved local changes and switch plans?",
+        )
+      ) {
+        return;
+      }
+
+      setPlanSwitching(true);
+      try {
+        const [response, listResponse] = await Promise.all([
+          fetch(`/api/plans/${nextPlanId}`, { cache: "no-store" }),
+          fetch("/api/plans", { cache: "no-store" }),
+        ]);
+        const data = (await response.json().catch(() => null)) as
+          | {
+              id?: string;
+              name?: string;
+              plan?: Plan;
+              version?: number;
+              error?: string;
+            }
+          | null;
+        const listData = (await listResponse.json().catch(() => null)) as
+          | { plans?: PlanSummary[] }
+          | null;
+
+        if (!response.ok || !data?.plan || typeof data.version !== "number") {
+          throw new Error(data?.error ?? "Could not load this plan.");
+        }
+
+        if (listResponse.ok && listData?.plans) {
+          setPlanList(listData.plans);
+        }
+
+        setCurrentPlanId(data.id ?? nextPlanId);
+        setPlan(data.plan);
+        planRef.current = data.plan;
+        versionRef.current = data.version;
+        lastSavedPlanRef.current = data.plan;
+        setSaveState("saved");
+        setRemoteUpdate(false);
+        setHistory([]);
+        setFuture([]);
+        setSelectedRouteId(data.plan.routes[0]?.route_id ?? null);
+        setSelectedStopId(null);
+        window.history.replaceState(
+          null,
+          "",
+          `/plan?plan=${encodeURIComponent(data.id ?? nextPlanId)}`,
+        );
+        notify(`Loaded ${data.name ?? "plan"}`);
+      } catch (error) {
+        notify(
+          error instanceof Error ? error.message : "Could not switch plans.",
+          "error",
+        );
+      } finally {
+        setPlanSwitching(false);
+      }
+    },
+    [currentPlanId, notify, planSwitching],
+  );
+
+  const openSaveAs = useCallback(() => {
+    setSaveAsName(`${planRef.current.name} copy`);
+    setSaveAsError(null);
+    setSaveAsOpen(true);
+  }, []);
+
+  const submitSaveAs = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (saveAsBusy) return;
+
+      const name = saveAsName.trim();
+      if (!name) {
+        setSaveAsError("Give this plan a name.");
+        return;
+      }
+
+      setSaveAsBusy(true);
+      setSaveAsError(null);
+      try {
+        const response = await fetch("/api/plans", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, plan: planRef.current }),
+        });
+        const data = (await response.json().catch(() => null)) as
+          | {
+              id?: string;
+              name?: string;
+              plan?: Plan;
+              version?: number;
+              plans?: PlanSummary[];
+              error?: string;
+            }
+          | null;
+
+        if (
+          !response.ok ||
+          !data?.id ||
+          !data.plan ||
+          typeof data.version !== "number"
+        ) {
+          throw new Error(data?.error ?? "Could not save this plan.");
+        }
+
+        setCurrentPlanId(data.id);
+        setPlan(data.plan);
+        planRef.current = data.plan;
+        versionRef.current = data.version;
+        lastSavedPlanRef.current = data.plan;
+        if (data.plans) setPlanList(data.plans);
+        setHistory([]);
+        setFuture([]);
+        setSaveState("saved");
+        setRemoteUpdate(false);
+        setSaveAsOpen(false);
+        window.history.replaceState(
+          null,
+          "",
+          `/plan?plan=${encodeURIComponent(data.id)}`,
+        );
+        notify(`Saved as ${data.name ?? name}`);
+      } catch (error) {
+        setSaveAsError(
+          error instanceof Error ? error.message : "Could not save this plan.",
+        );
+      } finally {
+        setSaveAsBusy(false);
+      }
+    },
+    [notify, saveAsBusy, saveAsName],
+  );
+
+  useEffect(() => {
+    const handleFocus = () => {
+      void refreshPlan(true);
+    };
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void refreshPlan(true);
+      }
+    }, 20000);
+
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      window.clearInterval(timer);
+    };
+  }, [refreshPlan]);
 
   const fetchRouteGeometry = useCallback(async (route: PlanRoute) => {
     if (route.stops.length === 0) return;
@@ -619,14 +895,12 @@ export default function PlanCanvas({
           createRouteOpen ||
           addHotelsOpen ||
           newHotelOpen ||
-          vehiclesOpen ||
-          shareOpen
+          vehiclesOpen
         ) {
           setCreateRouteOpen(false);
           setAddHotelsOpen(false);
           setNewHotelOpen(false);
           setVehiclesOpen(false);
-          setShareOpen(false);
           return;
         }
         setSelectedStopId(null);
@@ -642,7 +916,6 @@ export default function PlanCanvas({
     addHotelsOpen,
     createRouteOpen,
     newHotelOpen,
-    shareOpen,
     vehiclesOpen,
     undo,
     redo,
@@ -663,7 +936,6 @@ export default function PlanCanvas({
       setAddHotelsOpen(false);
       setNewHotelOpen(false);
       setVehiclesOpen(false);
-      setShareOpen(false);
       setDragState(null);
       setDropTarget(null);
       setSelectedStopId(null);
@@ -840,14 +1112,78 @@ export default function PlanCanvas({
   );
 
   const handleAddNewHotel = useCallback(
-    (values: NewHotelInput, routeId: string): boolean => {
+    async (values: NewHotelInput, routeId: string): Promise<boolean> => {
       const current = planRef.current;
       const route = current.routes.find(
         (candidate) => candidate.route_id === routeId,
       );
-      let result: ReturnType<typeof addNewHotelToRoute>;
+      const regionName =
+        regions.find((region) => region.id === values.region)?.short_name ??
+        `Region ${values.region}`;
+      const days = values.days ?? ["day1", "day2"];
+      const dayPlan =
+        days.length === 2
+          ? "daily"
+          : days[0] === "day1"
+            ? "day1"
+            : "day2";
+
+      let createdId: string | null = null;
       try {
-        result = addNewHotelToRoute(current, routeId, values, matrix);
+        const response = await fetch("/api/hotels", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: values.name,
+            address: null,
+            latitude: values.lat,
+            longitude: values.lon,
+            regionName,
+            stopMins: values.service_mins,
+            loadBags: values.load_bags,
+            rooms: values.rooms ?? 0,
+            dayPlan,
+          }),
+        });
+        const data = (await response.json().catch(() => null)) as
+          | { hotel?: { id: string }; error?: string }
+          | null;
+
+        if (!response.ok || !data?.hotel) {
+          notify(data?.error ?? "Could not add this hotel to the master.", "error");
+          return false;
+        }
+
+        createdId = data.hotel.id;
+        let result: ReturnType<typeof addNewHotelToRoute>;
+        try {
+          result = addNewHotelToRoute(
+            current,
+            routeId,
+            { ...values, id: createdId },
+            matrix,
+          );
+        } catch (error) {
+          await fetch(`/api/hotels/${createdId}`, { method: "DELETE" }).catch(
+            () => undefined,
+          );
+          throw error;
+        }
+
+        commit(
+          result.plan,
+          `Added ${result.stop.name} to ${
+            route ? shortRouteName(route.name) : "the route"
+          } · ${formatBags(result.stop.load_bags)} · ${formatRooms(
+            result.stop.rooms ?? 0,
+          )}`,
+        );
+        setSelectedRouteId(routeId);
+        setSelectedStopId(result.stop.hotel_id);
+        setNewHotelOpen(false);
+        mapRef.current?.focusStop(result.stop.lat, result.stop.lon);
+        revealInspector();
+        return true;
       } catch (error) {
         notify(
           error instanceof Error ? error.message : "Could not add the hotel.",
@@ -855,23 +1191,8 @@ export default function PlanCanvas({
         );
         return false;
       }
-
-      commit(
-        result.plan,
-        `Added ${result.stop.name} to ${
-          route ? shortRouteName(route.name) : "the route"
-        } · ${formatBags(result.stop.load_bags)} · ${formatRooms(
-          result.stop.rooms ?? 0,
-        )}`,
-      );
-      setSelectedRouteId(routeId);
-      setSelectedStopId(result.stop.hotel_id);
-      setNewHotelOpen(false);
-      mapRef.current?.focusStop(result.stop.lat, result.stop.lon);
-      revealInspector();
-      return true;
     },
-    [commit, matrix, notify, revealInspector],
+    [commit, matrix, notify, regions, revealInspector],
   );
 
   const handleAddStops = useCallback(
@@ -922,7 +1243,7 @@ export default function PlanCanvas({
 
       let next: Plan;
       try {
-        next = deleteRoute(current, routeId, { restoreFrom: initialPlan });
+        next = deleteRoute(current, routeId, { restoreFrom: baselinePlan });
       } catch (error) {
         notify(
           error instanceof Error ? error.message : "Could not delete the route.",
@@ -948,7 +1269,7 @@ export default function PlanCanvas({
         setSelectedStopId(null);
       }
     },
-    [commit, initialPlan, notify, selectedRouteId],
+    [baselinePlan, commit, notify, selectedRouteId],
   );
 
   const handleAssignDepot = useCallback(
@@ -1092,20 +1413,84 @@ export default function PlanCanvas({
   );
 
   const handleAddVehicle = useCallback(
-    (name: string, capacity: number) => {
+    async (name: string, capacity: number): Promise<void> => {
       const current = planRef.current;
-      const next = addVehicle(current, { name, capacity });
-      const added = next.vehicles?.[next.vehicles.length - 1];
-      commit(
-        next,
-        `Added ${added?.name ?? name} · ${capacity} bags`,
-      );
+      const palette = [
+        "#1d4ed8",
+        "#0f766e",
+        "#b45309",
+        "#7c3aed",
+        "#be185d",
+        "#0369a1",
+        "#4d7c0f",
+        "#c2410c",
+      ];
+
+      let createdId: string | null = null;
+      try {
+        const response = await fetch("/api/vehicles", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            realCapacity: capacity,
+            color:
+              palette[getPlanVehicles(current).length % palette.length],
+            depotId: "depot-yeshwanthpur",
+            departureTime: "07:00",
+            returnTime: "17:00",
+          }),
+        });
+        const data = (await response.json().catch(() => null)) as
+          | {
+              vehicle?: {
+                id: string;
+                name: string;
+                realCapacity: number;
+                color: string;
+              };
+              error?: string;
+            }
+          | null;
+
+        if (!response.ok || !data?.vehicle) {
+          notify(
+            data?.error ?? "Could not add this vehicle to the master.",
+            "error",
+          );
+          return;
+        }
+
+        createdId = data.vehicle.id;
+        let next: Plan;
+        try {
+          next = addVehicle(current, {
+            id: data.vehicle.id,
+            name: data.vehicle.name,
+            capacity: data.vehicle.realCapacity,
+            color: data.vehicle.color,
+          });
+        } catch (error) {
+          await fetch(`/api/vehicles/${createdId}`, { method: "DELETE" }).catch(
+            () => undefined,
+          );
+          throw error;
+        }
+
+        const added = next.vehicles?.[next.vehicles.length - 1];
+        commit(next, `Added ${added?.name ?? name} · ${capacity} bags`);
+      } catch (error) {
+        notify(
+          error instanceof Error ? error.message : "Could not add the vehicle.",
+          "error",
+        );
+      }
     },
-    [commit],
+    [commit, notify],
   );
 
   const handleUpdateVehicle = useCallback(
-    (vehicleId: string, name: string, capacity: number) => {
+    async (vehicleId: string, name: string, capacity: number) => {
       const current = planRef.current;
       const vehicle = getPlanVehicles(current).find(
         (candidate) => candidate.id === vehicleId,
@@ -1115,6 +1500,19 @@ export default function PlanCanvas({
         vehicle.name === name.trim() &&
         vehicle.nominal_cap === capacity
       ) {
+        return;
+      }
+
+      const response = await fetch(`/api/vehicles/${vehicleId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, realCapacity: capacity }),
+      });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        notify(data?.error ?? "Could not update the vehicle master.", "error");
         return;
       }
 
@@ -1145,17 +1543,28 @@ export default function PlanCanvas({
         }`,
       );
     },
-    [commit],
+    [commit, notify],
   );
 
   const handleDeleteVehicle = useCallback(
-    (vehicleId: string) => {
+    async (vehicleId: string): Promise<void> => {
       const current = planRef.current;
       const vehicle = getPlanVehicles(current).find(
         (candidate) => candidate.id === vehicleId,
       );
       if (!vehicle) return;
+
       const next = deleteVehicle(current, vehicleId);
+      const response = await fetch(`/api/vehicles/${vehicleId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        throw new Error(data?.error ?? "Could not delete the vehicle master.");
+      }
+
       commit(next, `Deleted ${vehicle.name}`);
     },
     [commit],
@@ -1200,121 +1609,11 @@ export default function PlanCanvas({
   );
 
   const resetPlan = useCallback(() => {
-    if (planRef.current === initialPlan) return;
-    commit(initialPlan, "Reset to the published manual plan");
-    setSelectedRouteId(initialPlan.routes[0]?.route_id ?? null);
+    if (planRef.current === baselinePlan) return;
+    commit(baselinePlan, "Reset to the published manual plan");
+    setSelectedRouteId(baselinePlan.routes[0]?.route_id ?? null);
     setSelectedStopId(null);
-  }, [commit, initialPlan]);
-
-  const exportPlan = useCallback(() => {
-    const exportedAt = new Date().toISOString();
-    const payload = { ...planRef.current, exported_at: exportedAt };
-    const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `linengrass-plan-${exportedAt.slice(0, 10)}.json`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-    notify("Plan file downloaded");
-  }, [notify]);
-
-  const openShare = useCallback(() => {
-    try {
-      setHasImportBackup(
-        Boolean(window.localStorage.getItem(PLAN_IMPORT_BACKUP_KEY)),
-      );
-    } catch {
-      setHasImportBackup(false);
-    }
-    setShareOpen(true);
-  }, []);
-
-  const handleImportPlan = useCallback(
-    (imported: Plan, fileName: string): boolean => {
-      const current = planRef.current;
-      try {
-        const next = migratePlanDepots(
-          {
-            ...imported,
-            plan_id: initialPlan.plan_id,
-            shift: initialPlan.shift,
-          },
-          initialPlan,
-        );
-        try {
-          window.localStorage.setItem(
-            PLAN_IMPORT_BACKUP_KEY,
-            JSON.stringify(current),
-          );
-        } catch {
-          // The in-memory Undo history still protects this import.
-        }
-        setHasImportBackup(true);
-        const summary = summarizePlan(next);
-        commit(
-          next,
-          `Imported ${fileName} · ${summary.routes} routes · ${summary.stops} stops · ${summary.bags} bags`,
-        );
-        setSelectedRouteId(next.routes[0]?.route_id ?? null);
-        setSelectedStopId(null);
-        setInspectorOpen(false);
-        setShareOpen(false);
-        return true;
-      } catch (error) {
-        notify(
-          error instanceof Error
-            ? error.message
-            : "Could not import this plan.",
-          "error",
-        );
-        return false;
-      }
-    },
-    [commit, initialPlan, notify],
-  );
-
-  const handleRestoreBackup = useCallback((): boolean => {
-    let raw: string | null = null;
-    try {
-      raw = window.localStorage.getItem(PLAN_IMPORT_BACKUP_KEY);
-    } catch {
-      raw = null;
-    }
-    if (!raw) {
-      notify("No import backup found.", "error");
-      return false;
-    }
-    try {
-      const parsed = parsePlanDraft(JSON.parse(raw));
-      const restored = migratePlanDepots(
-        {
-          ...parsed,
-          plan_id: initialPlan.plan_id,
-          shift: initialPlan.shift,
-        },
-        initialPlan,
-      );
-      commit(restored, "Restored the draft from before the last import");
-      setSelectedRouteId(restored.routes[0]?.route_id ?? null);
-      setSelectedStopId(null);
-      setInspectorOpen(false);
-      setShareOpen(false);
-      return true;
-    } catch (error) {
-      notify(
-        error instanceof Error
-          ? error.message
-          : "Could not restore the previous draft.",
-        "error",
-      );
-      return false;
-    }
-  }, [commit, initialPlan, notify]);
+  }, [baselinePlan, commit]);
 
   const beginDrag = useCallback(
     (
@@ -1581,10 +1880,35 @@ export default function PlanCanvas({
               <Redo2 size={15} />
             </button>
           </div>
-          <span className="plan-save-state">
-            <Check size={12} />
-            {hydrated ? "Autosaved locally" : "Loading draft"}
+          <span
+            className={`plan-save-state ${
+              saveState === "error" ? "is-error" : ""
+            }`}
+          >
+            {saveState === "saving" ? (
+              <RefreshCw size={12} className="plan-save-spinner" />
+            ) : saveState === "error" ? (
+              <AlertTriangle size={12} />
+            ) : (
+              <Check size={12} />
+            )}
+            {saveState === "saving"
+              ? "Saving to cloud…"
+              : saveState === "error"
+                ? "Save failed"
+                : remoteUpdate
+                  ? "New changes available"
+                  : "Saved to cloud"}
           </span>
+          <button
+            type="button"
+            className="plan-icon-btn"
+            onClick={() => void refreshPlan()}
+            title="Refresh from cloud"
+            aria-label="Refresh from cloud"
+          >
+            <RefreshCw size={15} />
+          </button>
           <Link href="/hotels" className="btn btn--ghost">
             <Hotel size={14} />
             Hotels
@@ -1593,20 +1917,38 @@ export default function PlanCanvas({
             <RotateCcw size={14} />
             Reset
           </button>
-          <button
-            type="button"
-            className="btn btn--primary"
-            onClick={openShare}
-            title="Share or upload a plan file"
-          >
-            <Share2 size={14} />
-            Share
-          </button>
         </div>
       </header>
 
       <main className="plan-workspace">
         <aside className="plan-sidebar" aria-label="Route board">
+          <div className="plan-switcher">
+            <label className="plan-switcher__picker">
+              <span>Plan</span>
+              <select
+                value={currentPlanId}
+                onChange={(event) => void switchPlan(event.target.value)}
+                disabled={planSwitching}
+                aria-label="Select plan"
+              >
+                {planList.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="plan-switcher__save"
+              onClick={openSaveAs}
+              title="Save this plan under a name"
+            >
+              <Plus size={11} />
+              Save as
+            </button>
+          </div>
+
           <div className="plan-sidebar__head">
             <div>
               <span className="eyebrow">
@@ -2994,15 +3336,81 @@ export default function PlanCanvas({
         </div>
       </footer>
 
-      <PlanShareDialog
-        open={shareOpen}
-        plan={plan}
-        hasBackup={hasImportBackup}
-        onClose={() => setShareOpen(false)}
-        onExport={exportPlan}
-        onImport={handleImportPlan}
-        onRestoreBackup={handleRestoreBackup}
-      />
+      {saveAsOpen && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !saveAsBusy) {
+              setSaveAsOpen(false);
+            }
+          }}
+        >
+          <form
+            className="plan-dialog plan-save-as-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="plan-save-as-title"
+            onSubmit={submitSaveAs}
+          >
+            <button
+              type="button"
+              className="dialog-close"
+              onClick={() => setSaveAsOpen(false)}
+              disabled={saveAsBusy}
+              aria-label="Close save as dialog"
+            >
+              <X size={16} />
+            </button>
+
+            <span className="dialog-eyebrow">
+              <Plus size={12} />
+              Named plan
+            </span>
+            <h2 id="plan-save-as-title">Save this plan as</h2>
+            <p className="dialog-lede">
+              This creates a new plan in the database under this name. Other
+              users can load it from the plan dropdown.
+            </p>
+
+            <label className="plan-dialog__field">
+              <span>Plan name</span>
+              <input
+                type="text"
+                value={saveAsName}
+                maxLength={120}
+                placeholder="e.g. Monday morning plan"
+                onChange={(event) => setSaveAsName(event.target.value)}
+                autoFocus
+              />
+            </label>
+
+            {saveAsError && (
+              <div className="hotels-form-error">
+                <X size={13} />
+                {saveAsError}
+              </div>
+            )}
+
+            <div className="plan-dialog__actions">
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => setSaveAsOpen(false)}
+                disabled={saveAsBusy}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn--primary"
+                disabled={saveAsBusy || saveAsName.trim().length === 0}
+              >
+                {saveAsBusy ? "Saving…" : "Save named plan"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       <PlanNewHotelDialog
         open={newHotelOpen}

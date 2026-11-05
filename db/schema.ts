@@ -5,10 +5,12 @@ import {
   doublePrecision,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
+import type { Plan } from "../lib/plan";
 
 /**
  * Master hotel list. Plan-specific data such as route assignment belongs in a
@@ -57,5 +59,61 @@ export const hotels = pgTable(
   ],
 );
 
+export const vehicles = pgTable(
+  "vehicles",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    realCapacity: integer("real_capacity").notNull().default(40),
+    safeCapacity: integer("safe_capacity")
+      .generatedAlwaysAs(sql`GREATEST(1, FLOOR(real_capacity * 0.9)::integer)`)
+      .notNull(),
+    color: text("color").notNull().default("#3b82f6"),
+    regionId: integer("region_id"),
+    regionName: text("region_name"),
+    sector: text("sector"),
+    depotId: text("depot_id").notNull().default("depot-yeshwanthpur"),
+    departureTime: text("departure_time").notNull().default("07:00"),
+    returnTime: text("return_time").notNull().default("17:00"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("vehicles_name_idx").on(table.name),
+    index("vehicles_region_idx").on(table.regionName),
+    index("vehicles_is_active_idx").on(table.isActive),
+    check(
+      "vehicles_real_capacity_check",
+      sql`${table.realCapacity} > 0`,
+    ),
+    check(
+      "vehicles_safe_capacity_check",
+      sql`${table.safeCapacity} > 0`,
+    ),
+  ],
+);
+
+export const plans = pgTable("plans", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  status: text("status").notNull().default("draft"),
+  data: jsonb("data").$type<Plan>().notNull(),
+  version: integer("version").notNull().default(1),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export type HotelRow = typeof hotels.$inferSelect;
 export type NewHotelRow = typeof hotels.$inferInsert;
+export type VehicleRow = typeof vehicles.$inferSelect;
+export type NewVehicleRow = typeof vehicles.$inferInsert;
+export type PlanRow = typeof plans.$inferSelect;
