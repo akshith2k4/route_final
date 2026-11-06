@@ -14,7 +14,10 @@ export type HotelAdminItem = {
   longitude: number;
   regionName: string;
   stopMins: number;
+  /** Bags per service when this hotel runs every day. */
   loadBags: number;
+  /** Bags per service when this hotel runs on Day 1 or Day 2 only. */
+  alternateLoadBags: number;
   rooms: number;
   dayPlan: HotelDayPlan;
   isActive: boolean;
@@ -28,6 +31,7 @@ export type HotelInput = {
   regionName: string;
   stopMins: number;
   loadBags: number;
+  alternateLoadBags: number;
   rooms: number;
   dayPlan: HotelDayPlan;
 };
@@ -59,6 +63,7 @@ function toHotelAdminItem(row: HotelRow): HotelAdminItem {
     regionName: row.regionName,
     stopMins: row.stopMins,
     loadBags: row.loadBags,
+    alternateLoadBags: row.alternateLoadBags,
     rooms: row.rooms,
     dayPlan: isHotelDayPlan(row.dayPlan) ? row.dayPlan : "daily",
     isActive: row.isActive,
@@ -100,7 +105,7 @@ export async function getCoverageHotels(
     lon: row.longitude,
     region: regionIdByName.get(row.regionName) ?? 0,
     stop_mins: row.stopMins,
-    load: row.loadBags,
+    load: row.dayPlan === "daily" ? row.loadBags : row.alternateLoadBags,
   }));
 }
 
@@ -148,7 +153,14 @@ export function parseHotelInput(value: unknown): HotelInput {
   const longitude = requiredNumber(candidate.longitude, "Longitude");
   const regionName = requiredString(candidate.regionName, "Region", 120);
   const stopMins = requiredInteger(candidate.stopMins, "Stop minutes");
-  const loadBags = requiredInteger(candidate.loadBags, "Load bags");
+  const loadBags = requiredInteger(
+    candidate.loadBags ?? candidate.dailyLoadBags,
+    "Daily bags",
+  );
+  const alternateLoadBags = requiredInteger(
+    candidate.alternateLoadBags ?? candidate.loadBags ?? candidate.dailyLoadBags,
+    "Alternate-day bags",
+  );
   const rooms = requiredInteger(candidate.rooms, "Rooms");
   const dayPlan = candidate.dayPlan;
 
@@ -182,6 +194,7 @@ export function parseHotelInput(value: unknown): HotelInput {
     regionName,
     stopMins,
     loadBags,
+    alternateLoadBags,
     rooms,
     dayPlan,
   };

@@ -48,7 +48,12 @@ export type PlanStop = {
   lon: number;
   region: number;
   service_mins: number;
+  /** Effective bags for the current day assignment. */
   load_bags: number;
+  /** Master bags per service when the hotel runs every day. */
+  daily_load_bags?: number;
+  /** Master bags per service when the hotel runs on Day 1 or Day 2 only. */
+  alternate_load_bags?: number;
   /** Number of guest rooms at this hotel. Missing values are treated as 0. */
   rooms?: number;
   /** Days this hotel is visited. Missing or empty means both days. */
@@ -1223,6 +1228,11 @@ export function setStopDays(
     return plan;
   }
 
+  const dailyBags = found.stop.daily_load_bags ?? found.stop.load_bags;
+  const alternateBags =
+    found.stop.alternate_load_bags ?? found.stop.load_bags;
+  const loadBags = normalized.length === 2 ? dailyBags : alternateBags;
+
   return {
     ...plan,
     routes: plan.routes.map((route) =>
@@ -1230,7 +1240,9 @@ export function setStopDays(
         ? {
             ...route,
             stops: route.stops.map((stop) =>
-              stop.hotel_id === hotelId ? { ...stop, days: normalized } : stop,
+              stop.hotel_id === hotelId
+                ? { ...stop, days: normalized, load_bags: loadBags }
+                : stop,
             ),
           }
         : route,
@@ -1955,7 +1967,10 @@ export type NewHotelInput = {
   lon: number;
   region: number;
   service_mins: number;
+  /** Effective bags for the chosen days. */
   load_bags: number;
+  daily_load_bags?: number;
+  alternate_load_bags?: number;
   rooms?: number;
   days?: PlanDay[];
 };
@@ -2007,18 +2022,24 @@ export function addNewHotelToRoute(
   if (!Number.isInteger(input.service_mins) || input.service_mins < 0) {
     throw new Error("Service time must be a whole number of minutes.");
   }
-  if (!Number.isInteger(input.load_bags) || input.load_bags < 0) {
-    throw new Error("Bags must be a whole number.");
+  const stopDays = normalizePlanDays(input.days);
+  const dailyBags = input.daily_load_bags ?? input.load_bags;
+  const alternateBags = input.alternate_load_bags ?? input.load_bags;
+  if (!Number.isInteger(dailyBags) || dailyBags < 0) {
+    throw new Error("Daily bags must be a whole number.");
   }
+  if (!Number.isInteger(alternateBags) || alternateBags < 0) {
+    throw new Error("Alternate-day bags must be a whole number.");
+  }
+  const effectiveBags = stopDays.length === 2 ? dailyBags : alternateBags;
   const rooms = input.rooms ?? 0;
   if (!Number.isInteger(rooms) || rooms < 0) {
     throw new Error("Rooms must be a whole number.");
   }
 
-  const stopDays = normalizePlanDays(input.days);
   if (resolveVehicle(plan, route) !== null) {
     const projected = projectRouteDayBags(route, [
-      { days: stopDays, load_bags: input.load_bags },
+      { days: stopDays, load_bags: effectiveBags },
     ]);
     const overDays = overCapacityDays(route, projected, stopDays);
     if (overDays.length > 0) {
@@ -2033,7 +2054,9 @@ export function addNewHotelToRoute(
     lon: input.lon,
     region: input.region,
     service_mins: input.service_mins,
-    load_bags: input.load_bags,
+    load_bags: effectiveBags,
+    daily_load_bags: dailyBags,
+    alternate_load_bags: alternateBags,
     rooms,
     days: stopDays,
   };

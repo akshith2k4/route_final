@@ -2,7 +2,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import planJson from "../data/plan.json";
 import regionMetadataJson from "../data/region_metadata.json";
-import type { Plan, PlanVehicle } from "./plan";
+import { normalizeStopDays, type Plan, type PlanVehicle } from "./plan";
 import { db } from "./db";
 import { hotels, plans, vehicles } from "../db/schema";
 
@@ -76,6 +76,10 @@ async function mergeMasterData(plan: Plan): Promise<Plan> {
       const hotel = hotelById.get(stop.hotel_id);
       if (!hotel) return stop;
 
+      const stopDays = normalizeStopDays(stop);
+      const dailyBags = hotel.loadBags;
+      const alternateBags = hotel.alternateLoadBags;
+
       return {
         ...stop,
         name: hotel.name,
@@ -83,7 +87,9 @@ async function mergeMasterData(plan: Plan): Promise<Plan> {
         lon: hotel.longitude,
         region: regionIdByName.get(hotel.regionName) ?? stop.region,
         service_mins: hotel.stopMins,
-        load_bags: hotel.loadBags,
+        load_bags: stopDays.length === 2 ? dailyBags : alternateBags,
+        daily_load_bags: dailyBags,
+        alternate_load_bags: alternateBags,
         rooms: hotel.rooms,
       };
     }),

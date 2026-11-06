@@ -1213,6 +1213,108 @@ assert.equal(routeDayTotals(movedSingleRoute, "day1").bags, 4);
 assert.equal(routeDayTotals(movedSingleRoute, "day2").bags, 39);
 
 // ---------------------------------------------------------------------------
+// Daily vs alternate-day bag counts
+// ---------------------------------------------------------------------------
+
+const alternateCountAdd = addNewHotelToRoute(
+  dayCapacityPlan,
+  "103602",
+  {
+    ...newHotelInput,
+    name: "Alternate Count Hotel",
+    load_bags: 0,
+    daily_load_bags: 1,
+    alternate_load_bags: 6,
+    days: ["day1"],
+  },
+  matrix,
+);
+assert.equal(alternateCountAdd.stop.load_bags, 6);
+assert.equal(alternateCountAdd.stop.daily_load_bags, 1);
+assert.equal(alternateCountAdd.stop.alternate_load_bags, 6);
+assert.equal(
+  routeDayTotals(
+    alternateCountAdd.plan.routes.find(
+      (route) => route.route_id === "103602",
+    ),
+    "day1",
+  ).bags,
+  6,
+  "a Day 1-only hotel should use its alternate-day bag count",
+);
+
+const dailyCountAdd = addNewHotelToRoute(
+  dayCapacityPlan,
+  "103602",
+  {
+    ...newHotelInput,
+    name: "Daily Count Hotel",
+    load_bags: 0,
+    daily_load_bags: 1,
+    alternate_load_bags: 6,
+    days: ["day1", "day2"],
+  },
+  matrix,
+);
+assert.equal(dailyCountAdd.stop.load_bags, 1);
+assert.equal(dailyCountAdd.stop.daily_load_bags, 1);
+assert.equal(dailyCountAdd.stop.alternate_load_bags, 6);
+const dailyCountRoute = dailyCountAdd.plan.routes.find(
+  (route) => route.route_id === "103602",
+);
+assert.equal(routeDayTotals(dailyCountRoute, "day1").bags, 1);
+assert.equal(routeDayTotals(dailyCountRoute, "day2").bags, 40);
+
+assert.throws(
+  () =>
+    addNewHotelToRoute(
+      dayCapacityPlan,
+      "103602",
+      {
+        ...newHotelInput,
+        name: "Daily Count Overflow Hotel",
+        load_bags: 0,
+        daily_load_bags: 2,
+        alternate_load_bags: 1,
+        days: ["day1", "day2"],
+      },
+      matrix,
+    ),
+  /Day 2/,
+  "a daily hotel should use its daily bag count for both days",
+);
+
+const switchedToDaily = setStopDays(
+  alternateCountAdd.plan,
+  alternateCountAdd.stop.hotel_id,
+  ["day1", "day2"],
+);
+const switchedToDailyStop = findStop(
+  switchedToDaily,
+  alternateCountAdd.stop.hotel_id,
+).stop;
+assert.equal(
+  switchedToDailyStop.load_bags,
+  1,
+  "switching to daily should use the daily bag count",
+);
+
+const switchedBack = setStopDays(
+  switchedToDaily,
+  alternateCountAdd.stop.hotel_id,
+  ["day1"],
+);
+const switchedBackStop = findStop(
+  switchedBack,
+  alternateCountAdd.stop.hotel_id,
+).stop;
+assert.equal(
+  switchedBackStop.load_bags,
+  6,
+  "switching back to Day 1 should use the alternate-day bag count",
+);
+
+// ---------------------------------------------------------------------------
 // Shared plan validation
 // ---------------------------------------------------------------------------
 

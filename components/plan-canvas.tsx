@@ -1142,7 +1142,9 @@ export default function PlanCanvas({
             longitude: values.lon,
             regionName,
             stopMins: values.service_mins,
-            loadBags: values.load_bags,
+            loadBags: values.daily_load_bags ?? values.load_bags,
+            alternateLoadBags:
+              values.alternate_load_bags ?? values.load_bags,
             rooms: values.rooms ?? 0,
             dayPlan,
           }),

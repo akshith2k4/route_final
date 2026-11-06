@@ -47,7 +47,8 @@ export default function PlanNewHotelDialog({
   const [address, setAddress] = useState("");
   const [lat, setLat] = useState("");
   const [lon, setLon] = useState("");
-  const [bags, setBags] = useState("0");
+  const [dailyBags, setDailyBags] = useState("0");
+  const [alternateBags, setAlternateBags] = useState("0");
   const [rooms, setRooms] = useState("0");
   const [serviceMins, setServiceMins] = useState("15");
   const [regionId, setRegionId] = useState("");
@@ -64,7 +65,8 @@ export default function PlanNewHotelDialog({
     setAddress("");
     setLat("");
     setLon("");
-    setBags("0");
+    setDailyBags("0");
+    setAlternateBags("0");
     setRooms("0");
     setServiceMins("15");
     setRegionId("");
@@ -92,7 +94,10 @@ export default function PlanNewHotelDialog({
   const selectedVehicle = selectedRoute
     ? resolveVehicle(plan, selectedRoute)
     : null;
-  const bagsValue = Number(bags);
+  const dailyBagsValue = Number(dailyBags);
+  const alternateBagsValue = Number(alternateBags);
+  const effectiveBags =
+    dayValue === "both" ? dailyBagsValue : alternateBagsValue;
   const selectedDays = dayValuesFor(dayValue);
   const currentDayBags = selectedRoute
     ? routeDayBags(selectedRoute)
@@ -101,7 +106,7 @@ export default function PlanNewHotelDialog({
     ? projectRouteDayBags(selectedRoute, [
         {
           days: selectedDays,
-          load_bags: Number.isFinite(bagsValue) ? bagsValue : 0,
+          load_bags: Number.isFinite(effectiveBags) ? effectiveBags : 0,
         },
       ])
     : { day1: 0, day2: 0 };
@@ -125,8 +130,10 @@ export default function PlanNewHotelDialog({
   const roomsValue = Number(rooms);
   const serviceValue = Number(serviceMins);
   const numbersValid =
-    Number.isInteger(bagsValue) &&
-    bagsValue >= 0 &&
+    Number.isInteger(dailyBagsValue) &&
+    dailyBagsValue >= 0 &&
+    Number.isInteger(alternateBagsValue) &&
+    alternateBagsValue >= 0 &&
     Number.isInteger(roomsValue) &&
     roomsValue >= 0 &&
     Number.isInteger(serviceValue) &&
@@ -262,7 +269,9 @@ export default function PlanNewHotelDialog({
           lon: finalLon,
           region: finalRegion,
           service_mins: serviceValue,
-          load_bags: bagsValue,
+          load_bags: effectiveBags,
+          daily_load_bags: dailyBagsValue,
+          alternate_load_bags: alternateBagsValue,
           rooms: roomsValue,
           days:
             dayValue === "day1"
@@ -386,14 +395,25 @@ export default function PlanNewHotelDialog({
             />
           </label>
           <label className="plan-dialog__field">
-            <span>Bags</span>
+            <span>Daily bags</span>
             <input
               type="number"
               inputMode="numeric"
               min={0}
               step={1}
-              value={bags}
-              onChange={(event) => setBags(event.target.value)}
+              value={dailyBags}
+              onChange={(event) => setDailyBags(event.target.value)}
+            />
+          </label>
+          <label className="plan-dialog__field">
+            <span>Alternate-day bags</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={1}
+              value={alternateBags}
+              onChange={(event) => setAlternateBags(event.target.value)}
             />
           </label>
           <label className="plan-dialog__field">
@@ -448,6 +468,10 @@ export default function PlanNewHotelDialog({
             <option value="day1">Day 1 only</option>
             <option value="day2">Day 2 only</option>
           </select>
+          <small className="plan-address-hint">
+            Daily uses the daily bag count. Day 1 or Day 2 uses the
+            alternate-day count.
+          </small>
         </label>
 
         <label className="plan-dialog__field">

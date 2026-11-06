@@ -39,6 +39,7 @@ type HotelFormState = {
   regionName: string;
   stopMins: string;
   loadBags: string;
+  alternateLoadBags: string;
   rooms: string;
   dayPlan: HotelDayPlan;
 };
@@ -70,6 +71,7 @@ function formFromHotel(
       regionName: regionNames[0] ?? "",
       stopMins: "15",
       loadBags: "0",
+      alternateLoadBags: "0",
       rooms: "0",
       dayPlan: "daily",
     };
@@ -83,6 +85,7 @@ function formFromHotel(
     regionName: hotel.regionName,
     stopMins: String(hotel.stopMins),
     loadBags: String(hotel.loadBags),
+    alternateLoadBags: String(hotel.alternateLoadBags),
     rooms: String(hotel.rooms),
     dayPlan: hotel.dayPlan,
   };
@@ -107,12 +110,18 @@ function buildPayload(form: HotelFormState): {
 
   const stopMins = Number(form.stopMins);
   const loadBags = Number(form.loadBags);
+  const alternateLoadBags = Number(form.alternateLoadBags);
   const rooms = Number(form.rooms);
   if (!Number.isInteger(stopMins) || stopMins < 0) {
     return { error: "Stop minutes must be a whole number of 0 or more." };
   }
   if (!Number.isInteger(loadBags) || loadBags < 0) {
-    return { error: "Load bags must be a whole number of 0 or more." };
+    return { error: "Daily bags must be a whole number of 0 or more." };
+  }
+  if (!Number.isInteger(alternateLoadBags) || alternateLoadBags < 0) {
+    return {
+      error: "Alternate-day bags must be a whole number of 0 or more.",
+    };
   }
   if (!Number.isInteger(rooms) || rooms < 0) {
     return { error: "Rooms must be a whole number of 0 or more." };
@@ -127,6 +136,7 @@ function buildPayload(form: HotelFormState): {
       regionName: form.regionName.trim(),
       stopMins,
       loadBags,
+      alternateLoadBags,
       rooms,
       dayPlan: form.dayPlan,
     },
@@ -185,7 +195,10 @@ export default function HotelsDashboard({
       if (hotel.dayPlan === "daily") daily += 1;
       if (hotel.dayPlan === "day1") day1 += 1;
       if (hotel.dayPlan === "day2") day2 += 1;
-      bags += hotel.loadBags;
+      bags +=
+        hotel.dayPlan === "daily"
+          ? hotel.loadBags
+          : hotel.alternateLoadBags;
       rooms += hotel.rooms;
     }
 
@@ -557,7 +570,9 @@ export default function HotelsDashboard({
                   <th>Address</th>
                   <th>Day</th>
                   <th className="is-number">Stop</th>
-                  <th className="is-number">Bags</th>
+                  <th className="is-number" title="Daily / alternate-day bags">
+                    Bags (D / A)
+                  </th>
                   <th className="is-number">Rooms</th>
                   <th>Coordinates</th>
                   <th aria-label="Actions" />
@@ -595,7 +610,9 @@ export default function HotelsDashboard({
                       </span>
                     </td>
                     <td className="is-number">{hotel.stopMins}</td>
-                    <td className="is-number">{hotel.loadBags}</td>
+                    <td className="is-number">
+                      {hotel.loadBags} / {hotel.alternateLoadBags}
+                    </td>
                     <td className="is-number">{hotel.rooms}</td>
                     <td>
                       <span className="hotels-coords">
@@ -675,7 +692,8 @@ export default function HotelsDashboard({
             </h2>
             <p className="dialog-lede">
               This updates the hotel master used by the coverage atlas and
-              optimizer.
+              optimizer. Daily bags apply when the hotel runs every day; alternate-day
+              bags apply when it runs on Day 1 only or Day 2 only.
             </p>
 
             <label className="plan-dialog__field">
@@ -823,7 +841,7 @@ export default function HotelsDashboard({
               </label>
 
               <label className="plan-dialog__field">
-                <span>Load bags</span>
+                <span>Daily bags</span>
                 <input
                   type="number"
                   inputMode="numeric"
@@ -834,6 +852,23 @@ export default function HotelsDashboard({
                     setForm((current) => ({
                       ...current,
                       loadBags: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+
+              <label className="plan-dialog__field">
+                <span>Alternate-day bags</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  step={1}
+                  value={form.alternateLoadBags}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      alternateLoadBags: event.target.value,
                     }))
                   }
                 />

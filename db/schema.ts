@@ -26,7 +26,10 @@ export const hotels = pgTable(
     longitude: doublePrecision("longitude").notNull(),
     regionName: text("region_name").notNull(),
     stopMins: integer("stop_mins").notNull().default(15),
+    /** Bags per service when the hotel runs every day. */
     loadBags: integer("load_bags").notNull().default(0),
+    /** Bags per service when the hotel runs on Day 1 or Day 2 only. */
+    alternateLoadBags: integer("alternate_load_bags").notNull().default(0),
     rooms: integer("rooms").notNull().default(0),
     dayPlan: text("day_plan").notNull().default("daily"),
     isActive: boolean("is_active").notNull().default(true),
@@ -55,6 +58,10 @@ export const hotels = pgTable(
     ),
     check("hotels_stop_mins_check", sql`${table.stopMins} >= 0`),
     check("hotels_load_bags_check", sql`${table.loadBags} >= 0`),
+    check(
+      "hotels_alternate_load_bags_check",
+      sql`${table.alternateLoadBags} >= 0`,
+    ),
     check("hotels_rooms_check", sql`${table.rooms} >= 0`),
   ],
 );

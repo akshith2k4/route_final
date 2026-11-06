@@ -73,6 +73,7 @@ const rows: NewHotelRow[] = sourceHotels.map((hotel) => ({
   regionName: regionNameById.get(hotel.region) ?? `Region ${hotel.region}`,
   stopMins: hotel.stop_mins,
   loadBags: hotel.load,
+  alternateLoadBags: hotel.load,
   rooms: hotel.rooms ?? 0,
   dayPlan: dayPlanByHotelId.get(hotel.id) ?? "daily",
 }));
@@ -90,6 +91,7 @@ async function main() {
         regionName: sql`excluded.region_name`,
         stopMins: sql`excluded.stop_mins`,
         loadBags: sql`excluded.load_bags`,
+        alternateLoadBags: sql`excluded.alternate_load_bags`,
         rooms: sql`excluded.rooms`,
         dayPlan: sql`excluded.day_plan`,
         updatedAt: sql`now()`,
