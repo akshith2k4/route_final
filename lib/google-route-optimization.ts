@@ -1,6 +1,3 @@
-import crypto from "crypto";
-import fs from "fs";
-import path from "path";
 import {
   type DispatchRoute,
   type DispatchStop,
@@ -10,73 +7,10 @@ import {
   type StudioShiftSetting,
   type StudioVehicle,
 } from "./coverage";
+import { getGoogleAccessToken } from "./google-auth";
 
 const DEPOT = { latitude: 13.017275, longitude: 77.546578 };
 const DEPOT_NAME = "LinenGrass HQ (Yeshwanthpur Central Laundry)";
-
-type ServiceAccountCredentials = {
-  project_id: string;
-  client_email: string;
-  private_key: string;
-};
-
-function getCredentials(): ServiceAccountCredentials {
-  if (process.env.GCP_SERVICE_ACCOUNT_JSON) {
-    try {
-      return JSON.parse(process.env.GCP_SERVICE_ACCOUNT_JSON);
-    } catch {
-      // Fall through to file reading
-    }
-  }
-
-  const filePath = path.join(process.cwd(), "gcp_service_account.json");
-  if (fs.existsSync(filePath)) {
-    const raw = fs.readFileSync(filePath, "utf8");
-    return JSON.parse(raw);
-  }
-
-  throw new Error(
-    "GCP Service Account credentials not found. Please provide GCP_SERVICE_ACCOUNT_JSON or gcp_service_account.json."
-  );
-}
-
-async function getGoogleAccessToken(): Promise<{ token: string; projectId: string }> {
-  const creds = getCredentials();
-  const now = Math.floor(Date.now() / 1000);
-
-  const header = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url");
-  const claim = Buffer.from(
-    JSON.stringify({
-      iss: creds.client_email,
-      scope: "https://www.googleapis.com/auth/cloud-platform",
-      aud: "https://oauth2.googleapis.com/token",
-      exp: now + 3600,
-      iat: now,
-    })
-  ).toString("base64url");
-
-  const signer = crypto.createSign("RSA-SHA256");
-  signer.update(`${header}.${claim}`);
-  const signature = signer.sign(creds.private_key, "base64url");
-  const jwt = `${header}.${claim}.${signature}`;
-
-  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion: jwt,
-    }),
-  });
-
-  if (!tokenRes.ok) {
-    const errText = await tokenRes.text();
-    throw new Error(`Failed to authenticate with Google OAuth2: ${errText}`);
-  }
-
-  const tokenData = await tokenRes.json();
-  return { token: tokenData.access_token, projectId: creds.project_id };
-}
 
 // Decodes a Google Encoded Polyline into LatLng array
 export function decodePolyline(encoded: string): [number, number][] {

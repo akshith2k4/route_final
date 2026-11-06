@@ -329,15 +329,19 @@ export function safeLoadForCapacity(capacity: number): number {
  * Missing or empty day assignments default to both days. Every hotel must
  * belong to at least one day, so there is no unscheduled state.
  */
-export function normalizeStopDays(stop: PlanStop): PlanDay[] {
-  if (!Array.isArray(stop.days)) return ["day1", "day2"];
+export function normalizePlanDays(days: PlanDay[] | undefined): PlanDay[] {
+  if (!Array.isArray(days)) return ["day1", "day2"];
   const requested = new Set(
-    stop.days.filter((day): day is PlanDay => day === "day1" || day === "day2"),
+    days.filter((day): day is PlanDay => day === "day1" || day === "day2"),
   );
   const normalized = (["day1", "day2"] as const).filter((day) =>
     requested.has(day),
   );
   return normalized.length > 0 ? normalized : ["day1", "day2"];
+}
+
+export function normalizeStopDays(stop: PlanStop): PlanDay[] {
+  return normalizePlanDays(stop.days);
 }
 
 export function stopRunsOnDay(stop: PlanStop, day: PlanDay): boolean {
@@ -362,6 +366,71 @@ export function routeDayTotals(
     rooms += stop.rooms ?? 0;
   }
   return { stops, bags, rooms };
+}
+
+export type RouteDayBags = { day1: number; day2: number };
+
+/** Bags carried on each trip day. Daily hotels count on both days. */
+export function routeDayBags(route: PlanRoute): RouteDayBags {
+  const totals: RouteDayBags = { day1: 0, day2: 0 };
+  for (const stop of route.stops) {
+    for (const day of normalizeStopDays(stop)) {
+      totals[day] += stop.load_bags;
+    }
+  }
+  return totals;
+}
+
+/** Projects a route's day loads, including candidate stops. */
+export function projectRouteDayBags(
+  route: PlanRoute,
+  candidates: { days?: PlanDay[]; load_bags: number }[],
+): RouteDayBags {
+  const totals = routeDayBags(route);
+  for (const candidate of candidates) {
+    for (const day of normalizePlanDays(candidate.days)) {
+      totals[day] += candidate.load_bags;
+    }
+  }
+  return totals;
+}
+
+/** Days among `affectedDays` whose projected load exceeds the vehicle limit. */
+export function overCapacityDays(
+  route: PlanRoute,
+  totals: RouteDayBags,
+  affectedDays: PlanDay[] = ["day1", "day2"],
+): PlanDay[] {
+  return [...new Set(affectedDays)].filter(
+    (day) => totals[day] > route.nominal_cap,
+  );
+}
+
+export function dayLabel(day: PlanDay): string {
+  return day === "day1" ? "Day 1" : "Day 2";
+}
+
+export function capacityDaysReason(
+  route: PlanRoute,
+  totals: RouteDayBags,
+  days: PlanDay[],
+): string {
+  const details = days.map(
+    (day) => `${dayLabel(day)} (${totals[day]} bags)`,
+  );
+  const joined =
+    details.length === 1
+      ? details[0]
+      : `${details.slice(0, -1).join(", ")} and ${details[details.length - 1]}`;
+  return `would exceed its ${route.nominal_cap}-bag vehicle limit on ${joined}`;
+}
+
+export function capacityDaysMessage(
+  route: PlanRoute,
+  totals: RouteDayBags,
+  days: PlanDay[],
+): string {
+  return `${route.name} ${capacityDaysReason(route, totals, days)}.`;
 }
 
 /** Returns a plan whose routes contain only the stops for the selected view. */
@@ -1270,18 +1339,19 @@ export function moveStop(
   }
 
   const stop = found.stop;
-  const targetBags = targetRoute.stops.reduce(
-    (sum, candidate) => sum + candidate.load_bags,
-    0,
-  );
-  const projectedBags = targetBags + stop.load_bags;
-  if (
-    resolveVehicle(plan, targetRoute) !== null &&
-    projectedBags > targetRoute.nominal_cap
-  ) {
-    throw new Error(
-      `${targetRoute.name} cannot take ${stop.name}: ${projectedBags} bags would exceed its ${targetRoute.nominal_cap}-bag vehicle limit.`,
-    );
+  if (resolveVehicle(plan, targetRoute) !== null) {
+    const stopDays = normalizeStopDays(stop);
+    const projected = projectRouteDayBags(targetRoute, [stop]);
+    const overDays = overCapacityDays(targetRoute, projected, stopDays);
+    if (overDays.length > 0) {
+      throw new Error(
+        `${targetRoute.name} cannot take ${stop.name}: ${capacityDaysReason(
+          targetRoute,
+          projected,
+          overDays,
+        )}.`,
+      );
+    }
   }
 
   const sourceStops = found.route.stops.filter(
@@ -1823,21 +1893,19 @@ export function addStopsToRoute(
     selected.push(found.stop);
   }
 
-  const currentBags = route.stops.reduce(
-    (sum, stop) => sum + stop.load_bags,
-    0,
-  );
-  const addedBags = selected.reduce((sum, stop) => sum + stop.load_bags, 0);
-  const projectedBags = currentBags + addedBags;
-  if (
-    resolveVehicle(plan, route) !== null &&
-    projectedBags > route.nominal_cap
-  ) {
-    throw new Error(
-      `${route.name} cannot take ${requestedIds.length} hotel${
-        requestedIds.length === 1 ? "" : "s"
-      }: ${projectedBags} bags would exceed its ${route.nominal_cap}-bag vehicle limit.`,
-    );
+  if (resolveVehicle(plan, route) !== null) {
+    const affectedDays = [
+      ...new Set(selected.flatMap((stop) => normalizeStopDays(stop))),
+    ];
+    const projected = projectRouteDayBags(route, selected);
+    const overDays = overCapacityDays(route, projected, affectedDays);
+    if (overDays.length > 0) {
+      throw new Error(
+        `${route.name} cannot add ${requestedIds.length} hotel${
+          requestedIds.length === 1 ? "" : "s"
+        }: ${capacityDaysReason(route, projected, overDays)}.`,
+      );
+    }
   }
 
   const lookup = createPlanLookup(plan, matrixOrLookup);
@@ -1882,6 +1950,7 @@ export function addStopsToRoute(
 export type NewHotelInput = {
   id?: string;
   name: string;
+  address?: string | null;
   lat: number;
   lon: number;
   region: number;
@@ -1946,17 +2015,15 @@ export function addNewHotelToRoute(
     throw new Error("Rooms must be a whole number.");
   }
 
-  const currentBags = route.stops.reduce(
-    (sum, stop) => sum + stop.load_bags,
-    0,
-  );
-  if (
-    resolveVehicle(plan, route) !== null &&
-    currentBags + input.load_bags > route.nominal_cap
-  ) {
-    throw new Error(
-      `${route.name} would carry ${currentBags + input.load_bags} bags, above its ${route.nominal_cap}-bag vehicle limit.`,
-    );
+  const stopDays = normalizePlanDays(input.days);
+  if (resolveVehicle(plan, route) !== null) {
+    const projected = projectRouteDayBags(route, [
+      { days: stopDays, load_bags: input.load_bags },
+    ]);
+    const overDays = overCapacityDays(route, projected, stopDays);
+    if (overDays.length > 0) {
+      throw new Error(capacityDaysMessage(route, projected, overDays));
+    }
   }
 
   const stop: PlanStop = {
@@ -1968,11 +2035,7 @@ export function addNewHotelToRoute(
     service_mins: input.service_mins,
     load_bags: input.load_bags,
     rooms,
-    days: input.days
-      ? (["day1", "day2"] as PlanDay[]).filter((day) =>
-          input.days?.includes(day),
-        )
-      : ["day1", "day2"],
+    days: stopDays,
   };
 
   const lookup = createMatrixLookup(matrix, [

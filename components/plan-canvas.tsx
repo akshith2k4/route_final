@@ -65,7 +65,9 @@ import {
   moveStop,
   normalizeStopDays,
   optimizeRouteOrder,
+  overCapacityDays,
   parseClock,
+  projectRouteDayBags,
   reassignRouteDepot,
   reorderStops,
   resolveLaundry,
@@ -1135,7 +1137,7 @@ export default function PlanCanvas({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: values.name,
-            address: null,
+            address: values.address ?? null,
             latitude: values.lat,
             longitude: values.lon,
             regionName,
@@ -1655,8 +1657,13 @@ export default function PlanCanvas({
       const dragged = findStop(planRef.current, dragState.hotelId);
       const target = computedById.get(route.route_id);
       if (!dragged || !target) return true;
+      const projected = projectRouteDayBags(route, [dragged.stop]);
       return (
-        target.total_bags + dragged.stop.load_bags <= route.nominal_cap
+        overCapacityDays(
+          route,
+          projected,
+          normalizeStopDays(dragged.stop),
+        ).length === 0
       );
     },
     [computedById, dragState],
@@ -2062,15 +2069,19 @@ export default function PlanCanvas({
               const assignedVehicle = resolveVehicle(plan, route);
               const isSelected = selectedRouteId === route.route_id;
               const isDropRoute = dropTarget?.routeId === route.route_id;
-              const isDropBlocked = Boolean(
+              const dropOverDays =
                 isAllView &&
-                  dragState &&
-                  draggedStop &&
-                  dragState.sourceRouteId !== route.route_id &&
-                  assignedVehicle &&
-                  computed.total_bags + draggedStop.load_bags >
-                    route.nominal_cap,
-              );
+                dragState &&
+                draggedStop &&
+                dragState.sourceRouteId !== route.route_id &&
+                assignedVehicle
+                  ? overCapacityDays(
+                      route,
+                      projectRouteDayBags(route, [draggedStop]),
+                      normalizeStopDays(draggedStop),
+                    )
+                  : [];
+              const isDropBlocked = dropOverDays.length > 0;
               const tone =
                 isDayView && assignedVehicle
                   ? capacityTone(computed.total_bags, route)
@@ -3466,7 +3477,6 @@ export default function PlanCanvas({
       <PlanAddHotelsDialog
         open={addHotelsOpen}
         route={selectedRoute}
-        currentBags={selectedComputed?.total_bags ?? 0}
         plan={plan}
         regions={regions}
         onClose={() => setAddHotelsOpen(false)}

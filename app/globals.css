@@ -7215,6 +7215,11 @@ a {
   background: var(--paper);
 }
 
+.plan-dialog__day-loads {
+  display: grid;
+  gap: 10px;
+}
+
 .plan-dialog__capacity .plan-capacity__track {
   height: 6px;
 }
@@ -9536,4 +9541,42 @@ a {
 
 .plan-save-as-dialog {
   width: min(460px, calc(100vw - 32px));
+}
+
+.plan-address-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.plan-address-row input {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+.plan-address-row__button {
+  flex: 0 0 auto;
+  height: 34px;
+  padding: 0 9px;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.plan-address-hint {
+  margin-top: 3px;
+  color: var(--faint);
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+@media (max-width: 520px) {
+  .plan-address-row {
+    flex-direction: column;
+  }
+
+  .plan-address-row__button {
+    width: 100%;
+    justify-content: center;
+  }
 }

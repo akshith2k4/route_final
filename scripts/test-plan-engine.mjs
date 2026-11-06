@@ -1071,7 +1071,7 @@ assert.throws(
     addNewHotelToRoute(
       route7WithVehicle,
       "103607",
-      { ...newHotelInput, load_bags: 50 },
+      { ...newHotelInput, load_bags: 60 },
       matrix,
     ),
   /vehicle limit/,
@@ -1105,6 +1105,112 @@ assert.equal(
     .length,
   10,
 );
+
+// ---------------------------------------------------------------------------
+// Per-day capacity when adding or moving hotels
+// ---------------------------------------------------------------------------
+
+const dayCapacityPlan = assignVehicleToRoute(plan, "103602", "vehicle-9");
+const dayCapacityRoute = dayCapacityPlan.routes.find(
+  (route) => route.route_id === "103602",
+);
+assert.deepEqual(routeDayTotals(dayCapacityRoute, "day1").bags, 0);
+assert.deepEqual(routeDayTotals(dayCapacityRoute, "day2").bags, 39);
+assert.equal(dayCapacityRoute.nominal_cap, 40);
+
+const day1OnlyAdd = addNewHotelToRoute(
+  dayCapacityPlan,
+  "103602",
+  {
+    ...newHotelInput,
+    name: "Day 1 Only Hotel",
+    load_bags: 5,
+    days: ["day1"],
+  },
+  matrix,
+);
+const day1OnlyRoute = day1OnlyAdd.plan.routes.find(
+  (route) => route.route_id === "103602",
+);
+assert.equal(day1OnlyAdd.stop.days.length, 1);
+assert.equal(day1OnlyAdd.stop.days[0], "day1");
+assert.equal(
+  routeDayTotals(day1OnlyRoute, "day1").bags,
+  5,
+  "a Day 1-only hotel should add bags to Day 1",
+);
+assert.equal(
+  routeDayTotals(day1OnlyRoute, "day2").bags,
+  39,
+  "a Day 1-only hotel must not affect Day 2",
+);
+
+assert.throws(
+  () =>
+    addNewHotelToRoute(
+      dayCapacityPlan,
+      "103602",
+      {
+        ...newHotelInput,
+        name: "Daily Overflow Hotel",
+        load_bags: 2,
+        days: ["day1", "day2"],
+      },
+      matrix,
+    ),
+  /Day 2/,
+  "a daily hotel should be blocked when it overflows Day 2",
+);
+
+assert.throws(
+  () =>
+    addNewHotelToRoute(
+      dayCapacityPlan,
+      "103602",
+      {
+        ...newHotelInput,
+        name: "Heavy Day 1 Hotel",
+        load_bags: 41,
+        days: ["day1"],
+      },
+      matrix,
+    ),
+  /Day 1/,
+  "a Day 1-only hotel should be blocked when Day 1 itself is full",
+);
+
+const movedBatchPlan = addStopsToRoute(
+  dayCapacityPlan,
+  "103602",
+  ["fortune-stay"],
+  matrix,
+);
+const movedBatchRoute = movedBatchPlan.routes.find(
+  (route) => route.route_id === "103602",
+);
+assert.ok(
+  movedBatchRoute.stops.some((stop) => stop.hotel_id === "fortune-stay"),
+  "a Day 1-only hotel should move even when Day 2 is already full",
+);
+assert.equal(routeDayTotals(movedBatchRoute, "day1").bags, 4);
+assert.equal(routeDayTotals(movedBatchRoute, "day2").bags, 39);
+
+const movedSinglePlan = moveStop(
+  dayCapacityPlan,
+  "fortune-stay",
+  "103602",
+  undefined,
+  matrix,
+);
+const movedSingleRoute = movedSinglePlan.routes.find(
+  (route) => route.route_id === "103602",
+);
+assert.ok(
+  movedSingleRoute.stops.some((stop) => stop.hotel_id === "fortune-stay"),
+  "dragging a Day 1-only hotel should not be blocked by Day 2 load",
+);
+assert.equal(routeDayTotals(movedSingleRoute, "day1").bags, 4);
+assert.equal(routeDayTotals(movedSingleRoute, "day2").bags, 39);
 
 // ---------------------------------------------------------------------------
 // Shared plan validation
@@ -1324,7 +1430,7 @@ const tightPlan = structuredClone(
 const tightTarget = tightPlan.routes.find(
   (route) => route.route_id === "103607",
 );
-tightTarget.stops[0].load_bags += 39;
+tightTarget.stops[0].load_bags += 54;
 assert.throws(
   () => moveStop(tightPlan, fountainTree.hotel_id, "103607", undefined, matrix),
   /would exceed its 70-bag vehicle limit/,

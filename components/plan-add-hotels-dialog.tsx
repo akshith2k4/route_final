@@ -4,10 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Check, Plus, Search, X } from "lucide-react";
 import type { RegionMeta } from "../lib/coverage";
 import {
+  dayLabel,
+  normalizeStopDays,
+  overCapacityDays,
+  projectRouteDayBags,
   resolveLaundry,
   resolveVehicle,
+  routeDayBags,
   routeDepot,
   type Plan,
+  type PlanDay,
   type PlanRoute,
   type PlanStop,
 } from "../lib/plan";
@@ -22,7 +28,6 @@ type HotelCandidate = {
 type PlanAddHotelsDialogProps = {
   open: boolean;
   route: PlanRoute | null;
-  currentBags: number;
   plan: Plan;
   regions: RegionMeta[];
   onClose: () => void;
@@ -44,7 +49,6 @@ function roomLabel(value: number): string {
 export default function PlanAddHotelsDialog({
   open,
   route,
-  currentBags,
   plan,
   regions,
   onClose,
@@ -134,9 +138,26 @@ export default function PlanAddHotelsDialog({
     (sum, candidate) => sum + (candidate.stop.rooms ?? 0),
     0,
   );
-  const projectedBags = currentBags + selectedBags;
-  const overCapacity = hasVehicle && projectedBags > route.nominal_cap;
-  const overSafeLoad = hasVehicle && projectedBags > route.max_load;
+  const currentDayBags = routeDayBags(route);
+  const selectedDays: PlanDay[] = [
+    ...new Set(
+      selectedCandidates.flatMap((candidate) =>
+        normalizeStopDays(candidate.stop),
+      ),
+    ),
+  ];
+  const projectedDayBags = projectRouteDayBags(
+    route,
+    selectedCandidates.map((candidate) => candidate.stop),
+  );
+  const overDays = hasVehicle
+    ? overCapacityDays(route, projectedDayBags, selectedDays)
+    : [];
+  const overCapacity = overDays.length > 0;
+  const overSafeDays = hasVehicle
+    ? selectedDays.filter((day) => projectedDayBags[day] > route.max_load)
+    : [];
+  const overSafeLoad = overSafeDays.length > 0;
   const capacityTone = overCapacity
     ? "over"
     : overSafeLoad
@@ -206,8 +227,8 @@ export default function PlanAddHotelsDialog({
             : `directly to ${depot.name}`}
           .{" "}
           {hasVehicle
-            ? `${route.nominal_cap} bag vehicle · safe load ${route.max_load} · currently ${bagLabel(currentBags)}.`
-            : `No vehicle assigned · currently ${bagLabel(currentBags)}.`}
+            ? `${route.nominal_cap} bag vehicle · safe load ${route.max_load} · currently Day 1 ${bagLabel(currentDayBags.day1)}, Day 2 ${bagLabel(currentDayBags.day2)}.`
+            : `No vehicle assigned · currently Day 1 ${bagLabel(currentDayBags.day1)}, Day 2 ${bagLabel(currentDayBags.day2)}.`}
         </p>
 
         <div className="plan-hotel-filters">
@@ -299,31 +320,45 @@ export default function PlanAddHotelsDialog({
         </div>
 
         <div className="plan-dialog__capacity">
-          <div className="plan-capacity">
-            <div className="plan-capacity__labels">
-              <span>
-                {projectedBags}
-                {hasVehicle ? ` / ${route.nominal_cap}` : ""} bags
-              </span>
-              <span>
-                {hasVehicle
-                  ? `safe ${route.max_load} · ${selectedBags} selected`
-                  : `${selectedBags} selected · no vehicle`}
-              </span>
-            </div>
-            {hasVehicle && (
-              <div className="plan-capacity__track">
-                <span
-                  className={`plan-capacity__fill plan-capacity__fill--${capacityTone}`}
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      (projectedBags / Math.max(1, route.max_load)) * 100,
-                    )}%`,
-                  }}
-                />
-              </div>
-            )}
+          <div className="plan-dialog__day-loads">
+            {(["day1", "day2"] as const).map((day) => {
+              const isAffected = selectedDays.includes(day);
+              const dayTone = overDays.includes(day)
+                ? "over"
+                : hasVehicle && projectedDayBags[day] > route.max_load
+                  ? "warn"
+                  : "ok";
+              return (
+                <div className="plan-capacity" key={day}>
+                  <div className="plan-capacity__labels">
+                    <span>
+                      {dayLabel(day)} {projectedDayBags[day]}
+                      {hasVehicle ? ` / ${route.nominal_cap}` : ""} bags
+                    </span>
+                    <span>
+                      {hasVehicle
+                        ? `${isAffected ? "affected" : "unchanged"} · safe ${route.max_load}`
+                        : "no vehicle"}
+                    </span>
+                  </div>
+                  {hasVehicle && (
+                    <div className="plan-capacity__track">
+                      <span
+                        className={`plan-capacity__fill plan-capacity__fill--${dayTone}`}
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            (projectedDayBags[day] /
+                              Math.max(1, route.max_load)) *
+                              100,
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
           <p
             className={`plan-dialog__capacity-note plan-dialog__capacity-note--${
@@ -335,17 +370,27 @@ export default function PlanAddHotelsDialog({
             ) : overCapacity ? (
               <>
                 <AlertTriangle size={12} />
-                {projectedBags - route.nominal_cap} bags over the vehicle limit —
-                remove hotels before adding.
+                {overDays
+                  .map(
+                    (day) =>
+                      `${dayLabel(day)} would carry ${projectedDayBags[day]} of ${route.nominal_cap} bags`,
+                  )
+                  .join(" and ")}{" "}
+                — remove hotels before adding.
               </>
             ) : overSafeLoad ? (
               <>
                 <AlertTriangle size={12} />
-                {projectedBags - route.max_load} bags over the safe load. This is
-                a warning; the add is still allowed.
+                {overSafeDays
+                  .map(
+                    (day) =>
+                      `${dayLabel(day)} would carry ${projectedDayBags[day]} bags, above the safe load of ${route.max_load}`,
+                  )
+                  .join(" and ")}
+                . This is a warning; the add is still allowed.
               </>
             ) : (
-              <>Within the safe load for this vehicle.</>
+              <>Within the safe load for every affected day.</>
             )}
           </p>
         </div>

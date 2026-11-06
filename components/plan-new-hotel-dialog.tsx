@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Hotel, Plus, X } from "lucide-react";
+import { Hotel, MapPin, Plus, X } from "lucide-react";
 import { nearestRegionId, type RegionMeta } from "../lib/coverage";
 import {
+  dayLabel,
+  overCapacityDays,
+  projectRouteDayBags,
   resolveVehicle,
+  routeDayBags,
   type NewHotelInput,
   type Plan,
+  type PlanDay,
 } from "../lib/plan";
 
 type NewHotelDayValue = "both" | "day1" | "day2";
@@ -25,12 +30,8 @@ function shortRouteName(name: string): string {
   return name.replace(/\s*\(ID:[^)]*\)\s*$/, "").trim();
 }
 
-function routeBags(routeId: string, plan: Plan): number {
-  return (
-    plan.routes
-      .find((route) => route.route_id === routeId)
-      ?.stops.reduce((sum, stop) => sum + stop.load_bags, 0) ?? 0
-  );
+function dayValuesFor(value: NewHotelDayValue): PlanDay[] {
+  return value === "both" ? ["day1", "day2"] : [value];
 }
 
 export default function PlanNewHotelDialog({
@@ -43,6 +44,7 @@ export default function PlanNewHotelDialog({
   onAdd,
 }: PlanNewHotelDialogProps) {
   const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
   const [lat, setLat] = useState("");
   const [lon, setLon] = useState("");
   const [bags, setBags] = useState("0");
@@ -52,11 +54,14 @@ export default function PlanNewHotelDialog({
   const [routeId, setRouteId] = useState(defaultRouteId ?? "");
   const [dayValue, setDayValue] = useState<NewHotelDayValue>(defaultDay);
   const [error, setError] = useState<string | null>(null);
+  const [geocodeError, setGeocodeError] = useState<string | null>(null);
+  const [geocoding, setGeocoding] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setName("");
+    setAddress("");
     setLat("");
     setLon("");
     setBags("0");
@@ -66,6 +71,8 @@ export default function PlanNewHotelDialog({
     setRouteId(defaultRouteId ?? plan.routes[0]?.route_id ?? "");
     setDayValue(defaultDay);
     setError(null);
+    setGeocodeError(null);
+    setGeocoding(false);
     setSubmitting(false);
   }, [open, defaultDay, defaultRouteId, plan.routes]);
 
@@ -85,12 +92,24 @@ export default function PlanNewHotelDialog({
   const selectedVehicle = selectedRoute
     ? resolveVehicle(plan, selectedRoute)
     : null;
-  const currentBags = selectedRoute ? routeBags(selectedRoute.route_id, plan) : 0;
-  const projectedBags = currentBags + (Number(bags) || 0);
-  const overCapacity =
-    selectedRoute !== null &&
-    selectedVehicle !== null &&
-    projectedBags > selectedVehicle.nominal_cap;
+  const bagsValue = Number(bags);
+  const selectedDays = dayValuesFor(dayValue);
+  const currentDayBags = selectedRoute
+    ? routeDayBags(selectedRoute)
+    : { day1: 0, day2: 0 };
+  const projectedDayBags = selectedRoute
+    ? projectRouteDayBags(selectedRoute, [
+        {
+          days: selectedDays,
+          load_bags: Number.isFinite(bagsValue) ? bagsValue : 0,
+        },
+      ])
+    : { day1: 0, day2: 0 };
+  const overDays =
+    selectedRoute && selectedVehicle
+      ? overCapacityDays(selectedRoute, projectedDayBags, selectedDays)
+      : [];
+  const overCapacity = overDays.length > 0;
 
   const latValue = Number(lat);
   const lonValue = Number(lon);
@@ -103,7 +122,6 @@ export default function PlanNewHotelDialog({
     latValue <= 90 &&
     lonValue >= -180 &&
     lonValue <= 180;
-  const bagsValue = Number(bags);
   const roomsValue = Number(rooms);
   const serviceValue = Number(serviceMins);
   const numbersValid =
@@ -124,32 +142,125 @@ export default function PlanNewHotelDialog({
     `Region ${effectiveRegion}`;
   const routeValid = selectedRoute !== null;
   const nameValid = name.trim().length > 0;
+  const hasAddress = address.trim().length > 0;
   const valid =
     nameValid &&
-    coordsValid &&
+    (coordsValid || hasAddress) &&
     numbersValid &&
     routeValid &&
     !overCapacity;
 
+  async function lookupCoordinates(): Promise<{
+    lat: number;
+    lon: number;
+    formattedAddress: string;
+  } | null> {
+    const value = address.trim();
+    if (!value) {
+      setGeocodeError("Enter the hotel address first.");
+      return null;
+    }
+
+    setGeocoding(true);
+    setGeocodeError(null);
+    try {
+      const response = await fetch("/api/geocode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: value }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | {
+            result?: {
+              latitude: number;
+              longitude: number;
+              formattedAddress: string;
+            };
+            error?: string;
+          }
+        | null;
+
+      if (!response.ok || !data?.result) {
+        setGeocodeError(
+          data?.error ?? "Could not find coordinates for that address.",
+        );
+        return null;
+      }
+
+      setLat(String(data.result.latitude));
+      setLon(String(data.result.longitude));
+      setAddress(data.result.formattedAddress);
+      return {
+        lat: data.result.latitude,
+        lon: data.result.longitude,
+        formattedAddress: data.result.formattedAddress,
+      };
+    } catch {
+      setGeocodeError("Could not reach the geocoding service.");
+      return null;
+    } finally {
+      setGeocoding(false);
+    }
+  }
+
   async function submit() {
     if (submitting) return;
-    if (!valid || !selectedRoute) {
-      if (overCapacity) setError("This hotel would exceed the route's vehicle limit.");
-      else if (!nameValid) setError("Give the hotel a name.");
-      else if (!coordsValid) setError("Enter valid latitude and longitude.");
-      else if (!numbersValid) setError("Bags, rooms and service time must be whole numbers.");
-      else if (!routeValid) setError("Choose a route.");
-      return;
-    }
 
     setSubmitting(true);
     try {
+      if (overCapacity && selectedRoute) {
+        setError(
+          `${overDays
+            .map(
+              (day) =>
+                `${dayLabel(day)} would carry ${projectedDayBags[day]} bags`,
+            )
+            .join(" and ")} — above the ${selectedRoute.nominal_cap}-bag vehicle limit.`,
+        );
+        return;
+      }
+      if (!nameValid) {
+        setError("Give the hotel a name.");
+        return;
+      }
+      if (!numbersValid) {
+        setError("Bags, rooms and service time must be whole numbers.");
+        return;
+      }
+      if (!selectedRoute) {
+        setError("Choose a route.");
+        return;
+      }
+
+      let finalLat = latValue;
+      let finalLon = lonValue;
+      let finalAddress = address.trim();
+      if (!coordsValid) {
+        if (!hasAddress) {
+          setError("Enter an address and find its coordinates first.");
+          return;
+        }
+        const geocoded = await lookupCoordinates();
+        if (!geocoded) {
+          setError("Could not find coordinates for that address.");
+          return;
+        }
+        finalLat = geocoded.lat;
+        finalLon = geocoded.lon;
+        finalAddress = geocoded.formattedAddress;
+      }
+
+      const finalRegion = regionId
+        ? Number(regionId)
+        : (nearestRegionId(finalLat, finalLon) ?? regions[0]?.id ?? 0);
+
       const added = await onAdd(
         {
           name: name.trim(),
-          lat: latValue,
-          lon: lonValue,
-          region: effectiveRegion,
+          address: finalAddress || null,
+          lat: finalLat,
+          lon: finalLon,
+          region: finalRegion,
           service_mins: serviceValue,
           load_bags: bagsValue,
           rooms: roomsValue,
@@ -202,8 +313,9 @@ export default function PlanNewHotelDialog({
         </span>
         <h2 id="plan-new-hotel-title">Add a hotel to a route</h2>
         <p className="dialog-lede">
-          Add a hotel that is not in the master list. It is saved in this plan
-          draft and placed on the route at the cheapest insertion point.
+          Add a hotel to the master list and place it on the route at the
+          cheapest insertion point. You can enter an address and let Google
+          fill the coordinates.
         </p>
 
         <label className="plan-dialog__field">
@@ -217,6 +329,38 @@ export default function PlanNewHotelDialog({
             autoFocus
           />
         </label>
+
+        <label className="plan-dialog__field">
+          <span>Address</span>
+          <div className="plan-address-row">
+            <input
+              type="text"
+              value={address}
+              maxLength={300}
+              placeholder="e.g. 12 MG Road, Bengaluru"
+              onChange={(event) => setAddress(event.target.value)}
+            />
+            <button
+              type="button"
+              className="btn btn--ghost plan-address-row__button"
+              onClick={() => void lookupCoordinates()}
+              disabled={geocoding || !hasAddress}
+            >
+              <MapPin size={13} />
+              {geocoding ? "Finding…" : "Find coordinates"}
+            </button>
+          </div>
+          <small className="plan-address-hint">
+            Enter the full address and let Google fill the coordinates.
+          </small>
+        </label>
+
+        {geocodeError && (
+          <div className="hotels-form-error">
+            <MapPin size={13} />
+            {geocodeError}
+          </div>
+        )}
 
         <div className="plan-dialog__grid">
           <label className="plan-dialog__field">
@@ -314,10 +458,12 @@ export default function PlanNewHotelDialog({
           >
             {plan.routes.map((route) => {
               const routeVehicle = resolveVehicle(plan, route);
+              const routeLoads = routeDayBags(route);
               return (
                 <option key={route.route_id} value={route.route_id}>
-                  {shortRouteName(route.name)} · {routeBags(route.route_id, plan)}
-                  {routeVehicle ? `/${routeVehicle.max_load}` : ""} bags
+                  {shortRouteName(route.name)} · D1 {routeLoads.day1} · D2{" "}
+                  {routeLoads.day2}
+                  {routeVehicle ? ` / ${route.nominal_cap}` : ""} bags
                 </option>
               );
             })}
@@ -325,17 +471,19 @@ export default function PlanNewHotelDialog({
         </label>
 
         <div className="plan-dialog__preview">
-          <div>
-            <span>Route load</span>
-            <b>
-              {currentBags} → {projectedBags} bags
-            </b>
-          </div>
+          {selectedDays.map((day) => (
+            <div key={day}>
+              <span>{dayLabel(day)} load</span>
+              <b>
+                {currentDayBags[day]} → {projectedDayBags[day]} bags
+              </b>
+            </div>
+          ))}
           <div>
             <span>Vehicle limit</span>
             <b>
-              {selectedVehicle
-                ? `${selectedVehicle.nominal_cap} bags`
+              {selectedVehicle && selectedRoute
+                ? `${selectedRoute.nominal_cap} bags`
                 : "No vehicle"}
             </b>
           </div>
@@ -347,9 +495,14 @@ export default function PlanNewHotelDialog({
 
         {overCapacity && (
           <p className="plan-dialog__capacity-note plan-dialog__capacity-note--over">
-            This would put the route {projectedBags - (selectedRoute?.nominal_cap ?? 0)}{" "}
-            bags over its vehicle limit. Add it to a different route or adjust
-            the vehicle capacity first.
+            {overDays
+              .map(
+                (day) =>
+                  `${dayLabel(day)} would carry ${projectedDayBags[day]} bags`,
+              )
+              .join(" and ")}{" "}
+            — above the {selectedRoute?.nominal_cap ?? 0}-bag vehicle limit. Add
+            it to a different route or adjust the vehicle capacity first.
           </p>
         )}
         {error && (

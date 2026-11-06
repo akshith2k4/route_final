@@ -147,6 +147,8 @@ export default function HotelsDashboard({
     formFromHotel(null, regionNames),
   );
   const [formError, setFormError] = useState<string | null>(null);
+  const [geocodeError, setGeocodeError] = useState<string | null>(null);
+  const [geocoding, setGeocoding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{
@@ -220,6 +222,7 @@ export default function HotelsDashboard({
     setEditingId(null);
     setForm(formFromHotel(null, regionNames));
     setFormError(null);
+    setGeocodeError(null);
     setEditorOpen(true);
   };
 
@@ -227,6 +230,7 @@ export default function HotelsDashboard({
     setEditingId(hotel.id);
     setForm(formFromHotel(hotel, regionNames));
     setFormError(null);
+    setGeocodeError(null);
     setEditorOpen(true);
   };
 
@@ -234,14 +238,97 @@ export default function HotelsDashboard({
     if (saving) return;
     setEditorOpen(false);
     setFormError(null);
+    setGeocodeError(null);
+  };
+
+  const lookupCoordinates = async (): Promise<{
+    lat: number;
+    lon: number;
+    formattedAddress: string;
+  } | null> => {
+    const address = form.address.trim();
+    if (!address) {
+      setGeocodeError("Enter the hotel address first.");
+      return null;
+    }
+
+    setGeocoding(true);
+    setGeocodeError(null);
+    try {
+      const response = await fetch("/api/geocode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | {
+            result?: {
+              latitude: number;
+              longitude: number;
+              formattedAddress: string;
+            };
+            error?: string;
+          }
+        | null;
+
+      if (!response.ok || !data?.result) {
+        setGeocodeError(
+          data?.error ?? "Could not find coordinates for that address.",
+        );
+        return null;
+      }
+
+      setForm((current) => ({
+        ...current,
+        latitude: String(data.result!.latitude),
+        longitude: String(data.result!.longitude),
+        address: data.result!.formattedAddress,
+      }));
+      return {
+        lat: data.result.latitude,
+        lon: data.result.longitude,
+        formattedAddress: data.result.formattedAddress,
+      };
+    } catch {
+      setGeocodeError("Could not reach the geocoding service.");
+      return null;
+    } finally {
+      setGeocoding(false);
+    }
   };
 
   const saveHotel = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (saving) return;
 
-    const { payload, error } = buildPayload(form);
+    let effectiveForm = form;
+    const latitude = Number(form.latitude);
+    const longitude = Number(form.longitude);
+    const coordsMissing =
+      !form.latitude.trim() ||
+      !form.longitude.trim() ||
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude);
+
+    if (coordsMissing && form.address.trim()) {
+      setSaving(true);
+      const geocoded = await lookupCoordinates();
+      if (!geocoded) {
+        setSaving(false);
+        setFormError("Could not find coordinates for that address.");
+        return;
+      }
+      effectiveForm = {
+        ...form,
+        latitude: String(geocoded.lat),
+        longitude: String(geocoded.lon),
+        address: geocoded.formattedAddress,
+      };
+    }
+
+    const { payload, error } = buildPayload(effectiveForm);
     if (!payload) {
+      setSaving(false);
       setFormError(error ?? "Check the hotel details.");
       return;
     }
@@ -610,19 +697,40 @@ export default function HotelsDashboard({
 
             <label className="plan-dialog__field">
               <span>Address</span>
-              <input
-                type="text"
-                value={form.address}
-                maxLength={300}
-                placeholder="Street, area, city"
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    address: event.target.value,
-                  }))
-                }
-              />
+              <div className="plan-address-row">
+                <input
+                  type="text"
+                  value={form.address}
+                  maxLength={300}
+                  placeholder="Street, area, city"
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      address: event.target.value,
+                    }))
+                  }
+                />
+                <button
+                  type="button"
+                  className="btn btn--ghost plan-address-row__button"
+                  onClick={() => void lookupCoordinates()}
+                  disabled={geocoding || !form.address.trim()}
+                >
+                  <MapPin size={13} />
+                  {geocoding ? "Finding…" : "Find coordinates"}
+                </button>
+              </div>
+              <small className="plan-address-hint">
+                Enter the full address and let Google fill the coordinates.
+              </small>
             </label>
+
+            {geocodeError && (
+              <div className="hotels-form-error">
+                <MapPin size={13} />
+                {geocodeError}
+              </div>
+            )}
 
             <div className="plan-dialog__grid">
               <label className="plan-dialog__field">
