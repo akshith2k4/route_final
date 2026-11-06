@@ -11,6 +11,7 @@ export type PlanDepot = {
   lon: number;
   /** Compact label for map pins and route badges, e.g. "HQ" or "WH2". */
   short_name?: string;
+  is_active?: boolean;
 };
 
 export type PlanLaundry = {
@@ -22,6 +23,7 @@ export type PlanLaundry = {
   short_name?: string;
   /** Minutes the vehicle spends at the laundry. */
   service_mins: number;
+  is_active?: boolean;
 };
 
 export type PlanVehicle = {
@@ -815,8 +817,17 @@ export function createMatrixLookup(
   extraPoints: MatrixPoint[] = [],
 ): MatrixLookup {
   const pointsById = new Map(matrix.points.map((point) => [point.id, point]));
+  const overriddenIds = new Set<string>();
   for (const point of extraPoints) {
-    if (!pointsById.has(point.id)) pointsById.set(point.id, point);
+    const existing = pointsById.get(point.id);
+    if (
+      existing &&
+      (Math.abs(existing.lat - point.lat) > 1e-7 ||
+        Math.abs(existing.lon - point.lon) > 1e-7)
+    ) {
+      overriddenIds.add(point.id);
+    }
+    pointsById.set(point.id, point);
   }
   const indexById = new Map(
     matrix.points.map((point, index) => [point.id, index]),
@@ -844,7 +855,12 @@ export function createMatrixLookup(
       const fromIndex = indexById.get(fromId);
       const toIndex = indexById.get(toId);
 
-      if (fromIndex !== undefined && toIndex !== undefined) {
+      if (
+        fromIndex !== undefined &&
+        toIndex !== undefined &&
+        !overriddenIds.has(fromId) &&
+        !overriddenIds.has(toId)
+      ) {
         const duration = matrix.durations_s[fromIndex]?.[toIndex];
         const distance = matrix.distances_m[fromIndex]?.[toIndex];
         if (
@@ -871,29 +887,61 @@ export function createMatrixLookup(
   };
 }
 
-/** Every hotel on the plan, including hotels added after the matrix was built. */
-function planStopPoints(plan: Plan): MatrixPoint[] {
+/** All locations referenced by the plan: depots, laundries, and hotel stops. */
+export function planAllPoints(plan: Plan): MatrixPoint[] {
   const points: MatrixPoint[] = [];
   const seen = new Set<string>();
+
+  for (const depot of getPlanDepots(plan)) {
+    if (!seen.has(depot.id)) {
+      seen.add(depot.id);
+      points.push({
+        id: depot.id,
+        name: depot.name,
+        lat: depot.lat,
+        lon: depot.lon,
+        kind: "depot",
+      });
+    }
+  }
+
+  for (const laundry of getPlanLaundries(plan)) {
+    if (!seen.has(laundry.id)) {
+      seen.add(laundry.id);
+      points.push({
+        id: laundry.id,
+        name: laundry.name,
+        lat: laundry.lat,
+        lon: laundry.lon,
+        kind: "laundry",
+      });
+    }
+  }
+
   for (const route of plan.routes) {
     for (const stop of route.stops) {
-      if (seen.has(stop.hotel_id)) continue;
-      seen.add(stop.hotel_id);
-      points.push({
-        id: stop.hotel_id,
-        name: stop.name,
-        lat: stop.lat,
-        lon: stop.lon,
-        kind: "hotel",
-      });
+      if (!seen.has(stop.hotel_id)) {
+        seen.add(stop.hotel_id);
+        points.push({
+          id: stop.hotel_id,
+          name: stop.name,
+          lat: stop.lat,
+          lon: stop.lon,
+          kind: "hotel",
+        });
+      }
     }
   }
   return points;
 }
 
+/** Legacy alias for planAllPoints */
+export const planStopPoints = planAllPoints;
+
 /**
  * Uses the matrix for known points and falls back to straight-line estimates
- * for hotels added from the Plan Canvas. Those legs are flagged as estimated.
+ * for hotels, warehouses, and laundries added from the Plan Canvas. Those legs
+ * are flagged as estimated.
  */
 function createPlanLookup(
   plan: Plan,
@@ -901,7 +949,7 @@ function createPlanLookup(
 ): MatrixLookup {
   return "leg" in matrixOrLookup
     ? matrixOrLookup
-    : createMatrixLookup(matrixOrLookup, planStopPoints(plan));
+    : createMatrixLookup(matrixOrLookup, planAllPoints(plan));
 }
 
 export function computeRoute(
@@ -1015,7 +1063,7 @@ export function computeRoute(
 }
 
 export function computePlan(plan: Plan, matrix: TravelMatrix): PlanComputation {
-  const lookup = createMatrixLookup(matrix, planStopPoints(plan));
+  const lookup = createMatrixLookup(matrix, planAllPoints(plan));
   const routes = plan.routes.map((route) => computeRoute(plan, route, lookup));
   const issues = validateComputedPlan(plan, routes);
   const totals: PlanTotals = {
@@ -2062,7 +2110,7 @@ export function addNewHotelToRoute(
   };
 
   const lookup = createMatrixLookup(matrix, [
-    ...planStopPoints(plan),
+    ...planAllPoints(plan),
     {
       id: stop.hotel_id,
       name: stop.name,

@@ -461,6 +461,9 @@ export default function HotelsDashboard({
         </div>
 
         <div className="plan-actions">
+          <Link href="/facilities" className="btn btn--ghost">
+            Facilities
+          </Link>
           <Link href="/vehicles" className="btn btn--ghost">
             Vehicles
           </Link>

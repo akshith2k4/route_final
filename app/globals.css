@@ -5075,6 +5075,60 @@ a {
   letter-spacing: 0;
 }
 
+/* A facility that is both a warehouse and a laundry gets one split pin with
+   explicit W/L corner badges instead of two overlapping map markers. */
+.depot-pin--dual {
+  background: linear-gradient(135deg, #18241e 0 48%, #2e1065 52% 100%);
+  border-color: #f5f3ff;
+  box-shadow:
+    0 4px 14px rgba(24, 36, 30, 0.38),
+    0 0 0 2px rgba(192, 132, 252, 0.35);
+}
+
+.depot-pin--dual .depot-pin__badge {
+  color: #fff;
+  font-size: 9px;
+  letter-spacing: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.depot-pin--dual::before,
+.depot-pin--dual::after {
+  position: absolute;
+  display: flex;
+  width: 14px;
+  height: 14px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #fff;
+  border-radius: 4px;
+  font-family: var(--font-dm-sans), sans-serif;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(12, 20, 16, 0.35);
+}
+
+.depot-pin--dual::before {
+  top: -7px;
+  left: -7px;
+  background: #fbbf24;
+  color: #18241e;
+  content: "W";
+}
+
+.depot-pin--dual::after {
+  right: -7px;
+  bottom: -7px;
+  background: #c084fc;
+  color: #2e1065;
+  content: "L";
+}
+
+.depot-pin--dual .depot-pin__pulse {
+  border-color: #f5f3ff;
+}
+
 .depot-pin--hub .depot-pin__badge {
   background: #0f766e;
   border-color: #5eead4;
@@ -5962,12 +6016,14 @@ a {
   margin-bottom: 9px;
 }
 
-.plan-field > span {
+.plan-field > span,
+.plan-field__label {
   color: var(--muted);
   font-size: 9.5px;
   font-weight: 500;
 }
 
+.plan-field input:not([type="checkbox"]):not([type="radio"]),
 .plan-field select {
   height: 33px;
   padding: 0 8px;
@@ -5976,7 +6032,16 @@ a {
   background: var(--paper-strong);
   color: var(--ink);
   font-size: 10px;
+}
+
+.plan-field select {
   cursor: pointer;
+}
+
+.plan-field input:not([type="checkbox"]):not([type="radio"]):focus,
+.plan-field select:focus {
+  border-color: var(--green);
+  outline: none;
 }
 
 .plan-capacity {
@@ -6775,6 +6840,10 @@ a {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 10px;
+}
+
+.plan-dialog__full {
+  grid-column: 1 / -1;
 }
 
 .plan-vehicle-add {
@@ -9184,6 +9253,10 @@ a {
   border-collapse: collapse;
 }
 
+.facilities-table {
+  min-width: 900px;
+}
+
 .hotels-table th {
   position: sticky;
   top: 0;
@@ -9214,6 +9287,10 @@ a {
 
 .hotels-table tbody tr:hover {
   background: var(--bone);
+}
+
+.hotels-table tbody tr.is-inactive {
+  opacity: 0.55;
 }
 
 .hotels-table .is-number {

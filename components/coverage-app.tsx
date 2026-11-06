@@ -402,6 +402,10 @@ const SHOW_DISPATCH_AND_STUDIO = false;
             Plan canvas
             <ArrowUpRight size={11} />
           </Link>
+          <Link className="topnav__item" href="/facilities">
+            Facilities
+            <ArrowUpRight size={11} />
+          </Link>
           <Link className="topnav__item" href="/hotels">
             Hotels
             <ArrowUpRight size={11} />

@@ -105,6 +105,45 @@ export const vehicles = pgTable(
   ],
 );
 
+export const facilities = pgTable(
+  "facilities",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    shortName: text("short_name").notNull(),
+    address: text("address"),
+    latitude: doublePrecision("latitude").notNull(),
+    longitude: doublePrecision("longitude").notNull(),
+    isWarehouse: boolean("is_warehouse").notNull().default(false),
+    isLaundry: boolean("is_laundry").notNull().default(false),
+    serviceMins: integer("service_mins").notNull().default(180),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("facilities_name_idx").on(table.name),
+    index("facilities_is_active_idx").on(table.isActive),
+    check(
+      "facilities_role_check",
+      sql`${table.isWarehouse} = true or ${table.isLaundry} = true`,
+    ),
+    check(
+      "facilities_latitude_check",
+      sql`${table.latitude} between -90 and 90`,
+    ),
+    check(
+      "facilities_longitude_check",
+      sql`${table.longitude} between -180 and 180`,
+    ),
+    check("facilities_service_mins_check", sql`${table.serviceMins} >= 0`),
+  ],
+);
+
 export const plans = pgTable("plans", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -123,4 +162,6 @@ export type HotelRow = typeof hotels.$inferSelect;
 export type NewHotelRow = typeof hotels.$inferInsert;
 export type VehicleRow = typeof vehicles.$inferSelect;
 export type NewVehicleRow = typeof vehicles.$inferInsert;
+export type FacilityRow = typeof facilities.$inferSelect;
+export type NewFacilityRow = typeof facilities.$inferInsert;
 export type PlanRow = typeof plans.$inferSelect;

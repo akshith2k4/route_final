@@ -249,18 +249,34 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
       );
       const laundryLatLngById = new Map<string, Leaflet.LatLngTuple>();
 
-      for (const [index, depot] of depots.entries()) {
+      const renderedFacilityIds = new Set<string>();
+
+      for (const depot of depots) {
         const depotLatLng: Leaflet.LatLngTuple = [depot.lat, depot.lon];
+        const laundry = laundryById.get(depot.id) ?? null;
+        renderedFacilityIds.add(depot.id);
         depotLatLngById.set(depot.id, depotLatLng);
+        if (laundry) laundryLatLngById.set(laundry.id, depotLatLng);
         allBounds.extend(depotLatLng);
 
-        const isPrimary = index === 0;
+        const isPrimary = depot.id === depots[0]?.id;
+        const isDual = laundry !== null;
+        const markerClass = isDual
+          ? "depot-pin depot-pin--dual"
+          : isPrimary
+            ? "depot-pin depot-pin--hq"
+            : "depot-pin depot-pin--second";
+        const roleLabel = isDual
+          ? `Warehouse + Laundry${
+              laundry ? ` · ${laundry.service_mins} min on site` : ""
+            }`
+          : "Fleet origin &amp; terminus";
         const depotMarker = L.marker(depotLatLng, {
           icon: L.divIcon({
             className: "dispatch-depot-marker",
             html: `
-              <div class="depot-pin ${isPrimary ? "depot-pin--hq" : "depot-pin--second"}">
-                <span class="depot-pin__pulse"></span>
+              <div class="${markerClass}">
+                ${isPrimary ? '<span class="depot-pin__pulse"></span>' : ""}
                 <span class="depot-pin__badge">${escapeHtml(depotLabel(depot))}</span>
               </div>
             `,
@@ -272,7 +288,7 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
         depotMarker.bindTooltip(
           `<div class="depot-leaflet-tooltip"><b>${escapeHtml(
             depot.name,
-          )}</b><span>Fleet origin &amp; terminus</span></div>`,
+          )}</b><span>${roleLabel}</span></div>`,
           {
             direction: "top",
             offset: [0, -16],
@@ -283,6 +299,8 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
       }
 
       for (const laundry of laundries) {
+        if (renderedFacilityIds.has(laundry.id)) continue;
+
         const laundryLatLng: Leaflet.LatLngTuple = [laundry.lat, laundry.lon];
         laundryLatLngById.set(laundry.id, laundryLatLng);
         allBounds.extend(laundryLatLng);

@@ -1858,6 +1858,97 @@ assert.equal(
   "optimizing an already polished order should be a no-op",
 );
 
+// Regression test: New warehouse not present in travel_matrix.json
+const planWithNewDepot = structuredClone(plan);
+const NEW_DEPOT_ID = "depot-test-unbaked-warehouse";
+const newDepot = {
+  id: NEW_DEPOT_ID,
+  name: "Unbaked Test Warehouse",
+  lat: 13.055,
+  lon: 77.615,
+  short_name: "UTW",
+};
+planWithNewDepot.depots = [...getPlanDepots(planWithNewDepot), newDepot];
+const routeWithNewDepot = reassignRouteDepot(planWithNewDepot, "103501", NEW_DEPOT_ID);
+const computedNewDepotPlan = computePlan(routeWithNewDepot, matrix);
+const computedNewDepotRoute = computedNewDepotPlan.routes.find((r) => r.route_id === "103501");
+assert.ok(computedNewDepotRoute, "expected computed route for 103501 with new depot");
+assert.equal(computedNewDepotRoute.depot_id, NEW_DEPOT_ID);
+assert.ok(computedNewDepotRoute.estimated_legs > 0, "legs to unbaked depot should be marked estimated");
+
+// Regression test: New laundry not present in travel_matrix.json
+const planWithNewLaundry = structuredClone(plan);
+const NEW_LAUNDRY_ID = "laundry-test-unbaked-laundry";
+const newLaundry = {
+  id: NEW_LAUNDRY_ID,
+  name: "Unbaked Test Laundry",
+  lat: 12.895,
+  lon: 77.585,
+  short_name: "UTL",
+  service_mins: 120,
+};
+planWithNewLaundry.laundries = [...getPlanLaundries(planWithNewLaundry), newLaundry];
+const routeWithNewLaundry = setRouteLaundry(planWithNewLaundry, "103501", NEW_LAUNDRY_ID);
+const computedNewLaundryPlan = computePlan(routeWithNewLaundry, matrix);
+const computedNewLaundryRoute = computedNewLaundryPlan.routes.find((r) => r.route_id === "103501");
+assert.ok(computedNewLaundryRoute, "expected computed route for 103501 with new laundry");
+assert.equal(computedNewLaundryRoute.laundry_id, NEW_LAUNDRY_ID);
+assert.ok(computedNewLaundryRoute.estimated_legs > 0, "legs to unbaked laundry should be marked estimated");
+assert.equal(computedNewLaundryRoute.laundry_service_mins, 120);
+
+// Regression test: Moving an existing warehouse away from its baked matrix
+// coordinates must use fallback estimates instead of stale drive times.
+const movedDepotPlan = structuredClone(plan);
+movedDepotPlan.depots = getPlanDepots(movedDepotPlan).map((depot) =>
+  depot.id === SECOND_DEPOT_ID
+    ? { ...depot, lat: depot.lat + 0.05, lon: depot.lon + 0.05 }
+    : depot,
+);
+const movedDepotRoutePlan = reassignRouteDepot(
+  movedDepotPlan,
+  "103501",
+  SECOND_DEPOT_ID,
+);
+const computedMovedDepotRoute = computePlan(
+  movedDepotRoutePlan,
+  matrix,
+).routes.find((route) => route.route_id === "103501");
+assert.ok(computedMovedDepotRoute, "expected computed route for moved depot");
+assert.ok(
+  computedMovedDepotRoute.estimated_legs > 0,
+  "moving a warehouse must invalidate its baked matrix legs",
+);
+
+// Regression test: Moving an existing laundry must also recalculate its legs.
+const movedLaundryPlan = structuredClone(plan);
+movedLaundryPlan.laundries = getPlanLaundries(movedLaundryPlan).map(
+  (laundry) =>
+    laundry.id === LAUNDRY_PIONEER_ID
+      ? { ...laundry, lat: laundry.lat + 0.05, lon: laundry.lon + 0.05 }
+      : laundry,
+);
+const movedLaundryRoutePlan = setRouteLaundry(
+  movedLaundryPlan,
+  "103501",
+  LAUNDRY_PIONEER_ID,
+);
+const computedMovedLaundryRoute = computePlan(
+  movedLaundryRoutePlan,
+  matrix,
+).routes.find((route) => route.route_id === "103501");
+assert.ok(computedMovedLaundryRoute, "expected computed route for moved laundry");
+assert.ok(
+  computedMovedLaundryRoute.estimated_legs > 0,
+  "moving a laundry must invalidate its baked matrix legs",
+);
+
+console.log("");
+console.log("Facility matrix fallback smoke test:");
+console.log(`  new warehouse (${newDepot.name}): route drive ${computedNewDepotRoute.total_drive_mins} min, estimated legs: ${computedNewDepotRoute.estimated_legs}`);
+console.log(`  new laundry (${newLaundry.name}): return ${computedNewLaundryRoute.return_hq}, estimated legs: ${computedNewLaundryRoute.estimated_legs}, service ${computedNewLaundryRoute.laundry_service_mins} min`);
+console.log(`  moved warehouse (${SECOND_DEPOT_ID}): estimated legs: ${computedMovedDepotRoute.estimated_legs}`);
+console.log(`  moved laundry (${LAUNDRY_PIONEER_ID}): estimated legs: ${computedMovedLaundryRoute.estimated_legs}`);
+
 console.log("");
 console.log("Custom route smoke test:");
 console.log(

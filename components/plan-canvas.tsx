@@ -37,12 +37,14 @@ import {
 } from "lucide-react";
 import PlanAddHotelsDialog from "./plan-add-hotels-dialog";
 import PlanCreateRouteDialog from "./plan-create-route-dialog";
+import PlanNewFacilityDialog from "./plan-new-facility-dialog";
 import PlanNewHotelDialog from "./plan-new-hotel-dialog";
 import PlanVehiclesDialog from "./plan-vehicles-dialog";
 import PlanCanvasMap, {
   type PlanCanvasMapHandle,
 } from "./plan-canvas-map";
 import type { HexMap, RegionMeta } from "../lib/coverage";
+import type { FacilityAdminItem, FacilityInput } from "../lib/facilities";
 import type { PlanSummary } from "../lib/plan-store";
 import {
   addNewHotelToRoute,
@@ -84,7 +86,9 @@ import {
   updateVehicle,
   type Plan,
   type PlanDay,
+  type PlanDepot,
   type PlanIssue,
+  type PlanLaundry,
   type PlanRoute,
   type PlanStop,
   type PlanView,
@@ -223,6 +227,8 @@ export default function PlanCanvas({
   const [createRouteOpen, setCreateRouteOpen] = useState(false);
   const [addHotelsOpen, setAddHotelsOpen] = useState(false);
   const [newHotelOpen, setNewHotelOpen] = useState(false);
+  const [newFacilityOpen, setNewFacilityOpen] = useState(false);
+  const [facilityRole, setFacilityRole] = useState<"warehouse" | "laundry">("warehouse");
   const [vehiclesOpen, setVehiclesOpen] = useState(false);
 
   const viewPlan = useMemo(
@@ -1199,6 +1205,119 @@ export default function PlanCanvas({
     [commit, matrix, notify, regions, revealInspector],
   );
 
+  const handleAddNewFacility = useCallback(
+    async (values: FacilityInput): Promise<boolean> => {
+      const current = planRef.current;
+      let createdFacility: FacilityAdminItem | null = null;
+
+      try {
+        const response = await fetch("/api/facilities", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(values),
+        });
+
+        const data = (await response.json().catch(() => null)) as
+          | { facility?: FacilityAdminItem; error?: string }
+          | null;
+
+        if (!response.ok || !data?.facility) {
+          notify(
+            data?.error ?? "Could not add this facility to the master.",
+            "error",
+          );
+          return false;
+        }
+
+        createdFacility = data.facility;
+
+        let nextPlan: Plan = { ...current, routes: current.routes };
+
+        if (values.isWarehouse) {
+          const newDepot: PlanDepot = {
+            id: createdFacility.id,
+            name: createdFacility.name,
+            lat: createdFacility.latitude,
+            lon: createdFacility.longitude,
+            short_name: createdFacility.shortName,
+            is_active: createdFacility.isActive,
+          };
+          const currentDepots = getPlanDepots(current);
+          nextPlan = {
+            ...nextPlan,
+            depot: current.depot ?? newDepot,
+            depots: currentDepots.some((depot) => depot.id === newDepot.id)
+              ? currentDepots
+              : [...currentDepots, newDepot],
+          };
+
+          if (selectedRouteId) {
+            nextPlan = reassignRouteDepot(
+              nextPlan,
+              selectedRouteId,
+              newDepot.id,
+              matrix,
+            );
+          }
+        }
+
+        if (values.isLaundry) {
+          const newLaundry: PlanLaundry = {
+            id: createdFacility.id,
+            name: createdFacility.name,
+            lat: createdFacility.latitude,
+            lon: createdFacility.longitude,
+            short_name: createdFacility.shortName,
+            service_mins: createdFacility.serviceMins,
+            is_active: createdFacility.isActive,
+          };
+          const currentLaundries = getPlanLaundries(current);
+          nextPlan = {
+            ...nextPlan,
+            laundries: currentLaundries.some(
+              (laundry) => laundry.id === newLaundry.id,
+            )
+              ? currentLaundries
+              : [...currentLaundries, newLaundry],
+          };
+
+          if (selectedRouteId) {
+            nextPlan = setRouteLaundry(
+              nextPlan,
+              selectedRouteId,
+              newLaundry.id,
+              matrix,
+            );
+          }
+        }
+
+        const addedLabel = values.isWarehouse
+          ? `warehouse ${createdFacility.name}`
+          : `laundry ${createdFacility.name}`;
+        commit(
+          nextPlan,
+          `Added ${addedLabel}${selectedRoute ? ` and assigned to ${shortRouteName(selectedRoute.name)}` : ""}`,
+        );
+
+        setNewFacilityOpen(false);
+        revealInspector();
+        return true;
+      } catch (error) {
+        if (createdFacility) {
+          await fetch(`/api/facilities/${createdFacility.id}`, {
+            method: "DELETE",
+          }).catch(() => undefined);
+        }
+        notify(
+          error instanceof Error ? error.message : "Could not add the facility.",
+          "error",
+        );
+        return false;
+      }
+    },
+    [commit, notify, revealInspector, selectedRoute, selectedRouteId],
+  );
+
   const handleAddStops = useCallback(
     (hotelIds: string[]) => {
       const current = planRef.current;
@@ -1440,7 +1559,10 @@ export default function PlanCanvas({
             realCapacity: capacity,
             color:
               palette[getPlanVehicles(current).length % palette.length],
-            depotId: "depot-yeshwanthpur",
+            depotId:
+              selectedRoute?.depot_id ??
+              current.depot?.id ??
+              "depot-yeshwanthpur",
             departureTime: "07:00",
             returnTime: "17:00",
           }),
@@ -1927,6 +2049,10 @@ export default function PlanCanvas({
           >
             <RefreshCw size={15} />
           </button>
+          <Link href="/facilities" className="btn btn--ghost">
+            <Warehouse size={14} />
+            Facilities
+          </Link>
           <Link href="/hotels" className="btn btn--ghost">
             <Hotel size={14} />
             Hotels
@@ -2388,6 +2514,35 @@ export default function PlanCanvas({
             </div>
           ) : (
             <div className="plan-sidebar__routes plan-sidebar__routes--warehouse">
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "10px 14px",
+                  borderBottom: "1px solid var(--color-border, #e2e8f0)",
+                  background: "var(--color-surface, #fff)",
+                }}
+              >
+                <Link
+                  href="/facilities"
+                  className="btn btn--ghost"
+                  style={{ textDecoration: "none" }}
+                >
+                  Manage facilities
+                </Link>
+                <button
+                  type="button"
+                  className="btn btn--primary"
+                  onClick={() => {
+                    setFacilityRole("warehouse");
+                    setNewFacilityOpen(true);
+                  }}
+                >
+                  <Plus size={12} />
+                  Add warehouse
+                </button>
+              </div>
               {depots.map((depot) => {
                 const assigned = plan.routes
                   .map((route) => ({
@@ -2849,7 +3004,46 @@ export default function PlanCanvas({
               </div>
 
               <div className="plan-inspector__section">
-                <h3>Warehouse</h3>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "6px",
+                  }}
+                >
+                  <h3 style={{ margin: 0 }}>Warehouse</h3>
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFacilityRole("warehouse");
+                        setNewFacilityOpen(true);
+                      }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                        color: "var(--color-primary, #2563eb)",
+                        cursor: "pointer",
+                        fontSize: "12px",
+                        fontWeight: 500,
+                      }}
+                    >
+                      + Add warehouse
+                    </button>
+                    <Link
+                      href="/facilities"
+                      style={{
+                        fontSize: "12px",
+                        color: "var(--color-text-muted, #64748b)",
+                        textDecoration: "none",
+                      }}
+                    >
+                      Manage
+                    </Link>
+                  </div>
+                </div>
                 <label className="plan-field">
                   <span>Vehicle starts and ends at</span>
                   <select
@@ -2861,11 +3055,18 @@ export default function PlanCanvas({
                       )
                     }
                   >
-                    {depots.map((depot) => (
-                      <option key={depot.id} value={depot.id}>
-                        {depot.name}
-                      </option>
-                    ))}
+                    {depots.map((depot) => {
+                      const isDual = laundries.some(
+                        (laundry) => laundry.id === depot.id,
+                      );
+                      return (
+                        <option key={depot.id} value={depot.id}>
+                          {depot.name}
+                          {isDual ? " · Warehouse + Laundry" : ""}
+                          {depot.is_active === false ? " (inactive)" : ""}
+                        </option>
+                      );
+                    })}
                   </select>
                 </label>
                 <p className="plan-inspector__note">
@@ -2980,7 +3181,46 @@ export default function PlanCanvas({
 
               {mode === "plan" && (
                 <div className="plan-inspector__section">
-                  <h3>Return</h3>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "6px",
+                    }}
+                  >
+                    <h3 style={{ margin: 0 }}>Return</h3>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFacilityRole("laundry");
+                          setNewFacilityOpen(true);
+                        }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          padding: 0,
+                          color: "var(--color-primary, #2563eb)",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                          fontWeight: 500,
+                        }}
+                      >
+                        + New laundry
+                      </button>
+                      <Link
+                        href="/facilities"
+                        style={{
+                          fontSize: "12px",
+                          color: "var(--color-text-muted, #64748b)",
+                          textDecoration: "none",
+                        }}
+                      >
+                        Manage
+                      </Link>
+                    </div>
+                  </div>
                   <label className="plan-field">
                     <span>After the last hotel</span>
                     <select
@@ -2995,12 +3235,21 @@ export default function PlanCanvas({
                       <option value="">
                         Direct to {depotLabel(routeDepot(plan, selectedRoute))}
                       </option>
-                      {laundries.map((laundry) => (
-                        <option key={laundry.id} value={laundry.id}>
-                          {laundry.name} ·{" "}
-                          {formatDuration(laundry.service_mins)} on site
-                        </option>
-                      ))}
+                      {laundries.map((laundry) => {
+                        const isDual = depots.some(
+                          (depot) => depot.id === laundry.id,
+                        );
+                        return (
+                          <option key={laundry.id} value={laundry.id}>
+                            {laundry.name}
+                            {isDual ? " · Warehouse + Laundry" : ""}
+                            {laundry.is_active === false
+                              ? " (inactive)"
+                              : ""}{" "}
+                            · {formatDuration(laundry.service_mins)} on site
+                          </option>
+                        );
+                      })}
                     </select>
                   </label>
                   <p className="plan-inspector__note">
@@ -3454,6 +3703,16 @@ export default function PlanCanvas({
         }
         onClose={() => setNewHotelOpen(false)}
         onAdd={handleAddNewHotel}
+      />
+
+      <PlanNewFacilityDialog
+        open={newFacilityOpen}
+        initialRole={facilityRole}
+        selectedRouteName={
+          selectedRoute ? shortRouteName(selectedRoute.name) : undefined
+        }
+        onClose={() => setNewFacilityOpen(false)}
+        onAdd={handleAddNewFacility}
       />
 
       <PlanCreateRouteDialog

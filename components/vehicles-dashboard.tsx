@@ -28,9 +28,16 @@ type VehicleRegion = {
   short_name: string;
 };
 
+type VehicleDepot = {
+  id: string;
+  name: string;
+  isActive?: boolean;
+};
+
 type VehiclesDashboardProps = {
   initialVehicles: VehicleAdminItem[];
   regions: VehicleRegion[];
+  depots?: VehicleDepot[];
 };
 
 type StatusFilter = "all" | "active" | "inactive";
@@ -58,7 +65,7 @@ const COLORS = [
   "#c2410c",
 ];
 
-const DEPOTS = [
+const DEFAULT_DEPOTS: VehicleDepot[] = [
   { id: "depot-yeshwanthpur", name: "LinenGrass HQ" },
   { id: "depot-second-warehouse", name: "Second Warehouse" },
 ];
@@ -72,6 +79,7 @@ function sortVehicles(vehicles: VehicleAdminItem[]): VehicleAdminItem[] {
 function formFromVehicle(
   vehicle: VehicleAdminItem | null,
   regions: VehicleRegion[],
+  defaultDepotId = "depot-yeshwanthpur",
 ): VehicleFormState {
   if (!vehicle) {
     return {
@@ -80,7 +88,7 @@ function formFromVehicle(
       color: COLORS[0],
       regionId: regions[0] ? String(regions[0].id) : "",
       sector: "",
-      depotId: "depot-yeshwanthpur",
+      depotId: defaultDepotId,
       departureTime: "07:00",
       returnTime: "17:00",
       isActive: true,
@@ -145,7 +153,13 @@ function buildPayload(
 export default function VehiclesDashboard({
   initialVehicles,
   regions,
+  depots = DEFAULT_DEPOTS,
 }: VehiclesDashboardProps) {
+  const allDepots = depots.length > 0 ? depots : DEFAULT_DEPOTS;
+  const activeDepots = allDepots.filter(
+    (depot) => depot.isActive !== false,
+  );
+  const defaultDepotId = activeDepots[0]?.id ?? allDepots[0]?.id;
   const [vehicles, setVehicles] = useState(() =>
     sortVehicles(initialVehicles),
   );
@@ -155,7 +169,7 @@ export default function VehiclesDashboard({
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<VehicleFormState>(() =>
-    formFromVehicle(null, regions),
+    formFromVehicle(null, regions, defaultDepotId),
   );
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -227,14 +241,14 @@ export default function VehiclesDashboard({
 
   const openCreate = () => {
     setEditingId(null);
-    setForm(formFromVehicle(null, regions));
+    setForm(formFromVehicle(null, regions, defaultDepotId));
     setFormError(null);
     setEditorOpen(true);
   };
 
   const openEdit = (vehicle: VehicleAdminItem) => {
     setEditingId(vehicle.id);
-    setForm(formFromVehicle(vehicle, regions));
+    setForm(formFromVehicle(vehicle, regions, defaultDepotId));
     setFormError(null);
     setEditorOpen(true);
   };
@@ -372,6 +386,9 @@ export default function VehiclesDashboard({
         </div>
 
         <div className="plan-actions">
+          <Link href="/facilities" className="btn btn--ghost">
+            Facilities
+          </Link>
           <Link href="/hotels" className="btn btn--ghost">
             Hotels
           </Link>
@@ -509,7 +526,7 @@ export default function VehiclesDashboard({
                     <td className="is-number">{vehicle.safeCapacity}</td>
                     <td>
                       <span className="hotels-region">
-                        {DEPOTS.find((depot) => depot.id === vehicle.depotId)
+                        {allDepots.find((depot) => depot.id === vehicle.depotId)
                           ?.name ?? vehicle.depotId}
                       </span>
                     </td>
@@ -704,9 +721,17 @@ export default function VehiclesDashboard({
                     }))
                   }
                 >
-                  {DEPOTS.map((depot) => (
-                    <option key={depot.id} value={depot.id}>
+                  {allDepots.map((depot) => (
+                    <option
+                      key={depot.id}
+                      value={depot.id}
+                      disabled={
+                        depot.isActive === false &&
+                        form.depotId !== depot.id
+                      }
+                    >
                       {depot.name}
+                      {depot.isActive === false ? " (inactive)" : ""}
                     </option>
                   ))}
                 </select>
