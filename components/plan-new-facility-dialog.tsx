@@ -1,8 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapPin, Warehouse, X } from "lucide-react";
+import { MapPin, X } from "lucide-react";
 import type { FacilityInput } from "../lib/facilities";
+import { cn } from "./ui/cn";
+import {
+  addressRow,
+  addressRowButton,
+  btnGhost,
+  btnPrimary,
+  dialog,
+  dialogActions,
+  dialogBackdrop,
+  dialogClose,
+  dialogFull,
+  dialogGrid,
+  dialogMedium,
+  eyebrow,
+  eyebrowDot,
+  field,
+  fieldLabel,
+  formError,
+} from "./ui/plan-styles";
 
 type PlanNewFacilityDialogProps = {
   open: boolean;
@@ -196,21 +215,21 @@ export default function PlanNewFacilityDialog({
 
   return (
     <div
-      className="modal-backdrop"
+      className={dialogBackdrop}
       onClick={onClose}
       role="presentation"
     >
       <div
-        className="plan-dialog hotels-dialog"
+        className={cn(dialog, dialogMedium)}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="facility-dialog-title"
       >
-        <header className="plan-dialog__head">
+        <header>
           <div>
-            <span className="eyebrow">
-              <span className="eyebrow__dot" />
+            <span className={eyebrow}>
+              <span className={eyebrowDot} />
               {isWarehouse ? "Logistics · Warehouse" : "Logistics · Laundry"}
             </span>
             <h2 id="facility-dialog-title">
@@ -219,7 +238,7 @@ export default function PlanNewFacilityDialog({
           </div>
           <button
             type="button"
-            className="dialog-close"
+            className={dialogClose}
             onClick={onClose}
             disabled={submitting}
             aria-label="Close dialog"
@@ -230,14 +249,14 @@ export default function PlanNewFacilityDialog({
 
         <form onSubmit={handleSubmit}>
           {error && (
-            <div className="hotels-form-error" role="alert">
+            <div className={formError} role="alert">
               {error}
             </div>
           )}
 
-          <div className="plan-dialog__grid">
-            <label className="plan-field plan-dialog__full">
-              <span className="plan-field__label">
+          <div className={dialogGrid}>
+            <label className={cn(field, dialogFull)}>
+              <span className={fieldLabel}>
                 {isWarehouse ? "Warehouse Name" : "Laundry Name"} <b>*</b>
               </span>
               <input
@@ -254,8 +273,8 @@ export default function PlanNewFacilityDialog({
               />
             </label>
 
-            <label className="plan-field">
-              <span className="plan-field__label">
+            <label className={field}>
+              <span className={fieldLabel}>
                 Map Badge / Short Name <b>*</b>
               </span>
               <input
@@ -268,8 +287,8 @@ export default function PlanNewFacilityDialog({
             </label>
 
             {!isWarehouse && (
-              <label className="plan-field">
-                <span className="plan-field__label">
+              <label className={field}>
+                <span className={fieldLabel}>
                   Service Time (minutes on site)
                 </span>
                 <input
@@ -282,9 +301,9 @@ export default function PlanNewFacilityDialog({
               </label>
             )}
 
-            <label className="plan-field plan-dialog__full">
-              <span className="plan-field__label">Address</span>
-              <div className="plan-address-row">
+            <label className={cn(field, dialogFull)}>
+              <span className={fieldLabel}>Address</span>
+              <div className={addressRow}>
                 <input
                   type="text"
                   maxLength={300}
@@ -294,7 +313,7 @@ export default function PlanNewFacilityDialog({
                 />
                 <button
                   type="button"
-                  className="btn btn--ghost plan-address-row__button"
+                  className={addressRowButton}
                   onClick={lookupCoordinates}
                   disabled={geocoding || !address.trim()}
                 >
@@ -306,15 +325,15 @@ export default function PlanNewFacilityDialog({
 
             {geocodeError && (
               <div
-                className="hotels-form-error plan-dialog__full"
+                className={cn(formError, dialogFull)}
                 role="alert"
               >
                 {geocodeError}
               </div>
             )}
 
-            <label className="plan-field">
-              <span className="plan-field__label">
+            <label className={field}>
+              <span className={fieldLabel}>
                 Latitude <b>*</b>
               </span>
               <input
@@ -326,8 +345,8 @@ export default function PlanNewFacilityDialog({
               />
             </label>
 
-            <label className="plan-field">
-              <span className="plan-field__label">
+            <label className={field}>
+              <span className={fieldLabel}>
                 Longitude <b>*</b>
               </span>
               <input
@@ -339,7 +358,7 @@ export default function PlanNewFacilityDialog({
               />
             </label>
 
-            <div className="plan-dialog__full">
+            <div className={dialogFull}>
               <p
                 style={{
                   fontSize: "12px",
@@ -358,10 +377,10 @@ export default function PlanNewFacilityDialog({
             </div>
           </div>
 
-          <footer className="plan-dialog__actions">
+          <footer className={dialogActions}>
             <button
               type="button"
-              className="btn btn--ghost"
+              className={btnGhost}
               onClick={onClose}
               disabled={submitting}
             >
@@ -369,7 +388,7 @@ export default function PlanNewFacilityDialog({
             </button>
             <button
               type="submit"
-              className="btn btn--primary"
+              className={btnPrimary}
               disabled={submitting}
             >
               {submitting

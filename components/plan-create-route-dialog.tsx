@@ -8,6 +8,19 @@ import {
   type PlanDepot,
   type PlanVehicle,
 } from "../lib/plan";
+import {
+  btnGhost,
+  btnPrimary,
+  dialog,
+  dialogActions,
+  dialogBackdrop,
+  dialogClose,
+  dialogEyebrow,
+  dialogField,
+  dialogLede,
+  dialogPreview,
+  inspectorNoteWarning,
+} from "./ui/plan-styles";
 
 type PlanCreateRouteDialogProps = {
   open: boolean;
@@ -91,13 +104,13 @@ export default function PlanCreateRouteDialog({
 
   return (
     <div
-      className="modal-backdrop"
+      className={dialogBackdrop}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
       <form
-        className="plan-dialog"
+        className={dialog}
         role="dialog"
         aria-modal="true"
         aria-labelledby="plan-create-route-title"
@@ -114,24 +127,24 @@ export default function PlanCreateRouteDialog({
       >
         <button
           type="button"
-          className="dialog-close"
+          className={dialogClose}
           onClick={onClose}
           aria-label="Close new route dialog"
         >
           <X size={16} />
         </button>
 
-        <span className="dialog-eyebrow">
+        <span className={dialogEyebrow}>
           <Route size={12} />
           Custom route
         </span>
         <h2 id="plan-create-route-title">Create a new route</h2>
-        <p className="dialog-lede">
+        <p className={dialogLede}>
           Name the route and choose one of your available vehicles. Safe load
           follows the vehicle.
         </p>
 
-        <label className="plan-dialog__field">
+        <label className={dialogField}>
           <span>Route name</span>
           <input
             ref={nameRef}
@@ -143,7 +156,7 @@ export default function PlanCreateRouteDialog({
           />
         </label>
 
-        <label className="plan-dialog__field">
+        <label className={dialogField}>
           <span>Vehicle</span>
           <select
             value={vehicleId}
@@ -180,12 +193,12 @@ export default function PlanCreateRouteDialog({
           </select>
         </label>
         {availableVehicles.length === 0 && (
-          <p className="plan-inspector__note plan-inspector__note--warning">
+          <p className={inspectorNoteWarning}>
             All vehicles are allocated. Add a vehicle from Vehicles first.
           </p>
         )}
 
-        <label className="plan-dialog__field">
+        <label className={dialogField}>
           <span>Vehicle capacity (bags)</span>
           <input
             type="number"
@@ -200,7 +213,7 @@ export default function PlanCreateRouteDialog({
           />
         </label>
 
-        <label className="plan-dialog__field">
+        <label className={dialogField}>
           <span>Warehouse</span>
           <select
             value={depotId}
@@ -214,7 +227,7 @@ export default function PlanCreateRouteDialog({
           </select>
         </label>
 
-        <div className="plan-dialog__preview">
+        <div className={dialogPreview}>
           <div>
             <span>Safe load</span>
             <b>{safeLoad === null ? "—" : `${safeLoad} bags`}</b>
@@ -233,11 +246,11 @@ export default function PlanCreateRouteDialog({
           </div>
         </div>
 
-        <div className="plan-dialog__actions">
-          <button type="button" className="btn btn--ghost" onClick={onClose}>
+        <div className={dialogActions}>
+          <button type="button" className={btnGhost} onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="btn btn--primary" disabled={!valid}>
+          <button type="submit" className={btnPrimary} disabled={!valid}>
             <Plus size={14} />
             Create route
           </button>

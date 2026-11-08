@@ -16,6 +16,35 @@ import {
   type PlanRoute,
   type PlanVehicle,
 } from "../lib/plan";
+import { cn } from "./ui/cn";
+import {
+  btnPrimary,
+  dialogActions,
+  dialogBackdrop,
+  dialogClose,
+  dialogEyebrow,
+  dialogField,
+  dialogLede,
+  dialogSelection,
+  dialogTall,
+  dialogWide,
+  vehicle as vehicleClass,
+  vehicleActions,
+  vehicleAdd,
+  vehicleAddButton,
+  vehicleEdit,
+  vehicleEditing,
+  vehicleError,
+  vehicleIconButton,
+  vehicleIconDanger,
+  vehicleIconSave,
+  vehicleList,
+  vehicleListEmpty,
+  vehicleMain,
+  vehicleSummary,
+  vehicleSwatch,
+  vehicleWarning,
+} from "./ui/plan-styles";
 
 type PlanVehiclesDialogProps = {
   open: boolean;
@@ -190,40 +219,40 @@ export default function PlanVehiclesDialog({
 
   return (
     <div
-      className="modal-backdrop"
+      className={dialogBackdrop}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
       <div
-        className="plan-dialog plan-dialog--wide plan-vehicles-dialog"
+        className={cn(dialogTall, dialogWide)}
         role="dialog"
         aria-modal="true"
         aria-labelledby="plan-vehicles-title"
       >
         <button
           type="button"
-          className="dialog-close"
+          className={dialogClose}
           onClick={onClose}
           aria-label="Close vehicles dialog"
         >
           <X size={16} />
         </button>
 
-        <span className="dialog-eyebrow">
+        <span className={dialogEyebrow}>
           <Truck size={12} />
           Fleet inventory
         </span>
         <h2 id="plan-vehicles-title">Vehicles</h2>
-        <p className="dialog-lede">
+        <p className={dialogLede}>
           Add the vehicles you have and their capacities. Assign a vehicle to
           each route in the inspector. Changing a capacity updates every route
           using that vehicle and warns when a route is already over the new
           limit.
         </p>
 
-        <div className="plan-vehicle-add">
-          <label className="plan-dialog__field">
+        <div className={vehicleAdd}>
+          <label className={dialogField}>
             <span>Vehicle name</span>
             <input
               type="text"
@@ -232,7 +261,7 @@ export default function PlanVehiclesDialog({
               onChange={(event) => setAddName(event.target.value)}
             />
           </label>
-          <label className="plan-dialog__field plan-dialog__field--short">
+          <label className={dialogField}>
             <span>Capacity (bags)</span>
             <input
               type="number"
@@ -246,7 +275,7 @@ export default function PlanVehiclesDialog({
           </label>
           <button
             type="button"
-            className="btn btn--primary plan-vehicle-add__button"
+            className={cn(btnPrimary, vehicleAddButton)}
             onClick={submitAdd}
             disabled={saving}
           >
@@ -256,13 +285,13 @@ export default function PlanVehiclesDialog({
         </div>
 
         {error && (
-          <p className="plan-vehicle-error">
+          <p className={vehicleError}>
             <AlertTriangle size={12} />
             {error}
           </p>
         )}
 
-        <div className="plan-vehicle-summary">
+        <div className={vehicleSummary}>
           <span>
             <b>{vehicles.length}</b> vehicles
           </span>
@@ -274,9 +303,9 @@ export default function PlanVehiclesDialog({
           </span>
         </div>
 
-        <div className="plan-vehicle-list">
+        <div className={vehicleList}>
           {vehicles.length === 0 ? (
-            <p className="plan-vehicle-list__empty">
+            <p className={vehicleListEmpty}>
               No vehicles yet. Add the first vehicle above.
             </p>
           ) : (
@@ -286,14 +315,14 @@ export default function PlanVehiclesDialog({
               return (
                 <div
                   key={vehicle.id}
-                  className={`plan-vehicle ${isEditing ? "is-editing" : ""}`}
+                  className={isEditing ? vehicleEditing : vehicleClass}
                 >
                   <span
-                    className="plan-vehicle__swatch"
+                    className={vehicleSwatch}
                     style={{ background: vehicle.color ?? "var(--ink-soft)" }}
                   />
                   {isEditing ? (
-                    <div className="plan-vehicle__edit">
+                    <div className={vehicleEdit}>
                       <input
                         type="text"
                         value={editName}
@@ -312,7 +341,7 @@ export default function PlanVehiclesDialog({
                       />
                       <button
                         type="button"
-                        className="plan-vehicle__icon-btn plan-vehicle__icon-btn--save"
+                        className={vehicleIconSave}
                         onClick={submitEdit}
                         disabled={saving}
                         title="Save vehicle"
@@ -322,7 +351,7 @@ export default function PlanVehiclesDialog({
                       </button>
                       <button
                         type="button"
-                        className="plan-vehicle__icon-btn"
+                        className={vehicleIconButton}
                         onClick={cancelEdit}
                         title="Cancel"
                         aria-label="Cancel editing"
@@ -331,7 +360,7 @@ export default function PlanVehiclesDialog({
                       </button>
                     </div>
                   ) : (
-                    <div className="plan-vehicle__main">
+                    <div className={vehicleMain}>
                       <b>{vehicle.name}</b>
                       <span>
                         {vehicle.nominal_cap} bags · safe {vehicle.max_load}
@@ -345,10 +374,10 @@ export default function PlanVehiclesDialog({
                   )}
 
                   {!isEditing && (
-                    <div className="plan-vehicle__actions">
+                    <div className={vehicleActions}>
                       <button
                         type="button"
-                        className="plan-vehicle__icon-btn"
+                        className={vehicleIconButton}
                         onClick={() => beginEdit(vehicle)}
                         title="Edit name or capacity"
                         aria-label={`Edit ${vehicle.name}`}
@@ -357,7 +386,7 @@ export default function PlanVehiclesDialog({
                       </button>
                       <button
                         type="button"
-                        className="plan-vehicle__icon-btn plan-vehicle__icon-btn--danger"
+                        className={vehicleIconDanger}
                         onClick={() => submitDelete(vehicle)}
                         disabled={assigned.length > 0 || saving}
                         title={
@@ -373,7 +402,7 @@ export default function PlanVehiclesDialog({
                   )}
 
                   {isEditing && (overloadedRoutes.length > 0 || doubleBooked) && (
-                    <p className="plan-vehicle-warning">
+                    <p className={vehicleWarning}>
                       <AlertTriangle size={11} />
                       {overloadedRoutes.length > 0
                         ? `${overloadedRoutes
@@ -391,11 +420,11 @@ export default function PlanVehiclesDialog({
           )}
         </div>
 
-        <div className="plan-dialog__actions">
-          <span className="plan-dialog__selection">
+        <div className={dialogActions}>
+          <span className={dialogSelection}>
             {assignedCount} of {vehicles.length} vehicles in use
           </span>
-          <button type="button" className="btn btn--primary" onClick={onClose}>
+          <button type="button" className={btnPrimary} onClick={onClose}>
             Done
           </button>
         </div>

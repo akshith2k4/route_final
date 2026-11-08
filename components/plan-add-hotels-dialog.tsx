@@ -17,6 +17,42 @@ import {
   type PlanRoute,
   type PlanStop,
 } from "../lib/plan";
+import { cn } from "./ui/cn";
+import {
+  btnGhost,
+  btnPrimary,
+  capacity,
+  capacityFill,
+  capacityFillTone,
+  capacityLabels,
+  capacityNote,
+  capacityNoteTone,
+  capacityTrack,
+  dialog,
+  dialogActions,
+  dialogBackdrop,
+  dialogCapacity,
+  dialogClose,
+  dialogDayLoads,
+  dialogEyebrow,
+  dialogLede,
+  dialogSelection,
+  dialogWide,
+  hotelBulk,
+  hotelFilterSelect,
+  hotelFilters,
+  hotelList,
+  hotelListEmpty,
+  hotelOption,
+  hotelOptionBags,
+  hotelOptionCheck,
+  hotelOptionCheckSelected,
+  hotelOptionDot,
+  hotelOptionInput,
+  hotelOptionMain,
+  hotelOptionSelected,
+  hotelSearch,
+} from "./ui/plan-styles";
 
 type HotelCandidate = {
   stop: PlanStop;
@@ -191,34 +227,34 @@ export default function PlanAddHotelsDialog({
 
   return (
     <div
-      className="modal-backdrop"
+      className={dialogBackdrop}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
       <div
-        className="plan-dialog plan-dialog--wide"
+        className={cn(dialog, dialogWide)}
         role="dialog"
         aria-modal="true"
         aria-labelledby="plan-add-hotels-title"
       >
         <button
           type="button"
-          className="dialog-close"
+          className={dialogClose}
           onClick={onClose}
           aria-label="Close add hotels dialog"
         >
           <X size={16} />
         </button>
 
-        <span className="dialog-eyebrow">
+        <span className={dialogEyebrow}>
           <Plus size={12} />
           Add existing hotels
         </span>
         <h2 id="plan-add-hotels-title">
           Add hotels to {shortRouteName(route.name)}
         </h2>
-        <p className="dialog-lede">
+        <p className={dialogLede}>
           Selected hotels leave their current routes and join this route with
           cheapest insertion, then a 2-opt polish. Starts at {depot.name};
           returns{" "}
@@ -231,8 +267,8 @@ export default function PlanAddHotelsDialog({
             : `No vehicle assigned · currently Day 1 ${bagLabel(currentDayBags.day1)}, Day 2 ${bagLabel(currentDayBags.day2)}.`}
         </p>
 
-        <div className="plan-hotel-filters">
-          <label className="plan-hotel-search">
+        <div className={hotelFilters}>
+          <label className={hotelSearch}>
             <Search size={14} />
             <input
               type="search"
@@ -244,6 +280,7 @@ export default function PlanAddHotelsDialog({
             />
           </label>
           <select
+            className={hotelFilterSelect}
             value={regionFilter}
             onChange={(event) => setRegionFilter(event.target.value)}
             aria-label="Filter hotels by region"
@@ -257,7 +294,7 @@ export default function PlanAddHotelsDialog({
           </select>
         </div>
 
-        <div className="plan-hotel-bulk">
+        <div className={hotelBulk}>
           <span>
             {filtered.length} hotel{filtered.length === 1 ? "" : "s"} ·{" "}
             {selected.size} selected
@@ -271,9 +308,9 @@ export default function PlanAddHotelsDialog({
           </button>
         </div>
 
-        <div className="plan-hotel-list">
+        <div className={hotelList}>
           {filtered.length === 0 ? (
-            <p className="plan-hotel-list__empty">
+            <p className={hotelListEmpty}>
               {candidates.length === 0
                 ? "Every existing hotel is already on this route."
                 : "No hotels match this search or region filter."}
@@ -287,29 +324,37 @@ export default function PlanAddHotelsDialog({
               return (
                 <label
                   key={candidate.stop.hotel_id}
-                  className={`plan-hotel-option ${
-                    isSelected ? "is-selected" : ""
-                  }`}
+                  className={
+                    isSelected ? hotelOptionSelected : hotelOption
+                  }
                 >
                   <input
+                    className={hotelOptionInput}
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => toggleHotel(candidate.stop.hotel_id)}
                   />
-                  <span className="plan-hotel-option__check" aria-hidden="true">
+                  <span
+                    className={
+                      isSelected
+                        ? hotelOptionCheckSelected
+                        : hotelOptionCheck
+                    }
+                    aria-hidden="true"
+                  >
                     {isSelected && <Check size={11} />}
                   </span>
-                  <span className="plan-hotel-option__main">
+                  <span className={hotelOptionMain}>
                     <b>{candidate.stop.name}</b>
                     <span>
                       <span
-                        className="plan-hotel-option__dot"
+                        className={hotelOptionDot}
                         style={{ background: candidate.routeColor }}
                       />
                       {candidate.routeName} · {regionLabel}
                     </span>
                   </span>
-                  <span className="plan-hotel-option__bags">
+                  <span className={hotelOptionBags}>
                     {bagLabel(candidate.stop.load_bags)} ·{" "}
                     {roomLabel(candidate.stop.rooms ?? 0)}
                   </span>
@@ -319,8 +364,8 @@ export default function PlanAddHotelsDialog({
           )}
         </div>
 
-        <div className="plan-dialog__capacity">
-          <div className="plan-dialog__day-loads">
+        <div className={dialogCapacity}>
+          <div className={dialogDayLoads}>
             {(["day1", "day2"] as const).map((day) => {
               const isAffected = selectedDays.includes(day);
               const dayTone = overDays.includes(day)
@@ -329,8 +374,8 @@ export default function PlanAddHotelsDialog({
                   ? "warn"
                   : "ok";
               return (
-                <div className="plan-capacity" key={day}>
-                  <div className="plan-capacity__labels">
+                <div className={capacity} key={day}>
+                  <div className={capacityLabels}>
                     <span>
                       {dayLabel(day)} {projectedDayBags[day]}
                       {hasVehicle ? ` / ${route.nominal_cap}` : ""} bags
@@ -342,9 +387,12 @@ export default function PlanAddHotelsDialog({
                     </span>
                   </div>
                   {hasVehicle && (
-                    <div className="plan-capacity__track">
+                    <div className={capacityTrack}>
                       <span
-                        className={`plan-capacity__fill plan-capacity__fill--${dayTone}`}
+                        className={cn(
+                          capacityFill,
+                          capacityFillTone[dayTone],
+                        )}
                         style={{
                           width: `${Math.min(
                             100,
@@ -361,9 +409,10 @@ export default function PlanAddHotelsDialog({
             })}
           </div>
           <p
-            className={`plan-dialog__capacity-note plan-dialog__capacity-note--${
-              hasVehicle ? capacityTone : "ok"
-            }`}
+            className={cn(
+              capacityNote,
+              capacityNoteTone[hasVehicle ? capacityTone : "ok"],
+            )}
           >
             {!hasVehicle ? (
               <>No vehicle assigned — capacity will apply after you assign one.</>
@@ -395,17 +444,17 @@ export default function PlanAddHotelsDialog({
           </p>
         </div>
 
-        <div className="plan-dialog__actions">
-          <span className="plan-dialog__selection">
+        <div className={dialogActions}>
+          <span className={dialogSelection}>
             {selected.size} hotel{selected.size === 1 ? "" : "s"} ·{" "}
             {bagLabel(selectedBags)} · {roomLabel(selectedRooms)}
           </span>
-          <button type="button" className="btn btn--ghost" onClick={onClose}>
+          <button type="button" className={btnGhost} onClick={onClose}>
             Cancel
           </button>
           <button
             type="button"
-            className="btn btn--primary"
+            className={btnPrimary}
             disabled={selected.size === 0 || overCapacity}
             onClick={() =>
               onAdd(selectedCandidates.map((candidate) => candidate.stop.hotel_id))

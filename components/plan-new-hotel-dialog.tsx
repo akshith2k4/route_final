@@ -13,6 +13,26 @@ import {
   type Plan,
   type PlanDay,
 } from "../lib/plan";
+import { cn } from "./ui/cn";
+import {
+  addressHint,
+  addressRow,
+  addressRowButton,
+  btnGhost,
+  btnPrimary,
+  capacityNote,
+  capacityNoteTone,
+  dialogActions,
+  dialogBackdrop,
+  dialogClose,
+  dialogEyebrow,
+  dialogField,
+  dialogGrid,
+  dialogLede,
+  dialogPreview,
+  dialogTall,
+  inspectorNote,
+} from "./ui/plan-styles";
 
 type NewHotelDayValue = "both" | "day1" | "day2";
 
@@ -292,13 +312,13 @@ export default function PlanNewHotelDialog({
 
   return (
     <div
-      className="modal-backdrop"
+      className={dialogBackdrop}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
       <form
-        className="plan-dialog plan-new-hotel-dialog"
+        className={dialogTall}
         role="dialog"
         aria-modal="true"
         aria-labelledby="plan-new-hotel-title"
@@ -309,25 +329,25 @@ export default function PlanNewHotelDialog({
       >
         <button
           type="button"
-          className="dialog-close"
+          className={dialogClose}
           onClick={onClose}
           aria-label="Close new hotel dialog"
         >
           <X size={16} />
         </button>
 
-        <span className="dialog-eyebrow">
+        <span className={dialogEyebrow}>
           <Hotel size={12} />
           New hotel
         </span>
         <h2 id="plan-new-hotel-title">Add a hotel to a route</h2>
-        <p className="dialog-lede">
+        <p className={dialogLede}>
           Add a hotel to the master list and place it on the route at the
           cheapest insertion point. You can enter an address and let Google
           fill the coordinates.
         </p>
 
-        <label className="plan-dialog__field">
+        <label className={dialogField}>
           <span>Hotel name</span>
           <input
             type="text"
@@ -339,9 +359,9 @@ export default function PlanNewHotelDialog({
           />
         </label>
 
-        <label className="plan-dialog__field">
+        <label className={dialogField}>
           <span>Address</span>
-          <div className="plan-address-row">
+          <div className={addressRow}>
             <input
               type="text"
               value={address}
@@ -351,7 +371,7 @@ export default function PlanNewHotelDialog({
             />
             <button
               type="button"
-              className="btn btn--ghost plan-address-row__button"
+              className={addressRowButton}
               onClick={() => void lookupCoordinates()}
               disabled={geocoding || !hasAddress}
             >
@@ -359,20 +379,20 @@ export default function PlanNewHotelDialog({
               {geocoding ? "Finding…" : "Find coordinates"}
             </button>
           </div>
-          <small className="plan-address-hint">
+          <small className={addressHint}>
             Enter the full address and let Google fill the coordinates.
           </small>
         </label>
 
         {geocodeError && (
-          <div className="hotels-form-error">
+          <div className={`hotels-form-error flex items-start gap-[6px] mt-[10px] pt-[8px] pr-[10px] pb-[8px] pl-[10px] rounded-[7px] bg-[#fbeae6] text-[#b91c1c] text-[9px] font-semibold leading-[1.4] [&_svg]:flex-none [&_svg]:mt-[1px] flex items-start gap-[6px] mt-[10px] pt-[8px] pr-[10px] pb-[8px] pl-[10px] rounded-[7px] bg-[#fbeae6] text-[#b91c1c] text-[9px] font-semibold leading-[1.4] [&_svg]:flex-none [&_svg]:mt-[1px]`}>
             <MapPin size={13} />
             {geocodeError}
           </div>
         )}
 
-        <div className="plan-dialog__grid">
-          <label className="plan-dialog__field">
+        <div className={dialogGrid}>
+          <label className={dialogField}>
             <span>Latitude</span>
             <input
               type="number"
@@ -383,7 +403,7 @@ export default function PlanNewHotelDialog({
               onChange={(event) => setLat(event.target.value)}
             />
           </label>
-          <label className="plan-dialog__field">
+          <label className={dialogField}>
             <span>Longitude</span>
             <input
               type="number"
@@ -394,7 +414,7 @@ export default function PlanNewHotelDialog({
               onChange={(event) => setLon(event.target.value)}
             />
           </label>
-          <label className="plan-dialog__field">
+          <label className={dialogField}>
             <span>Daily bags</span>
             <input
               type="number"
@@ -405,7 +425,7 @@ export default function PlanNewHotelDialog({
               onChange={(event) => setDailyBags(event.target.value)}
             />
           </label>
-          <label className="plan-dialog__field">
+          <label className={dialogField}>
             <span>Alternate-day bags</span>
             <input
               type="number"
@@ -416,7 +436,7 @@ export default function PlanNewHotelDialog({
               onChange={(event) => setAlternateBags(event.target.value)}
             />
           </label>
-          <label className="plan-dialog__field">
+          <label className={dialogField}>
             <span>Rooms</span>
             <input
               type="number"
@@ -427,7 +447,7 @@ export default function PlanNewHotelDialog({
               onChange={(event) => setRooms(event.target.value)}
             />
           </label>
-          <label className="plan-dialog__field">
+          <label className={dialogField}>
             <span>Service time (min)</span>
             <input
               type="number"
@@ -438,7 +458,7 @@ export default function PlanNewHotelDialog({
               onChange={(event) => setServiceMins(event.target.value)}
             />
           </label>
-          <label className="plan-dialog__field">
+          <label className={dialogField}>
             <span>Region</span>
             <select
               value={regionId}
@@ -456,7 +476,7 @@ export default function PlanNewHotelDialog({
           </label>
         </div>
 
-        <label className="plan-dialog__field">
+        <label className={dialogField}>
           <span>Days</span>
           <select
             value={dayValue}
@@ -468,13 +488,13 @@ export default function PlanNewHotelDialog({
             <option value="day1">Day 1 only</option>
             <option value="day2">Day 2 only</option>
           </select>
-          <small className="plan-address-hint">
+          <small className={addressHint}>
             Daily uses the daily bag count. Day 1 or Day 2 uses the
             alternate-day count.
           </small>
         </label>
 
-        <label className="plan-dialog__field">
+        <label className={dialogField}>
           <span>Assign to route</span>
           <select
             value={routeId}
@@ -494,7 +514,7 @@ export default function PlanNewHotelDialog({
           </select>
         </label>
 
-        <div className="plan-dialog__preview">
+        <div className={dialogPreview}>
           {selectedDays.map((day) => (
             <div key={day}>
               <span>{dayLabel(day)} load</span>
@@ -518,7 +538,7 @@ export default function PlanNewHotelDialog({
         </div>
 
         {overCapacity && (
-          <p className="plan-dialog__capacity-note plan-dialog__capacity-note--over">
+          <p className={cn(capacityNote, capacityNoteTone.over)}>
             {overDays
               .map(
                 (day) =>
@@ -530,23 +550,23 @@ export default function PlanNewHotelDialog({
           </p>
         )}
         {error && (
-          <p className="plan-dialog__capacity-note plan-dialog__capacity-note--over">
+          <p className={cn(capacityNote, capacityNoteTone.over)}>
             {error}
           </p>
         )}
 
-        <p className="plan-inspector__note">
+        <p className={inspectorNote}>
           New hotels use estimated travel times until the travel matrix is
           rebuilt; the map path is still fetched from OSRM.
         </p>
 
-        <div className="plan-dialog__actions">
-          <button type="button" className="btn btn--ghost" onClick={onClose}>
+        <div className={dialogActions}>
+          <button type="button" className={btnGhost} onClick={onClose}>
             Cancel
           </button>
           <button
             type="submit"
-            className="btn btn--primary"
+            className={btnPrimary}
             disabled={!valid || submitting}
           >
             <Plus size={14} />

@@ -1,48 +1,39 @@
 "use client";
 
-import Link from "next/link";
 import {
-  Fragment,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import {
-  AlertTriangle,
-  ArrowRightLeft,
-  CalendarDays,
-  Check,
-  ChevronDown,
-  ChevronUp,
-  Clock,
-  GripVertical,
-  Hotel,
-  MapPin,
-  MoveRight,
-  PanelRight,
-  Plus,
-  Redo2,
-  RefreshCw,
-  RotateCcw,
-  Route,
-  Trash2,
-  Truck,
-  Undo2,
-  Wand2,
-  Warehouse,
-  WashingMachine,
-  X,
-} from "lucide-react";
 import PlanAddHotelsDialog from "./plan-add-hotels-dialog";
 import PlanCreateRouteDialog from "./plan-create-route-dialog";
 import PlanNewFacilityDialog from "./plan-new-facility-dialog";
 import PlanNewHotelDialog from "./plan-new-hotel-dialog";
 import PlanVehiclesDialog from "./plan-vehicles-dialog";
-import PlanCanvasMap, {
-  type PlanCanvasMapHandle,
-} from "./plan-canvas-map";
+import { type PlanCanvasMapHandle } from "./plan-canvas-map";
+import { PlanHeader } from "./plan/plan-header";
+import { PlanSidebar } from "./plan/plan-sidebar";
+import { PlanMapStage } from "./plan/plan-map-stage";
+import { PlanInspector } from "./plan/plan-inspector";
+import { PlanStatusBar } from "./plan/plan-statusbar";
+import { PlanSaveAsDialog } from "./plan/plan-save-as-dialog";
+import { PlanToast } from "./plan/plan-toast";
+import { workspace } from "./ui/plan-styles";
+import {
+  changedRouteIds,
+  formatBags,
+  formatKm,
+  formatRooms,
+  routeSignature,
+  shortRouteName,
+  type DragState,
+  type DropTarget,
+  type PlanMode,
+  type SaveState,
+  type Toast,
+} from "./plan/plan-types";
 import type { HexMap, RegionMeta } from "../lib/coverage";
 import type { FacilityAdminItem, FacilityInput } from "../lib/facilities";
 import type { PlanSummary } from "../lib/plan-store";
@@ -58,17 +49,13 @@ import {
   depotLabel,
   filterPlanForView,
   findStop,
-  formatClock,
-  formatDuration,
   getPlanDepots,
   getPlanLaundries,
   getPlanVehicles,
-  laundryLabel,
   moveStop,
   normalizeStopDays,
   optimizeRouteOrder,
   overCapacityDays,
-  parseClock,
   projectRouteDayBags,
   reassignRouteDepot,
   reorderStops,
@@ -76,7 +63,6 @@ import {
   resolveVehicle,
   routeDepot,
   routeDepotId,
-  routeLaundryId,
   routesUsingVehicle,
   setRouteLaundry,
   setStopDays,
@@ -110,82 +96,6 @@ type PlanCanvasProps = {
   initialGeometries: Record<string, [number, number][]>;
 };
 
-type SaveState = "saved" | "saving" | "error";
-
-type DropTarget = {
-  routeId: string;
-  index: number | null;
-};
-
-type DragState = {
-  hotelId: string;
-  sourceRouteId: string;
-};
-
-type Toast = {
-  message: string;
-  tone: "info" | "error";
-};
-
-type PlanMode = "plan" | "warehouse";
-
-function shortRouteName(name: string): string {
-  return name.replace(/\s*\(ID:[^)]*\)\s*$/, "").trim();
-}
-
-function routeSignature(route: PlanRoute): string {
-  return [
-    route.depot_id ?? "",
-    route.laundry_id ?? "",
-    ...route.stops.map((stop) => stop.hotel_id),
-  ].join("|");
-}
-
-function changedRouteIds(previous: Plan, next: Plan): string[] {
-  const ids = new Set([
-    ...previous.routes.map((route) => route.route_id),
-    ...next.routes.map((route) => route.route_id),
-  ]);
-
-  return [...ids].filter((id) => {
-    const before = previous.routes.find((route) => route.route_id === id);
-    const after = next.routes.find((route) => route.route_id === id);
-    if (!before || !after) return true;
-    return routeSignature(before) !== routeSignature(after);
-  });
-}
-
-function capacityTone(bags: number, route: PlanRoute): "ok" | "warn" | "over" {
-  if (bags > route.nominal_cap) return "over";
-  if (bags > route.max_load) return "warn";
-  return "ok";
-}
-
-const ROUTE_WARNING_CODES = new Set([
-  "over_nominal_capacity",
-  "over_safe_capacity",
-  "shift_overrun",
-]);
-
-const DAY_VIEW_OPTIONS: { key: PlanView; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "daily", label: "Daily" },
-  { key: "day1", label: "Day 1" },
-  { key: "day2", label: "Day 2" },
-];
-
-function formatKm(value: number): string {
-  return `${value.toFixed(1)} km`;
-}
-
-function formatBags(value: number): string {
-  return `${value} bag${value === 1 ? "" : "s"}`;
-}
-
-function formatRooms(value: number): string {
-  return `${value} room${value === 1 ? "" : "s"}`;
-}
-
 export default function PlanCanvas({
   initialPlan,
   initialPlanId,
@@ -202,9 +112,6 @@ export default function PlanCanvas({
   const [planList, setPlanList] = useState<PlanSummary[]>(initialPlans);
   const [planSwitching, setPlanSwitching] = useState(false);
   const [saveAsOpen, setSaveAsOpen] = useState(false);
-  const [saveAsName, setSaveAsName] = useState("");
-  const [saveAsError, setSaveAsError] = useState<string | null>(null);
-  const [saveAsBusy, setSaveAsBusy] = useState(false);
   const [history, setHistory] = useState<Plan[]>([]);
   const [future, setFuture] = useState<Plan[]>([]);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(
@@ -428,7 +335,7 @@ export default function PlanCanvas({
     (issue) => issue.severity === "warning",
   );
   const healthTone =
-    errors.length > 0 ? "is-error" : warnings.length > 0 ? "is-warn" : "is-ok";
+    errors.length > 0 ? "error" : warnings.length > 0 ? "warn" : "ok";
 
   const issuesByRoute = useMemo(() => {
     const map = new Map<string, PlanIssue[]>();
@@ -678,76 +585,55 @@ export default function PlanCanvas({
   );
 
   const openSaveAs = useCallback(() => {
-    setSaveAsName(`${planRef.current.name} copy`);
-    setSaveAsError(null);
     setSaveAsOpen(true);
   }, []);
 
-  const submitSaveAs = useCallback(
-    async (event: React.FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      if (saveAsBusy) return;
+  const handleSaveAsSubmit = useCallback(
+    async (name: string) => {
+      const response = await fetch("/api/plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, plan: planRef.current }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | {
+            id?: string;
+            name?: string;
+            plan?: Plan;
+            version?: number;
+            plans?: PlanSummary[];
+            error?: string;
+          }
+        | null;
 
-      const name = saveAsName.trim();
-      if (!name) {
-        setSaveAsError("Give this plan a name.");
-        return;
+      if (
+        !response.ok ||
+        !data?.id ||
+        !data.plan ||
+        typeof data.version !== "number"
+      ) {
+        throw new Error(data?.error ?? "Could not save this plan.");
       }
 
-      setSaveAsBusy(true);
-      setSaveAsError(null);
-      try {
-        const response = await fetch("/api/plans", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, plan: planRef.current }),
-        });
-        const data = (await response.json().catch(() => null)) as
-          | {
-              id?: string;
-              name?: string;
-              plan?: Plan;
-              version?: number;
-              plans?: PlanSummary[];
-              error?: string;
-            }
-          | null;
-
-        if (
-          !response.ok ||
-          !data?.id ||
-          !data.plan ||
-          typeof data.version !== "number"
-        ) {
-          throw new Error(data?.error ?? "Could not save this plan.");
-        }
-
-        setCurrentPlanId(data.id);
-        setPlan(data.plan);
-        planRef.current = data.plan;
-        versionRef.current = data.version;
-        lastSavedPlanRef.current = data.plan;
-        if (data.plans) setPlanList(data.plans);
-        setHistory([]);
-        setFuture([]);
-        setSaveState("saved");
-        setRemoteUpdate(false);
-        setSaveAsOpen(false);
-        window.history.replaceState(
-          null,
-          "",
-          `/plan?plan=${encodeURIComponent(data.id)}`,
-        );
-        notify(`Saved as ${data.name ?? name}`);
-      } catch (error) {
-        setSaveAsError(
-          error instanceof Error ? error.message : "Could not save this plan.",
-        );
-      } finally {
-        setSaveAsBusy(false);
-      }
+      setCurrentPlanId(data.id);
+      setPlan(data.plan);
+      planRef.current = data.plan;
+      versionRef.current = data.version;
+      lastSavedPlanRef.current = data.plan;
+      if (data.plans) setPlanList(data.plans);
+      setHistory([]);
+      setFuture([]);
+      setSaveState("saved");
+      setRemoteUpdate(false);
+      setSaveAsOpen(false);
+      window.history.replaceState(
+        null,
+        "",
+        `/plan?plan=${encodeURIComponent(data.id)}`,
+      );
+      notify(`Saved as ${data.name ?? name}`);
     },
-    [notify, saveAsBusy, saveAsName],
+    [notify],
   );
 
   useEffect(() => {
@@ -1925,1773 +1811,178 @@ export default function PlanCanvas({
     ? findStop(plan, dragState.hotelId)?.stop ?? null
     : null;
 
-  const renderModeSwitch = (extraClass = "") => (
-    <div
-      className={`plan-mode-switch ${extraClass}`}
-      role="group"
-      aria-label="Editing mode"
-    >
-      <button
-        type="button"
-        className={mode === "plan" ? "is-active" : ""}
-        onClick={() => changeMode("plan")}
-        aria-pressed={mode === "plan"}
-        title="Edit stops and routes"
-      >
-        <Route size={12} />
-        Plan
-      </button>
-      <button
-        type="button"
-        className={mode === "warehouse" ? "is-active" : ""}
-        onClick={() => changeMode("warehouse")}
-        aria-pressed={mode === "warehouse"}
-        title="Assign routes to warehouses"
-      >
-        <Warehouse size={12} />
-        Warehouse
-      </button>
-    </div>
-  );
-
   return (
-    <div className="plan-app">
-      <header className="topbar plan-topbar">
-        <Link className="brand" href="/" aria-label="Back to the coverage atlas">
-          <span className="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none">
-              <path
-                d="M4.5 7.5c2.4-2 4.8-2 7.2 0s4.8 2 7.2 0"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-              <path
-                d="M4.5 12c2.4-2 4.8-2 7.2 0s4.8 2 7.2 0"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-              <path
-                d="M4.5 16.5c2.4-2 4.8-2 7.2 0s4.8 2 7.2 0"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
-          </span>
-          <span className="brand-copy">
-            <span className="brand-name">LinenGrass</span>
-            <span className="brand-sub">Plan canvas</span>
-          </span>
-        </Link>
+    <div className="flex flex-col w-full h-[100svh] min-h-0 overflow-hidden bg-bone">
+      <PlanHeader
+        planName={plan.name}
+        mode={mode}
+        onChangeMode={changeMode}
+        onUndo={undo}
+        canUndo={history.length > 0}
+        onRedo={redo}
+        canRedo={future.length > 0}
+        saveState={saveState}
+        remoteUpdate={remoteUpdate}
+        onRefresh={() => void refreshPlan()}
+        canResetPlan={canResetPlan}
+        onResetPlan={resetPlan}
+      />
 
-        <div className="plan-heading">
-          <span className="eyebrow">
-            <span className="eyebrow__dot" />
-            Draft plan · {plan.name}
-          </span>
-          <div className="plan-heading__row">
-            <h1>{mode === "plan" ? "Edit the day" : "Assign warehouses"}</h1>
-            {renderModeSwitch()}
-          </div>
-        </div>
+      <main className={workspace}>
+        <PlanSidebar
+          plan={plan}
+          viewPlan={viewPlan}
+          currentPlanId={currentPlanId}
+          planList={planList}
+          planSwitching={planSwitching}
+          mode={mode}
+          view={view}
+          viewLabel={viewLabel}
+          viewCounts={viewCounts}
+          totalHotelsCount={computation.totals.hotels}
+          computedById={computedById}
+          depots={depots}
+          selectedRouteId={selectedRouteId}
+          selectedStopId={selectedStopId}
+          dragState={dragState}
+          draggedStop={draggedStop}
+          dropTarget={dropTarget}
+          issuesByRoute={issuesByRoute}
+          updatingRoutes={updatingRoutes}
+          onSwitchPlan={(id) => void switchPlan(id)}
+          onOpenSaveAs={openSaveAs}
+          onChangeMode={changeMode}
+          onChangeView={changeView}
+          onOpenCreateRoute={() => setCreateRouteOpen(true)}
+          onOpenNewHotel={() => setNewHotelOpen(true)}
+          onOpenVehicles={() => setVehiclesOpen(true)}
+          onOpenNewFacility={(role) => {
+            setFacilityRole(role);
+            setNewFacilityOpen(true);
+          }}
+          onSelectRoute={selectRoute}
+          onSelectStop={selectStop}
+          onRouteDragOver={handleRouteDragOver}
+          onRouteDrop={handleRouteDrop}
+          onStopDragOver={handleStopDragOver}
+          onStopDrop={handleStopDrop}
+          onBeginDrag={beginDrag}
+          onEndDrag={endDrag}
+          onSetStopDays={handleSetStopDays}
+          onMoveWithinRoute={moveWithinRoute}
+          onOpenAddHotels={(routeId) => {
+            setSelectedRouteId(routeId);
+            setSelectedStopId(null);
+            setAddHotelsOpen(true);
+          }}
+          onOptimizeRoute={handleOptimizeRoute}
+          onDeleteRoute={handleDeleteRoute}
+          onAssignDepot={handleAssignDepot}
+        />
 
-        <div className="plan-actions">
-          <div className="plan-actions__history">
-            <button
-              type="button"
-              className="plan-icon-btn"
-              onClick={undo}
-              disabled={history.length === 0}
-              title="Undo (⌘Z)"
-              aria-label="Undo"
-            >
-              <Undo2 size={15} />
-            </button>
-            <button
-              type="button"
-              className="plan-icon-btn"
-              onClick={redo}
-              disabled={future.length === 0}
-              title="Redo (⇧⌘Z)"
-              aria-label="Redo"
-            >
-              <Redo2 size={15} />
-            </button>
-          </div>
-          <span
-            className={`plan-save-state ${
-              saveState === "error" ? "is-error" : ""
-            }`}
-          >
-            {saveState === "saving" ? (
-              <RefreshCw size={12} className="plan-save-spinner" />
-            ) : saveState === "error" ? (
-              <AlertTriangle size={12} />
-            ) : (
-              <Check size={12} />
-            )}
-            {saveState === "saving"
-              ? "Saving to cloud…"
-              : saveState === "error"
-                ? "Save failed"
-                : remoteUpdate
-                  ? "New changes available"
-                  : "Saved to cloud"}
-          </span>
-          <button
-            type="button"
-            className="plan-icon-btn"
-            onClick={() => void refreshPlan()}
-            title="Refresh from cloud"
-            aria-label="Refresh from cloud"
-          >
-            <RefreshCw size={15} />
-          </button>
-          <Link href="/facilities" className="btn btn--ghost">
-            <Warehouse size={14} />
-            Facilities
-          </Link>
-          <Link href="/hotels" className="btn btn--ghost">
-            <Hotel size={14} />
-            Hotels
-          </Link>
-          <button
-            type="button"
-            className="btn btn--ghost"
-            onClick={resetPlan}
-            disabled={!canResetPlan}
-            title={
-              canResetPlan
-                ? "Reset to the published Manual Dispatch Plan"
-                : "Reset is only available for the Manual Dispatch Plan"
-            }
-          >
-            <RotateCcw size={14} />
-            Reset
-          </button>
-        </div>
-      </header>
+        <PlanMapStage
+          mapRef={mapRef}
+          viewPlan={viewPlan}
+          routes={computation.routes}
+          selectedRouteId={selectedRouteId}
+          selectedStopId={selectedStopId}
+          geometries={geometries}
+          regions={regions}
+          hexMap={hexMap}
+          inspectorOpen={inspectorOpen}
+          view={view}
+          viewLabel={viewLabel}
+          selectedRoute={selectedRoute ?? null}
+          selectedComputed={selectedComputed}
+          selectedLaundry={selectedLaundry ?? null}
+          totalHotels={computation.totals.hotels}
+          totalRooms={computation.totals.rooms}
+          plan={plan}
+          onSelectRoute={selectRoute}
+          onSelectStop={selectStop}
+          onToggleInspector={() => setInspectorOpen((curr) => !curr)}
+        />
 
-      <main className="plan-workspace">
-        <aside className="plan-sidebar" aria-label="Route board">
-          <div className="plan-switcher">
-            <label className="plan-switcher__picker">
-              <span>Plan</span>
-              <select
-                value={currentPlanId}
-                onChange={(event) => void switchPlan(event.target.value)}
-                disabled={planSwitching}
-                aria-label="Select plan"
-              >
-                {planList.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              className="plan-switcher__save"
-              onClick={openSaveAs}
-              title="Save this plan under a name"
-            >
-              <Plus size={11} />
-              Save as
-            </button>
-          </div>
-
-          <div className="plan-sidebar__head">
-            <div>
-              <span className="eyebrow">
-                <span className="eyebrow__dot" />
-                {mode === "plan"
-                  ? `${viewLabel} · ${viewPlan.routes.length} routes · ${computation.totals.hotels} stops`
-                  : `${depots.length} warehouses · ${plan.routes.length} routes`}
-              </span>
-              <h2>{mode === "plan" ? "Route board" : "Warehouse board"}</h2>
-            </div>
-            <div className="plan-sidebar__head-tools">
-              {mode === "plan" ? (
-                <>
-                  <div className="plan-sidebar__head-actions">
-                    <button
-                      type="button"
-                      className="plan-new-route"
-                      onClick={() => setCreateRouteOpen(true)}
-                    >
-                      <Plus size={12} />
-                      New route
-                    </button>
-                    <button
-                      type="button"
-                      className="plan-new-route plan-new-route--ghost"
-                      onClick={() => setNewHotelOpen(true)}
-                    >
-                      <Hotel size={12} />
-                      New hotel
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    className="plan-new-route plan-new-route--ghost"
-                    onClick={() => setVehiclesOpen(true)}
-                  >
-                    <Truck size={12} />
-                    Vehicles
-                  </button>
-                  <span className="plan-sidebar__hint">
-                    {isAllView ? (
-                      <>
-                        <GripVertical size={13} />
-                        Drag to reorder
-                      </>
-                    ) : (
-                      <>
-                        <CalendarDays size={13} />
-                        Move hotels by day
-                      </>
-                    )}
-                  </span>
-                </>
-              ) : (
-                <span className="plan-sidebar__hint">
-                  <Warehouse size={13} />
-                  Assign routes
-                </span>
-              )}
-              {renderModeSwitch("plan-mode-switch--sidebar")}
-            </div>
-          </div>
-
-          {mode === "plan" && (
-            <div
-              className="plan-day-filter"
-              role="group"
-              aria-label="Hotel day view"
-            >
-              {DAY_VIEW_OPTIONS.map((option) => (
-                <button
-                  key={option.key}
-                  type="button"
-                  className={view === option.key ? "is-active" : ""}
-                  aria-pressed={view === option.key}
-                  onClick={() => changeView(option.key)}
-                >
-                  <span>{option.label}</span>
-                  <b>{viewCounts[option.key]}</b>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {mode === "plan" ? (
-            <div className="plan-sidebar__routes">
-              {viewPlan.routes.map((route) => {
-              const computed = computedById.get(route.route_id);
-              if (!computed) return null;
-              const depot = routeDepot(plan, route);
-              const laundry = resolveLaundry(plan, route);
-              const assignedVehicle = resolveVehicle(plan, route);
-              const isSelected = selectedRouteId === route.route_id;
-              const isDropRoute = dropTarget?.routeId === route.route_id;
-              const dropOverDays =
-                isAllView &&
-                dragState &&
-                draggedStop &&
-                dragState.sourceRouteId !== route.route_id &&
-                assignedVehicle
-                  ? overCapacityDays(
-                      route,
-                      projectRouteDayBags(route, [draggedStop]),
-                      normalizeStopDays(draggedStop),
-                    )
-                  : [];
-              const isDropBlocked = dropOverDays.length > 0;
-              const tone =
-                isDayView && assignedVehicle
-                  ? capacityTone(computed.total_bags, route)
-                  : "ok";
-              const routeIssues = issuesByRoute.get(route.route_id) ?? [];
-              const cardWarnings = isDayView
-                ? routeIssues.filter(
-                    (issue) =>
-                      ROUTE_WARNING_CODES.has(issue.code) &&
-                      (assignedVehicle ||
-                        !issue.code.startsWith("over_")),
-                  )
-                : [];
-              const isUpdating = updatingRoutes.has(route.route_id);
-              const dropLineIndex =
-                isDropRoute && dropTarget?.index !== null
-                  ? dropTarget?.index
-                  : null;
-
-              return (
-                <section
-                  key={route.route_id}
-                  className={`plan-route ${
-                    isSelected ? "is-selected" : ""
-                  } ${isDropRoute ? "is-drop-target" : ""} ${
-                    isDropBlocked ? "is-drop-blocked" : ""
-                  }`}
-                  onDragOver={(event) => handleRouteDragOver(event, route)}
-                  onDrop={(event) => handleRouteDrop(event, route)}
-                >
-                  <button
-                    type="button"
-                    className="plan-route__head"
-                    onClick={() => selectRoute(route.route_id)}
-                    aria-pressed={isSelected}
-                  >
-                    <span
-                      className="plan-route__dot"
-                      style={{ background: route.color }}
-                    />
-                    <span className="plan-route__title">
-                      <b>
-                        <span className="plan-route__name">
-                          {shortRouteName(route.name)}
-                        </span>
-                        <span
-                          className={`plan-route__depot ${
-                            depot.id === plan.depot.id ? "" : "is-secondary"
-                          }`}
-                        >
-                          {depotLabel(depot)}
-                        </span>
-                        {laundry && (
-                          <span className="plan-route__laundry">
-                            <WashingMachine size={9} />
-                            {laundryLabel(laundry)}
-                          </span>
-                        )}
-                        {!assignedVehicle && (
-                          <span className="plan-route__vehicle-missing">
-                            No vehicle
-                          </span>
-                        )}
-                        {route.is_custom && (
-                          <span className="plan-route__tag">Custom</span>
-                        )}
-                      </b>
-                      <span className="plan-route__meta">
-                        {computed.total_hotels} stops ·{" "}
-                        {formatRooms(computed.total_rooms)}
-                        {isUpdating ? " · updating path…" : ""}
-                        {isDropBlocked ? " · not enough capacity" : ""}
-                      </span>
-                    </span>
-                  </button>
-
-                  {isDayView && assignedVehicle && (
-                    <div className="plan-route__capacity" aria-hidden="true">
-                      <span
-                        className={`plan-route__capacity-fill plan-route__capacity-fill--${tone}`}
-                        style={{
-                          width: `${Math.min(
-                            100,
-                            (computed.total_bags / route.max_load) * 100,
-                          )}%`,
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {cardWarnings.slice(0, 2).map((issue) => (
-                    <div
-                      key={`${issue.day ?? "day"}-${issue.code}-${
-                        issue.stop_id ?? "route"
-                      }`}
-                      className={`plan-route__warning plan-route__warning--${issue.severity}`}
-                    >
-                      <AlertTriangle size={12} />
-                      <span>
-                        {issue.code === "over_nominal_capacity"
-                          ? `${computed.total_bags - route.nominal_cap} bags over the vehicle limit`
-                          : issue.code === "over_safe_capacity"
-                            ? `${computed.total_bags - route.max_load} bags over the safe load`
-                            : `Returns ${computed.return_hq} · ${
-                                computed.return_min - plan.shift.end_min
-                              } min past shift`}
-                      </span>
-                    </div>
-                  ))}
-
-                  {isAllView && route.is_custom && (
-                    <div className="plan-route__tools">
-                      <button
-                        type="button"
-                        className="plan-route__tool"
-                        onClick={() => {
-                          setSelectedRouteId(route.route_id);
-                          setSelectedStopId(null);
-                          setAddHotelsOpen(true);
-                        }}
-                      >
-                        <Plus size={11} />
-                        Add hotels
-                      </button>
-                      <button
-                        type="button"
-                        className="plan-route__tool"
-                        onClick={() => handleOptimizeRoute(route.route_id)}
-                        disabled={route.stops.length < 3}
-                        title={
-                          route.stops.length < 3
-                            ? "Add at least three stops to optimize"
-                            : "Polish this route's stop order"
-                        }
-                      >
-                        <Wand2 size={11} />
-                        Optimize
-                      </button>
-                      <button
-                        type="button"
-                        className="plan-route__tool plan-route__tool--danger"
-                        onClick={() => handleDeleteRoute(route.route_id)}
-                        title={
-                          route.stops.length > 0
-                            ? "Delete this route and return its hotels to the original plan"
-                            : "Delete this custom route"
-                        }
-                      >
-                        <Trash2 size={11} />
-                        Delete
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="plan-route__stops">
-                    {route.stops.length === 0 && (
-                      <div className="plan-route__empty">
-                        <MapPin size={13} />
-                        {route.is_custom
-                          ? "New route · add hotels to start"
-                          : isDailyView
-                            ? "No daily hotels on this route."
-                            : isDayView
-                              ? `No hotels on ${
-                                  view === "day1" ? "Day 1" : "Day 2"
-                                }.`
-                              : "Drop a stop here"}
-                      </div>
-                    )}
-                    {route.stops.map((stop, index) => {
-                      const computedStop = computed.stops[index];
-                      const isStopSelected =
-                        selectedRouteId === route.route_id &&
-                        selectedStopId === stop.hotel_id;
-                      const stopDays = normalizeStopDays(stop);
-                      const dayValue =
-                        stopDays.length === 2
-                          ? "both"
-                          : stopDays.length === 0
-                            ? "none"
-                            : stopDays[0];
-                      return (
-                        <Fragment key={stop.hotel_id}>
-                          {dropLineIndex === index && (
-                            <div className="plan-drop-line" />
-                          )}
-                          <div
-                            className={`plan-stop ${
-                              isStopSelected ? "is-selected" : ""
-                            } ${
-                              dragState?.hotelId === stop.hotel_id
-                                ? "is-dragging"
-                                : ""
-                            }`}
-                            onClick={() =>
-                              selectStop(route.route_id, stop.hotel_id)
-                            }
-                            onDragOver={(event) =>
-                              handleStopDragOver(event, route, index)
-                            }
-                            onDrop={(event) =>
-                              handleStopDrop(event, route, index)
-                            }
-                          >
-                            {isAllView && (
-                              <span
-                                className="plan-stop__handle"
-                                draggable
-                                onDragStart={(event) =>
-                                  beginDrag(event, route, stop)
-                                }
-                                onDragEnd={endDrag}
-                                title="Drag to reorder or move to another route"
-                                aria-label={`Drag ${stop.name}`}
-                              >
-                                <GripVertical size={14} />
-                              </span>
-                            )}
-                            <span
-                              className="plan-stop__number"
-                              style={{ background: route.color }}
-                            >
-                              {computedStop?.stop_number ?? index + 1}
-                            </span>
-                            <span className="plan-stop__main">
-                              <span className="plan-stop__name">
-                                {stop.name}
-                              </span>
-                            </span>
-                            <select
-                              className="plan-stop__day"
-                              value={dayValue}
-                              onClick={(event) => event.stopPropagation()}
-                              onChange={(event) => {
-                                const value = event.target.value;
-                                const nextDays: PlanDay[] =
-                                  value === "both"
-                                    ? ["day1", "day2"]
-                                    : value === "day1"
-                                      ? ["day1"]
-                                      : value === "day2"
-                                        ? ["day2"]
-                                        : [];
-                                handleSetStopDays(stop.hotel_id, nextDays);
-                              }}
-                              title="Change this hotel's day"
-                              aria-label={`Day assignment for ${stop.name}`}
-                            >
-                              <option value="both">Both</option>
-                              <option value="day1">Day 1</option>
-                              <option value="day2">Day 2</option>
-                            </select>
-                            {isAllView && (
-                              <span className="plan-stop__actions">
-                              <button
-                                type="button"
-                                className="plan-stop__action"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  moveWithinRoute(
-                                    route.route_id,
-                                    index,
-                                    -1,
-                                  );
-                                }}
-                                disabled={index === 0}
-                                title="Move up"
-                                aria-label={`Move ${stop.name} up`}
-                              >
-                                <ChevronUp size={13} />
-                              </button>
-                              <button
-                                type="button"
-                                className="plan-stop__action"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  moveWithinRoute(
-                                    route.route_id,
-                                    index,
-                                    1,
-                                  );
-                                }}
-                                disabled={index === route.stops.length - 1}
-                                title="Move down"
-                                aria-label={`Move ${stop.name} down`}
-                              >
-                                <ChevronDown size={13} />
-                              </button>
-                              </span>
-                            )}
-                          </div>
-                        </Fragment>
-                      );
-                    })}
-                    {dropLineIndex === route.stops.length && (
-                      <div className="plan-drop-line" />
-                    )}
-                  </div>
-                </section>
-              );
-            })}
-            </div>
-          ) : (
-            <div className="plan-sidebar__routes plan-sidebar__routes--warehouse">
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "10px 14px",
-                  borderBottom: "1px solid var(--color-border, #e2e8f0)",
-                  background: "var(--color-surface, #fff)",
-                }}
-              >
-                <Link
-                  href="/facilities"
-                  className="btn btn--ghost"
-                  style={{ textDecoration: "none" }}
-                >
-                  Manage facilities
-                </Link>
-                <button
-                  type="button"
-                  className="btn btn--primary"
-                  onClick={() => {
-                    setFacilityRole("warehouse");
-                    setNewFacilityOpen(true);
-                  }}
-                >
-                  <Plus size={12} />
-                  Add warehouse
-                </button>
-              </div>
-              {depots.map((depot) => {
-                const assigned = plan.routes
-                  .map((route) => ({
-                    route,
-                    computed: computedById.get(route.route_id),
-                  }))
-                  .filter(
-                    ({ route }) => routeDepotId(plan, route) === depot.id,
-                  );
-                const stopCount = assigned.reduce(
-                  (sum, { computed }) => sum + (computed?.total_hotels ?? 0),
-                  0,
-                );
-                const bags = assigned.reduce(
-                  (sum, { computed }) => sum + (computed?.total_bags ?? 0),
-                  0,
-                );
-                const rooms = assigned.reduce(
-                  (sum, { computed }) => sum + (computed?.total_rooms ?? 0),
-                  0,
-                );
-                const otherDepots = depots.filter(
-                  (candidate) => candidate.id !== depot.id,
-                );
-
-                return (
-                  <section className="plan-warehouse" key={depot.id}>
-                    <header className="plan-warehouse__head">
-                      <span
-                        className={`plan-warehouse__pin ${
-                          depot.id === plan.depot.id ? "is-primary" : ""
-                        }`}
-                      >
-                        <Warehouse size={14} />
-                      </span>
-                      <span className="plan-warehouse__title">
-                        <b>{depot.name}</b>
-                        <span>
-                          {assigned.length} route
-                          {assigned.length === 1 ? "" : "s"} · {stopCount} stops ·{" "}
-                          {bags} bags · {rooms} rooms
-                        </span>
-                      </span>
-                      <span className="plan-warehouse__tag">
-                        {depotLabel(depot)}
-                      </span>
-                    </header>
-
-                    <div className="plan-warehouse__routes">
-                      {assigned.length === 0 ? (
-                        <div className="plan-warehouse__empty">
-                          No routes assigned yet.
-                        </div>
-                      ) : (
-                        assigned.map(({ route, computed }) => {
-                          const laundry = resolveLaundry(plan, route);
-                          const vehicle = resolveVehicle(plan, route);
-                          return (
-                          <div
-                            key={route.route_id}
-                            className={`plan-warehouse-route ${
-                              selectedRouteId === route.route_id
-                                ? "is-selected"
-                                : ""
-                            }`}
-                          >
-                            <button
-                              type="button"
-                              className="plan-warehouse-route__main"
-                              onClick={() => selectRoute(route.route_id)}
-                            >
-                              <span
-                                className="plan-warehouse-route__dot"
-                                style={{ background: route.color }}
-                              />
-                              <span className="plan-warehouse-route__body">
-                                <b>{shortRouteName(route.name)}</b>
-                                <span>
-                                  {computed?.total_hotels ?? 0} stops ·{" "}
-                                  {computed?.total_bags ?? 0}
-                                  {vehicle ? `/${route.max_load}` : ""} bags ·{" "}
-                                  {computed?.total_rooms ?? 0} rooms ·{" "}
-                                  {laundry
-                                    ? `via ${laundryLabel(laundry)}`
-                                    : "direct"}{" "}
-                                  · {computed?.return_hq ?? "—"} return
-                                </span>
-                              </span>
-                            </button>
-                            {otherDepots.map((other) => (
-                              <button
-                                key={other.id}
-                                type="button"
-                                className="plan-warehouse-route__move"
-                                onClick={() =>
-                                  handleAssignDepot(route.route_id, other.id)
-                                }
-                                title={`Move ${shortRouteName(
-                                  route.name,
-                                )} to ${other.name}`}
-                              >
-                                <ArrowRightLeft size={11} />
-                                {depotLabel(other)}
-                              </button>
-                            ))}
-                          </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </section>
-                );
-              })}
-              <p className="plan-warehouse__hint">
-                A route and all of its hotels move together. The vehicle starts
-                at the assigned warehouse and returns there after any laundry
-                stop.
-              </p>
-            </div>
-          )}
-
-          <div className="plan-sidebar__foot">
-            <span>
-              <span className="plan-legend-line" />
-              Dashed line = road path refreshing
-            </span>
-            <span>
-              <span className="plan-legend-line plan-legend-line--solid" />
-              Solid line = OSRM road path
-            </span>
-            <span>
-              <span className="plan-legend-region" />
-              H3 region fill &amp; boundary
-            </span>
-          </div>
-        </aside>
-
-        <section className="plan-map-stage" aria-label="Plan map">
-          <PlanCanvasMap
-            ref={mapRef}
-            plan={viewPlan}
-            routes={computation.routes}
-            selectedRouteId={selectedRouteId}
-            selectedStopId={selectedStopId}
-            geometries={geometries}
-            regions={regions}
-            hexMap={hexMap}
-            onSelectRoute={selectRoute}
-            onSelectStop={selectStop}
-          />
-
-          <div className="map-toolbar plan-map-toolbar">
-            <button
-              type="button"
-              className="map-tool plan-details-toggle"
-              onClick={() => setInspectorOpen((current) => !current)}
-              aria-label="Toggle route details"
-              aria-pressed={inspectorOpen}
-              title="Route details"
-            >
-              <PanelRight size={15} />
-            </button>
-            <span className="map-toolbar__sep plan-details-sep" />
-            <button
-              type="button"
-              className="map-tool"
-              onClick={() => mapRef.current?.zoomIn()}
-              aria-label="Zoom in"
-            >
-              +
-            </button>
-            <button
-              type="button"
-              className="map-tool"
-              onClick={() => mapRef.current?.zoomOut()}
-              aria-label="Zoom out"
-            >
-              −
-            </button>
-            <span className="map-toolbar__sep" />
-            <button
-              type="button"
-              className="map-tool plan-map-toolbar__fit"
-              onClick={() => mapRef.current?.fitPlan()}
-            >
-              Fit plan
-            </button>
-          </div>
-
-          <div className="plan-map-overlay">
-            <span className="plan-map-overlay__kicker">
-              Plan canvas{view === "all" ? "" : ` · ${viewLabel}`}
-            </span>
-            <b>
-              {selectedRoute
-                ? shortRouteName(selectedRoute.name)
-                : "All routes"}
-            </b>
-            <span>
-              {selectedRoute
-                ? `${selectedRoute.stops.length} stops · ${
-                    selectedComputed?.total_bags ?? 0
-                  } bags · ${selectedComputed?.total_rooms ?? 0} rooms · ${selectedComputed?.total_dist_km ?? 0} km · ${
-                    depotLabel(routeDepot(plan, selectedRoute))
-                  }${selectedLaundry ? ` · via ${laundryLabel(selectedLaundry)}` : ""}`
-                : `${viewPlan.routes.length} routes · ${computation.totals.hotels} hotels · ${computation.totals.rooms} rooms`}
-            </span>
-          </div>
-        </section>
-
-        <aside
-          className={`plan-inspector ${inspectorOpen ? "is-open" : ""}`}
-          aria-label="Inspector"
-        >
-          <button
-            type="button"
-            className="plan-inspector__close"
-            onClick={() => setInspectorOpen(false)}
-            aria-label="Close details"
-          >
-            <X size={14} />
-          </button>
-          {mode === "plan" && selectedStop && selectedComputed && selectedComputedStop ? (
-            <>
-              <div className="plan-inspector__head">
-                <span className="eyebrow">
-                  <span
-                    className="plan-inline-dot"
-                    style={{ background: selectedRoute?.color }}
-                  />
-                  Stop {selectedComputedStop.stop_number} ·{" "}
-                  {shortRouteName(selectedRoute?.name ?? "")}
-                </span>
-                <h2>{selectedStop.name}</h2>
-                <p>
-                  Region {selectedStop.region} · hotel ID{" "}
-                  <code>{selectedStop.hotel_id}</code>
-                </p>
-              </div>
-
-              <div className="plan-metrics">
-                <div className="plan-metric">
-                  <span>Arrive</span>
-                  <b>{selectedComputedStop.arrival_time}</b>
-                </div>
-                <div className="plan-metric">
-                  <span>Depart</span>
-                  <b>{selectedComputedStop.departure_time}</b>
-                </div>
-                <div className="plan-metric">
-                  <span>Load</span>
-                  <b>{formatBags(selectedStop.load_bags)}</b>
-                </div>
-                <div className="plan-metric">
-                  <span>Rooms</span>
-                  <b>{selectedStop.rooms ?? 0}</b>
-                </div>
-                <div className="plan-metric">
-                  <span>On site</span>
-                  <b>{selectedStop.service_mins} min</b>
-                </div>
-                <div className="plan-metric">
-                  <span>Leg</span>
-                  <b>{formatKm(selectedComputedStop.leg_distance_km)}</b>
-                </div>
-                <div className="plan-metric">
-                  <span>Drive</span>
-                  <b>{selectedComputedStop.leg_drive_mins} min</b>
-                </div>
-              </div>
-
-              <div className="plan-inspector__section">
-                <h3>Day assignment</h3>
-                <label className="plan-field">
-                  <span>Visits on</span>
-                  <select
-                    value={(() => {
-                      const days = normalizeStopDays(selectedStop);
-                      return days.length === 2
-                        ? "both"
-                        : days.length === 0
-                          ? "none"
-                          : days[0];
-                    })()}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      const nextDays: PlanDay[] =
-                        value === "both"
-                          ? ["day1", "day2"]
-                          : value === "day1"
-                            ? ["day1"]
-                            : value === "day2"
-                              ? ["day2"]
-                              : [];
-                      handleSetStopDays(selectedStop.hotel_id, nextDays);
-                    }}
-                  >
-                    <option value="both">Both days (daily)</option>
-                    <option value="day1">Day 1 only</option>
-                    <option value="day2">Day 2 only</option>
-                  </select>
-                </label>
-                <p className="plan-inspector__note">
-                  Daily hotels are part of both Day 1 and Day 2 trips.
-                </p>
-                <button
-                  type="button"
-                  className="btn btn--ghost plan-inspector__wide"
-                  onClick={() =>
-                    mapRef.current?.focusStop(
-                      selectedStop.lat,
-                      selectedStop.lon,
-                    )
-                  }
-                >
-                  <MapPin size={14} />
-                  Focus on map
-                </button>
-              </div>
-
-              {isAllView && (
-                <div className="plan-inspector__section">
-                  <h3>Adjust this stop</h3>
-                  <div className="plan-inspector__row">
-                    <button
-                      type="button"
-                      className="btn btn--ghost"
-                      onClick={() =>
-                        moveWithinRoute(
-                          selectedRoute?.route_id ?? "",
-                          selectedStopIndex,
-                          -1,
-                        )
-                      }
-                      disabled={selectedStopIndex <= 0}
-                    >
-                      <ChevronUp size={14} />
-                      Move up
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn--ghost"
-                      onClick={() =>
-                        moveWithinRoute(
-                          selectedRoute?.route_id ?? "",
-                          selectedStopIndex,
-                          1,
-                        )
-                      }
-                      disabled={
-                        !selectedRoute ||
-                        selectedStopIndex >= selectedRoute.stops.length - 1
-                      }
-                    >
-                      <ChevronDown size={14} />
-                      Move down
-                    </button>
-                  </div>
-
-                  <label className="plan-field">
-                    <span>Move to another route</span>
-                    <select
-                      value=""
-                      onChange={(event) => {
-                        if (!event.target.value) return;
-                        handleMove(selectedStop.hotel_id, event.target.value);
-                      }}
-                    >
-                      <option value="">Choose a route…</option>
-                      {moveTargets.map((route) => {
-                        const target = computedById.get(route.route_id);
-                        const targetBags = target?.total_bags ?? 0;
-                        const fits =
-                          targetBags + selectedStop.load_bags <=
-                          route.nominal_cap;
-                        return (
-                          <option
-                            key={route.route_id}
-                            value={route.route_id}
-                            disabled={!fits}
-                          >
-                            {shortRouteName(route.name)} · {targetBags}/
-                            {route.max_load} bags
-                            {fits ? "" : " · over capacity"}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </label>
-                </div>
-              )}
-
-              <div className="plan-inspector__section">
-                <h3>Route signals</h3>
-                {(
-                  issuesByRoute.get(selectedRoute?.route_id ?? "") ?? []
-                ).length === 0 ? (
-                  <p className="plan-muted">
-                    No capacity or shift issues on this route.
-                  </p>
-                ) : (
-                  <div className="plan-issues">
-                    {(
-                      issuesByRoute.get(selectedRoute?.route_id ?? "") ?? []
-                    ).map((issue) => (
-                      <button
-                        key={`${issue.day ?? "plan"}-${issue.code}-${
-                          issue.stop_id ?? "route"
-                        }`}
-                        type="button"
-                        className={`plan-issue plan-issue--${issue.severity}`}
-                        onClick={() => focusIssue(issue)}
-                      >
-                        <AlertTriangle size={12} />
-                        <span>{issue.message}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </>
-          ) : selectedRoute && selectedComputed ? (
-            <>
-              <div className="plan-inspector__head">
-                <span className="eyebrow">
-                  <span
-                    className="plan-inline-dot"
-                    style={{ background: selectedRoute.color }}
-                  />
-                  Route summary
-                </span>
-                <h2>{shortRouteName(selectedRoute.name)}</h2>
-                <p>
-                  {isAllView ? (
-                    <>
-                      {selectedComputed.total_hotels} stops ·{" "}
-                      {selectedComputed.total_rooms} rooms · D1{" "}
-                      {selectedDay1?.total_bags ?? 0} bags · D2{" "}
-                      {selectedDay2?.total_bags ?? 0} bags
-                    </>
-                  ) : isDailyView ? (
-                    <>
-                      {selectedComputed.total_hotels} daily hotels ·{" "}
-                      {selectedComputed.total_bags} bags ·{" "}
-                      {selectedComputed.total_rooms} rooms · shared by both days
-                    </>
-                  ) : (
-                    <>
-                      {selectedComputed.total_hotels} stops ·{" "}
-                      {selectedComputed.total_bags}
-                      {selectedVehicle ? `/${selectedRoute.max_load}` : ""} bags ·{" "}
-                      {selectedComputed.total_rooms} rooms
-                      {selectedVehicle
-                        ? ` · ${selectedComputed.capacity_utilization_pct}% of safe load`
-                        : ""}
-                    </>
-                  )}
-                </p>
-              </div>
-
-              <div className="plan-inspector__section">
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "6px",
-                  }}
-                >
-                  <h3 style={{ margin: 0 }}>Warehouse</h3>
-                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFacilityRole("warehouse");
-                        setNewFacilityOpen(true);
-                      }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        padding: 0,
-                        color: "var(--color-primary, #2563eb)",
-                        cursor: "pointer",
-                        fontSize: "12px",
-                        fontWeight: 500,
-                      }}
-                    >
-                      + Add warehouse
-                    </button>
-                    <Link
-                      href="/facilities"
-                      style={{
-                        fontSize: "12px",
-                        color: "var(--color-text-muted, #64748b)",
-                        textDecoration: "none",
-                      }}
-                    >
-                      Manage
-                    </Link>
-                  </div>
-                </div>
-                <label className="plan-field">
-                  <span>Vehicle starts and ends at</span>
-                  <select
-                    value={routeDepotId(plan, selectedRoute)}
-                    onChange={(event) =>
-                      handleAssignDepot(
-                        selectedRoute.route_id,
-                        event.target.value,
-                      )
-                    }
-                  >
-                    {depots.map((depot) => {
-                      const isDual = laundries.some(
-                        (laundry) => laundry.id === depot.id,
-                      );
-                      return (
-                        <option key={depot.id} value={depot.id}>
-                          {depot.name}
-                          {isDual ? " · Warehouse + Laundry" : ""}
-                          {depot.is_active === false ? " (inactive)" : ""}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </label>
-                <p className="plan-inspector__note">
-                  {mode === "warehouse"
-                    ? `All ${selectedComputed.total_hotels} hotels move with this route. The vehicle starts and ends at ${selectedComputed.depot_name}.`
-                    : isAllView || isDailyView
-                      ? `The vehicle starts and ends at ${selectedComputed.depot_name} on both Day 1 and Day 2.`
-                      : selectedLaundry
-                        ? `Distance and return time follow ${selectedComputed.depot_name} → hotels → ${selectedLaundry.name} → ${selectedComputed.depot_name}.`
-                        : `Distance and return time are calculated from ${selectedComputed.depot_name}.`}
-                </p>
-              </div>
-
-              {mode === "plan" && (
-                <div className="plan-inspector__section">
-                  <h3>Vehicle</h3>
-                  <label className="plan-field">
-                    <span>Assigned vehicle</span>
-                    <select
-                      value={selectedRoute.vehicle_id ?? ""}
-                      onChange={(event) =>
-                        handleAssignVehicle(
-                          selectedRoute.route_id,
-                          event.target.value,
-                        )
-                      }
-                    >
-                      {!selectedVehicle && (
-                        <option value="" disabled>
-                          Select a vehicle
-                        </option>
-                      )}
-                      {vehicles.map((vehicle) => {
-                        const usedElsewhere = routesUsingVehicle(
-                          plan,
-                          vehicle.id,
-                        ).filter(
-                          (route) =>
-                            route.route_id !== selectedRoute.route_id,
-                        );
-                        return (
-                          <option
-                            key={vehicle.id}
-                            value={vehicle.id}
-                            disabled={usedElsewhere.length > 0}
-                            title={
-                              usedElsewhere.length > 0
-                                ? `Allocated to ${usedElsewhere
-                                    .map((route) => shortRouteName(route.name))
-                                    .join(", ")} — release it there first`
-                                : undefined
-                            }
-                          >
-                            {vehicle.name} · {vehicle.nominal_cap} bags
-                            {usedElsewhere.length > 0 ? " · in use" : ""}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </label>
-                  <p className="plan-inspector__note">
-                    {selectedVehicle
-                      ? `${selectedVehicle.name} · safe load ${selectedVehicle.max_load} bags.`
-                      : "No vehicle assigned. Choose one to set the route capacity."}
-                  </p>
-                  {otherRoutesOnVehicle.length > 0 && (
-                    <p className="plan-inspector__note plan-inspector__note--warning">
-                      Also allocated to{" "}
-                      {otherRoutesOnVehicle
-                        .map((route) => shortRouteName(route.name))
-                        .join(", ")}
-                      . Reassign one of these routes.
-                    </p>
-                  )}
-                  {selectedComputed.total_bags > selectedRoute.nominal_cap && (
-                    <p className="plan-inspector__note plan-inspector__note--warning">
-                      This route carries {selectedComputed.total_bags} bags,
-                      above the {selectedRoute.nominal_cap}-bag vehicle capacity.
-                    </p>
-                  )}
-                  <div className="plan-inspector__row">
-                    <button
-                      type="button"
-                      className="btn btn--ghost"
-                      onClick={() =>
-                        handleAssignVehicle(selectedRoute.route_id, "")
-                      }
-                      disabled={!selectedRoute.vehicle_id}
-                      title={
-                        selectedRoute.vehicle_id
-                          ? "Free this vehicle so another route can use it"
-                          : "No vehicle assigned"
-                      }
-                    >
-                      Release
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn--ghost"
-                      onClick={() => setVehiclesOpen(true)}
-                    >
-                      <Truck size={14} />
-                      Manage
-                    </button>
-                  </div>
-                  <p className="plan-inspector__note">
-                    A vehicle on another route is locked. Release it there
-                    first, then assign it here.
-                  </p>
-                </div>
-              )}
-
-              {mode === "plan" && (
-                <div className="plan-inspector__section">
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "6px",
-                    }}
-                  >
-                    <h3 style={{ margin: 0 }}>Return</h3>
-                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFacilityRole("laundry");
-                          setNewFacilityOpen(true);
-                        }}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          padding: 0,
-                          color: "var(--color-primary, #2563eb)",
-                          cursor: "pointer",
-                          fontSize: "12px",
-                          fontWeight: 500,
-                        }}
-                      >
-                        + New laundry
-                      </button>
-                      <Link
-                        href="/facilities"
-                        style={{
-                          fontSize: "12px",
-                          color: "var(--color-text-muted, #64748b)",
-                          textDecoration: "none",
-                        }}
-                      >
-                        Manage
-                      </Link>
-                    </div>
-                  </div>
-                  <label className="plan-field">
-                    <span>After the last hotel</span>
-                    <select
-                      value={selectedRoute.laundry_id ?? ""}
-                      onChange={(event) =>
-                        handleSetLaundry(
-                          selectedRoute.route_id,
-                          event.target.value,
-                        )
-                      }
-                    >
-                      <option value="">
-                        Direct to {depotLabel(routeDepot(plan, selectedRoute))}
-                      </option>
-                      {laundries.map((laundry) => {
-                        const isDual = depots.some(
-                          (depot) => depot.id === laundry.id,
-                        );
-                        return (
-                          <option key={laundry.id} value={laundry.id}>
-                            {laundry.name}
-                            {isDual ? " · Warehouse + Laundry" : ""}
-                            {laundry.is_active === false
-                              ? " (inactive)"
-                              : ""}{" "}
-                            · {formatDuration(laundry.service_mins)} on site
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </label>
-                  <p className="plan-inspector__note">
-                    {isAllView || isDailyView
-                      ? "Laundry applies to both day trips. Open Day 1 or Day 2 to see the timings."
-                      : selectedLaundry && selectedComputed.laundry_arrival_time
-                        ? `Arrive ${selectedComputed.laundry_arrival_time} · depart ${selectedComputed.laundry_departure_time} · ${selectedComputed.depot_name} return ${selectedComputed.return_hq}.`
-                        : `No laundry stop. The vehicle returns straight to ${selectedComputed.depot_name}.`}
-                  </p>
-                </div>
-              )}
-
-              {isDailyView && (
-                <p className="plan-inspector__note">
-                  Daily core subset — these hotels are part of both Day 1 and
-                  Day 2 trips, not a standalone trip.
-                </p>
-              )}
-
-              {isAllView ? (
-                <div className="plan-day-compare">
-                  {[
-                    { label: "Day 1", data: selectedDay1 },
-                    { label: "Day 2", data: selectedDay2 },
-                  ].map(({ label, data }) => (
-                    <div className="plan-day-card" key={label}>
-                      <span className="plan-day-card__label">{label}</span>
-                      <div className="plan-day-card__stats">
-                        <span>
-                          <b>{data?.total_hotels ?? 0}</b> stops
-                        </span>
-                        <span>
-                          <b>
-                            {data?.total_bags ?? 0}
-                            {selectedVehicle
-                              ? `/${selectedRoute.max_load}`
-                              : ""}
-                          </b>{" "}
-                          bags
-                        </span>
-                        <span>
-                          <b>{data?.total_rooms ?? 0}</b> rooms
-                        </span>
-                        <span>
-                          <b>{formatKm(data?.total_dist_km ?? 0)}</b>
-                        </span>
-                        <span>
-                          <b>
-                            {data && data.total_hotels > 0
-                              ? data.return_hq
-                              : "—"}
-                          </b>{" "}
-                          return
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="plan-metrics">
-                  <div className="plan-metric">
-                    <span>Depart</span>
-                    <b>{selectedComputed.departure_hq}</b>
-                  </div>
-                  <div className="plan-metric">
-                    <span>Return</span>
-                    <b>{selectedComputed.return_hq}</b>
-                  </div>
-                  <div className="plan-metric">
-                    <span>Distance</span>
-                    <b>{formatKm(selectedComputed.total_dist_km)}</b>
-                  </div>
-                  <div className="plan-metric">
-                    <span>Drive</span>
-                    <b>{formatDuration(selectedComputed.total_drive_mins)}</b>
-                  </div>
-                  <div className="plan-metric">
-                    <span>Hotel service</span>
-                    <b>{formatDuration(selectedComputed.total_service_mins)}</b>
-                  </div>
-                  <div className="plan-metric">
-                    <span>Laundry</span>
-                    <b>
-                      {selectedLaundry
-                        ? formatDuration(selectedComputed.laundry_service_mins)
-                        : "Direct"}
-                    </b>
-                  </div>
-                  <div className="plan-metric">
-                    <span>Stops</span>
-                    <b>{selectedComputed.total_hotels}</b>
-                  </div>
-                  <div className="plan-metric">
-                    <span>Rooms</span>
-                    <b>{selectedComputed.total_rooms}</b>
-                  </div>
-                </div>
-              )}
-
-              <div className="plan-inspector__section">
-                <h3>Capacity</h3>
-                {isDayView ? (
-                  selectedVehicle ? (
-                    <div className="plan-capacity">
-                      <div className="plan-capacity__labels">
-                        <span>{selectedComputed.total_bags} bags</span>
-                        <span>
-                          safe {selectedRoute.max_load} · vehicle{" "}
-                          {selectedRoute.nominal_cap}
-                        </span>
-                      </div>
-                      <div className="plan-capacity__track">
-                        <span
-                          className={`plan-capacity__fill plan-capacity__fill--${capacityTone(
-                            selectedComputed.total_bags,
-                            selectedRoute,
-                          )}`}
-                          style={{
-                            width: `${Math.min(
-                              100,
-                              (selectedComputed.total_bags /
-                                selectedRoute.max_load) *
-                                100,
-                            )}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="plan-muted">
-                      Assign a vehicle to see this route's capacity.
-                    </p>
-                  )
-                ) : (
-                  <p className="plan-muted">
-                    {isDailyView
-                      ? "Daily core is shared by both days; capacity is checked on Day 1 and Day 2."
-                      : "Capacity is checked separately on the Day 1 and Day 2 views."}
-                  </p>
-                )}
-              </div>
-
-              {mode === "plan" && isAllView && (
-                <div className="plan-inspector__section">
-                  <h3>Route tools</h3>
-                  <div className="plan-inspector__row">
-                    <button
-                      type="button"
-                      className="btn btn--ghost"
-                      onClick={() => setAddHotelsOpen(true)}
-                    >
-                      <Plus size={14} />
-                      Add hotels
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn--ghost"
-                      onClick={() => handleOptimizeRoute(selectedRoute.route_id)}
-                      disabled={selectedRoute.stops.length < 3}
-                      title={
-                        selectedRoute.stops.length < 3
-                          ? "Add at least three stops to optimize"
-                          : "Polish this route's stop order"
-                      }
-                    >
-                      <Wand2 size={14} />
-                      Optimize
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn--ghost plan-inspector__wide"
-                    onClick={() =>
-                      mapRef.current?.focusRoute(selectedRoute.route_id)
-                    }
-                  >
-                    <MapPin size={14} />
-                    Focus on map
-                  </button>
-                  {selectedRoute.is_custom && (
-                    <>
-                      <button
-                        type="button"
-                        className="btn btn--ghost plan-inspector__wide plan-danger-btn"
-                        onClick={() => handleDeleteRoute(selectedRoute.route_id)}
-                        title={
-                          selectedRoute.stops.length > 0
-                            ? "Delete this route and return its hotels to the original plan"
-                            : "Delete this custom route"
-                        }
-                      >
-                        <Trash2 size={14} />
-                        Delete route
-                      </button>
-                      {selectedRoute.stops.length > 0 && (
-                        <p className="plan-inspector__note">
-                          {selectedRoute.stops.length} hotel
-                          {selectedRoute.stops.length === 1 ? "" : "s"} will
-                          return to the original plan.
-                        </p>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-
-              <div className="plan-inspector__section">
-                <h3>Route signals</h3>
-                {(issuesByRoute.get(selectedRoute.route_id) ?? []).length ===
-                0 ? (
-                  <p className="plan-muted">
-                    This route is within capacity and returns before shift end.
-                  </p>
-                ) : (
-                  <div className="plan-issues">
-                    {(issuesByRoute.get(selectedRoute.route_id) ?? []).map(
-                      (issue) => (
-                        <button
-                          key={`${issue.day ?? "plan"}-${issue.code}-${
-                            issue.stop_id ?? "route"
-                          }`}
-                          type="button"
-                          className={`plan-issue plan-issue--${issue.severity}`}
-                          onClick={() => focusIssue(issue)}
-                        >
-                          <AlertTriangle size={12} />
-                          <span>{issue.message}</span>
-                        </button>
-                      ),
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="plan-inspector__section">
-                <h3>How to edit</h3>
-                <p className="plan-muted">
-                  {mode === "warehouse"
-                    ? "Choose a warehouse above or use the move button on a route in the warehouse board. A route and all of its hotels move together, then the stop order is re-optimized from the new start."
-                    : isAllView
-                      ? "Change a hotel's day with the selector on its row. Drag by the grip to reorder stops or move them between routes."
-                      : "Use the day selector on each hotel row to move it to Both, Day 1 or Day 2. Switch to All to reorder stops or add hotels."}
-                </p>
-              </div>
-            </>
-          ) : (
-            <div className="plan-inspector__empty">
-              <span className="eyebrow">
-                <span className="eyebrow__dot" />
-                Plan canvas
-              </span>
-              <h2>Pick a route to begin</h2>
-              <p>
-                {mode === "warehouse"
-                  ? "Select a route in the warehouse board to see its metrics, or move it to the other warehouse."
-                  : "Select a route on the left, then drag stops by the grip. Drop a stop on another route to move it."}
-              </p>
-            </div>
-          )}
-
-          <div className="plan-inspector__health">
-            <div className="plan-inspector__health-head">
-              <span>Plan health</span>
-              <span>
-                {errors.length} error{errors.length === 1 ? "" : "s"} ·{" "}
-                {warnings.length} warning{warnings.length === 1 ? "" : "s"}
-              </span>
-            </div>
-            <div className="plan-issues">
-              {isDailyView && (
-                <p className="plan-muted">
-                  Daily core is shared by both days. Capacity and shift checks
-                  run on Day 1 and Day 2.
-                </p>
-              )}
-              {viewIssues.length === 0 ? (
-                <p className="plan-muted">No issues found.</p>
-              ) : (
-                viewIssues.slice(0, 8).map((issue) => (
-                  <button
-                    key={`${issue.day ?? "plan"}-${issue.code}-${
-                      issue.route_id ?? "plan"
-                    }-${issue.stop_id ?? ""}`}
-                    type="button"
-                    className={`plan-issue plan-issue--${issue.severity}`}
-                    onClick={() => focusIssue(issue)}
-                  >
-                    <AlertTriangle size={12} />
-                    <span>{issue.message}</span>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        </aside>
-
-        <div
-          className={`plan-drawer-scrim ${inspectorOpen ? "is-open" : ""}`}
-          onClick={() => setInspectorOpen(false)}
-          aria-hidden="true"
+        <PlanInspector
+          inspectorOpen={inspectorOpen}
+          onCloseInspector={() => setInspectorOpen(false)}
+          mode={mode}
+          view={view}
+          isAllView={isAllView}
+          isDayView={isDayView}
+          isDailyView={isDailyView}
+          plan={plan}
+          depots={depots}
+          laundries={laundries}
+          vehicles={vehicles}
+          selectedRoute={selectedRoute ?? null}
+          selectedStop={selectedStop ?? null}
+          selectedStopIndex={selectedStopIndex}
+          selectedComputed={selectedComputed}
+          selectedComputedStop={selectedComputedStop}
+          selectedVehicle={selectedVehicle}
+          selectedLaundry={selectedLaundry ?? null}
+          selectedDay1={selectedDay1}
+          selectedDay2={selectedDay2}
+          otherRoutesOnVehicle={otherRoutesOnVehicle}
+          moveTargets={moveTargets}
+          computedById={computedById}
+          issuesByRoute={issuesByRoute}
+          viewIssues={viewIssues}
+          errors={errors}
+          warnings={warnings}
+          onSelectStopDays={handleSetStopDays}
+          onMoveWithinRoute={moveWithinRoute}
+          onMoveStopToRoute={handleMove}
+          onFocusStop={(lat, lon) => mapRef.current?.focusStop(lat, lon)}
+          onFocusRoute={(routeId) => mapRef.current?.focusRoute(routeId)}
+          onFocusIssue={focusIssue}
+          onAssignDepot={handleAssignDepot}
+          onAssignVehicle={handleAssignVehicle}
+          onSetLaundry={handleSetLaundry}
+          onOptimizeRoute={handleOptimizeRoute}
+          onDeleteRoute={handleDeleteRoute}
+          onOpenAddHotels={() => setAddHotelsOpen(true)}
+          onOpenVehicles={() => setVehiclesOpen(true)}
+          onOpenNewFacility={(role) => {
+            setFacilityRole(role);
+            setNewFacilityOpen(true);
+          }}
         />
       </main>
 
-      <footer className="plan-statusbar">
-        <div className="plan-statusbar__totals">
-          <span>
-            <b>{plan.routes.length}</b> routes
-          </span>
-          <span>
-            <b>{computation.totals.hotels}</b> stops
-          </span>
-          <span>
-            <b>{computation.totals.bags}</b> bags
-          </span>
-          <span>
-            <b>{computation.totals.rooms}</b> rooms
-          </span>
-          <span>
-            <b>{computation.totals.distance_km.toFixed(0)}</b> km
-          </span>
-          <span className="plan-statusbar__shift">
-            <Clock size={11} />
-            Shift {formatClock(plan.shift.start_min)}–
-            {formatClock(plan.shift.end_min)}
-          </span>
-          <span className="plan-statusbar__depots">
-            {depotTotals.map(({ depot, routeCount, bags, rooms }) => (
-              <span key={depot.id}>
-                <Warehouse size={10} />
-                <b>{depotLabel(depot)}</b>
-                {routeCount} route{routeCount === 1 ? "" : "s"} · {bags} bags ·{" "}
-                {rooms} rooms
-              </span>
-            ))}
-          </span>
-        </div>
-        <div className="plan-statusbar__right">
-          {updatingRoutes.size > 0 && (
-            <span className="plan-statusbar__sync">
-              <span className="plan-sync-dot" />
-              Refreshing road paths
-            </span>
-          )}
-          <span className="plan-statusbar__note">
-            OSRM · calibrated to the Google-traffic baseline
-          </span>
-          <span
-            className={`plan-statusbar__health ${healthTone}`}
-          >
-            {errors.length > 0 || warnings.length > 0 ? (
-              <AlertTriangle size={13} />
-            ) : (
-              <Check size={13} />
-            )}
-            {errors.length > 0
-              ? `${errors.length} error${errors.length === 1 ? "" : "s"} · ${warnings.length} warning${warnings.length === 1 ? "" : "s"}`
-              : warnings.length > 0
-                ? `${warnings.length} warning${warnings.length === 1 ? "" : "s"} to review`
-                : isDailyView
-                  ? "Daily core view"
-                  : isAllView
-                    ? "All day trips within capacity"
-                    : "All routes within capacity"}
-          </span>
-        </div>
-      </footer>
+      <PlanStatusBar
+        routeCount={plan.routes.length}
+        hotelCount={computation.totals.hotels}
+        bags={computation.totals.bags}
+        rooms={computation.totals.rooms}
+        distanceKm={computation.totals.distance_km}
+        shiftStartMin={plan.shift.start_min}
+        shiftEndMin={plan.shift.end_min}
+        depotTotals={depotTotals}
+        isSyncing={updatingRoutes.size > 0}
+        errorCount={errors.length}
+        warningCount={warnings.length}
+        healthTone={healthTone}
+        healthLabel={
+          errors.length > 0
+            ? `${errors.length} error${errors.length === 1 ? "" : "s"} · ${warnings.length} warning${warnings.length === 1 ? "" : "s"}`
+            : warnings.length > 0
+              ? `${warnings.length} warning${warnings.length === 1 ? "" : "s"} to review`
+              : isDailyView
+                ? "Daily core view"
+                : isAllView
+                  ? "All day trips within capacity"
+                  : "All routes within capacity"
+        }
+      />
 
-      {saveAsOpen && (
-        <div
-          className="modal-backdrop"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget && !saveAsBusy) {
-              setSaveAsOpen(false);
-            }
-          }}
-        >
-          <form
-            className="plan-dialog plan-save-as-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="plan-save-as-title"
-            onSubmit={submitSaveAs}
-          >
-            <button
-              type="button"
-              className="dialog-close"
-              onClick={() => setSaveAsOpen(false)}
-              disabled={saveAsBusy}
-              aria-label="Close save as dialog"
-            >
-              <X size={16} />
-            </button>
-
-            <span className="dialog-eyebrow">
-              <Plus size={12} />
-              Named plan
-            </span>
-            <h2 id="plan-save-as-title">Save this plan as</h2>
-            <p className="dialog-lede">
-              This creates a new plan in the database under this name. Other
-              users can load it from the plan dropdown.
-            </p>
-
-            <label className="plan-dialog__field">
-              <span>Plan name</span>
-              <input
-                type="text"
-                value={saveAsName}
-                maxLength={120}
-                placeholder="e.g. Monday morning plan"
-                onChange={(event) => setSaveAsName(event.target.value)}
-                autoFocus
-              />
-            </label>
-
-            {saveAsError && (
-              <div className="hotels-form-error">
-                <X size={13} />
-                {saveAsError}
-              </div>
-            )}
-
-            <div className="plan-dialog__actions">
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={() => setSaveAsOpen(false)}
-                disabled={saveAsBusy}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn btn--primary"
-                disabled={saveAsBusy || saveAsName.trim().length === 0}
-              >
-                {saveAsBusy ? "Saving…" : "Save named plan"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+      <PlanSaveAsDialog
+        open={saveAsOpen}
+        initialName={`${plan.name} copy`}
+        onClose={() => setSaveAsOpen(false)}
+        onSubmit={handleSaveAsSubmit}
+      />
 
       <PlanNewHotelDialog
         open={newHotelOpen}
@@ -3745,33 +2036,12 @@ export default function PlanCanvas({
       />
 
       {toast && (
-        <div
-          className={`plan-toast ${
-            toast.tone === "error" ? "plan-toast--error" : ""
-          }`}
-          role={toast.tone === "error" ? "alert" : "status"}
-        >
-          {toast.tone === "error" ? (
-            <AlertTriangle size={14} />
-          ) : (
-            <MoveRight size={14} />
-          )}
-          <span>{toast.message}</span>
-          {toast.tone === "info" && history.length > 0 && (
-            <button type="button" onClick={undo}>
-              <Undo2 size={12} />
-              Undo
-            </button>
-          )}
-          <button
-            type="button"
-            className="plan-toast__close"
-            onClick={() => setToast(null)}
-            aria-label="Dismiss"
-          >
-            <X size={13} />
-          </button>
-        </div>
+        <PlanToast
+          toast={toast}
+          canUndo={history.length > 0}
+          onUndo={undo}
+          onDismiss={() => setToast(null)}
+        />
       )}
     </div>
   );

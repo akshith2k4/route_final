@@ -21,6 +21,22 @@ import type {
   VehicleAdminItem,
   VehicleInput,
 } from "../lib/vehicles";
+import { Button, ButtonLink } from "./ui/button";
+import { DayBadge } from "./ui/badge";
+import { SummaryCard } from "./ui/summary-card";
+import { Notice } from "./ui/notice";
+import { cn } from "./ui/cn";
+import {
+  dialog,
+  dialogActions,
+  dialogBackdrop,
+  dialogClose,
+  dialogEyebrow,
+  dialogField,
+  dialogGrid,
+  dialogMedium,
+  formError as formErrorClass,
+} from "./ui/plan-styles";
 
 type VehicleRegion = {
   id: number;
@@ -344,10 +360,10 @@ export default function VehiclesDashboard({
   };
 
   return (
-    <div className="plan-app hotels-app">
-      <header className="topbar plan-topbar">
-        <Link className="brand" href="/" aria-label="Back to the coverage atlas">
-          <span className="brand-mark" aria-hidden="true">
+    <div className={`plan-app [display:flex] [flex-direction:column] [width:100%] [height:100svh] [min-height:0] [overflow:hidden] [background:var(--bone)] hotels-app`}>
+      <header className={`topbar [position:relative] [z-index:40] [display:grid] [flex:0_0_auto] [grid-template-columns:1fr_auto_1fr] [align-items:center] [gap:18px] [height:66px] [padding:0_22px] [border-bottom:1px_solid_var(--line)] [background:rgba(247,_243,_235,_0.94)] [backdrop-filter:blur(14px)] max-[900px]:[grid-template-columns:1fr_auto] max-[760px]:[position:sticky] max-[760px]:[top:0] max-[760px]:[grid-template-columns:1fr_auto] max-[760px]:[gap:10px] max-[760px]:[height:60px] max-[760px]:[padding:0_16px] max-[560px]:[height:58px] max-[560px]:[padding:0_12px] plan-topbar [grid-template-columns:auto_minmax(0,_1fr)_auto] [height:64px] [gap:20px]`}>
+        <Link className={`brand [display:inline-flex] [align-items:center] [justify-self:start] [gap:10px] [min-width:0] [border-radius:10px] [text-align:left] max-[560px]:[gap:8px]`} href="/" aria-label="Back to the coverage atlas">
+          <span className={`brand-mark [display:grid] [flex:0_0_auto] [width:35px] [height:35px] [place-items:center] [border-radius:10px] [background:var(--ink)] [color:var(--cream)] [box-shadow:inset_0_0_0_1px_rgba(255,_255,_255,_0.07)] [transition:background_160ms_ease,_transform_160ms_ease] [.brand:hover_&]:[background:#25382d] [.brand:hover_&]:[transform:translateY(-1px)] [&_svg]:[width:21px] [&_svg]:[height:21px] max-[560px]:[width:32px] max-[560px]:[height:32px]`} aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none">
               <path
                 d="M4.5 7.5c2.4-2 4.8-2 7.2 0s4.8 2 7.2 0"
@@ -369,74 +385,61 @@ export default function VehiclesDashboard({
               />
             </svg>
           </span>
-          <span className="brand-copy">
-            <span className="brand-name">LinenGrass</span>
-            <span className="brand-sub">Vehicle dashboard</span>
+          <span className={`brand-copy [display:flex] [flex-direction:column] [gap:1px] [line-height:1.1]`}>
+            <span className={`brand-name [font-size:15px] [font-weight:600] [letter-spacing:-0.025em] max-[560px]:[font-size:14px]`}>LinenGrass</span>
+            <span className={`brand-sub [color:var(--faint)] [font-size:8.5px] [font-weight:600] [letter-spacing:0.14em] [text-transform:uppercase] max-[760px]:[display:none]`}>Vehicle dashboard</span>
           </span>
         </Link>
 
-        <div className="plan-heading">
-          <span className="eyebrow">
-            <span className="eyebrow__dot" />
+        <div className={`plan-heading [display:flex] [flex-direction:column] [align-items:center] [justify-self:center] [gap:2px] [min-width:0] [text-align:center] [&_h1]:[font-family:var(--font-instrument-serif),_Georgia,_"Times_New_Roman",_serif] [&_h1]:[font-size:23px] [&_h1]:[font-weight:400] [&_h1]:[line-height:1] [&_h1]:[letter-spacing:-0.01em]`}>
+          <span className={`eyebrow [display:flex] [align-items:center] [gap:8px] [color:var(--muted)] [font-size:9px] [font-weight:700] [letter-spacing:0.145em] [text-transform:uppercase]`}>
+            <span className={`eyebrow__dot [width:5px] [height:5px] [border-radius:50%] [background:#3c7a55] [box-shadow:0_0_0_3px_rgba(60,_122,_85,_0.1)]`} />
             Operations · Fleet master
           </span>
-          <div className="plan-heading__row">
+          <div className={`plan-heading__row [display:flex] [align-items:center] [gap:11px]`}>
             <h1>Vehicles</h1>
           </div>
         </div>
 
-        <div className="plan-actions">
-          <Link href="/facilities" className="btn btn--ghost">
+        <div className={`plan-actions [display:flex] [align-items:center] [justify-self:end] [gap:9px] [min-width:0]`}>
+          <ButtonLink href="/facilities" variant="ghost">
             Facilities
-          </Link>
-          <Link href="/hotels" className="btn btn--ghost">
+          </ButtonLink>
+          <ButtonLink href="/hotels" variant="ghost">
             Hotels
-          </Link>
-          <Link href="/plan" className="btn btn--ghost">
+          </ButtonLink>
+          <ButtonLink href="/plan" variant="ghost">
             Plan canvas
-          </Link>
-          <button type="button" className="btn btn--primary" onClick={openCreate}>
+          </ButtonLink>
+          <Button variant="primary" onClick={openCreate}>
             <Plus size={14} />
             Add vehicle
-          </button>
+          </Button>
         </div>
       </header>
 
-      <main className="hotels-main">
-        <div className="hotels-summary">
-          <div className="hotels-summary__card">
-            <span>Total vehicles</span>
-            <b>{totals.total}</b>
-          </div>
-          <div className="hotels-summary__card hotels-summary__card--daily">
-            <span>Active</span>
-            <b>{totals.active}</b>
-          </div>
-          <div className="hotels-summary__card">
-            <span>Real capacity</span>
-            <b>{totals.real}</b>
-          </div>
-          <div className="hotels-summary__card hotels-summary__card--day1">
-            <span>Safe capacity</span>
-            <b>{totals.safe}</b>
-          </div>
-          <div className="hotels-summary__card hotels-summary__card--day2">
-            <span>Regions</span>
-            <b>
-              {
-                new Set(
-                  vehicles
-                    .map((vehicle) => vehicle.regionName)
-                    .filter(Boolean),
-                ).size
-              }
-            </b>
-          </div>
+      <main className={`hotels-main flex-1 min-h-0 overflow-auto pt-[22px] pr-[22px] pb-[22px] pl-[22px] bg-bone max-[760px]:pt-[12px] max-[760px]:pr-[12px] max-[760px]:pb-[12px] max-[760px]:pl-[12px]`}>
+        <div className={`hotels-summary grid grid-cols-[repeat(6,_minmax(0,_1fr))] gap-[10px] mb-[16px] max-[1180px]:grid-cols-[repeat(3,_minmax(0,_1fr))] max-[760px]:grid-cols-[repeat(2,_minmax(0,_1fr))]`}>
+          <SummaryCard label="Total vehicles" value={totals.total} />
+          <SummaryCard label="Active" value={totals.active} tone="daily" />
+          <SummaryCard label="Real capacity" value={totals.real} />
+          <SummaryCard label="Safe capacity" value={totals.safe} tone="day1" />
+          <SummaryCard
+            label="Regions"
+            tone="day2"
+            value={
+              new Set(
+                vehicles
+                  .map((vehicle) => vehicle.regionName)
+                  .filter(Boolean),
+              ).size
+            }
+          />
         </div>
 
-        <section className="hotels-panel" aria-label="Vehicle master list">
-          <div className="hotels-toolbar">
-            <label className="hotels-search">
+        <section className={`hotels-panel overflow-hidden [border:1px_solid_var(--line)] rounded-[12px] bg-paper`} aria-label="Vehicle master list">
+          <div className={`hotels-toolbar flex items-center gap-[8px] flex-wrap pt-[12px] pr-[12px] pb-[12px] pl-[12px] [border-bottom:1px_solid_var(--line)] max-[760px]:items-stretch`}>
+            <label className={`hotels-search flex flex-[1_1_260px] items-center gap-[6px] h-[32px] pt-0 pr-[9px] pb-0 pl-[9px] [border:1px_solid_var(--line)] rounded-[7px] bg-paper text-muted focus-within:border-line-strong focus-within:text-ink [&_input]:flex-1 [&_input]:min-w-0 [&_input]:[border:0] [&_input]:[outline:0] [&_input]:bg-transparent [&_input]:text-ink [&_input]:text-[10px] [&_input::placeholder]:text-faint max-[760px]:basis-full`}>
               <Search size={14} />
               <input
                 type="search"
@@ -448,7 +451,7 @@ export default function VehiclesDashboard({
             </label>
 
             <select
-              className="hotels-filter"
+              className={`hotels-filter h-[32px] max-w-[230px] pt-0 pr-[8px] pb-0 pl-[8px] [border:1px_solid_var(--line)] rounded-[7px] [outline:none] bg-paper text-ink-soft text-[9.5px] focus:border-line-strong max-[760px]:flex-1 max-[760px]:max-w-[none]`}
               value={statusFilter}
               onChange={(event) =>
                 setStatusFilter(event.target.value as StatusFilter)
@@ -461,7 +464,7 @@ export default function VehiclesDashboard({
             </select>
 
             <select
-              className="hotels-filter"
+              className={`hotels-filter h-[32px] max-w-[230px] pt-0 pr-[8px] pb-0 pl-[8px] [border:1px_solid_var(--line)] rounded-[7px] [outline:none] bg-paper text-ink-soft text-[9.5px] focus:border-line-strong max-[760px]:flex-1 max-[760px]:max-w-[none]`}
               value={regionFilter}
               onChange={(event) => setRegionFilter(event.target.value)}
               aria-label="Filter by region"
@@ -474,30 +477,30 @@ export default function VehiclesDashboard({
               ))}
             </select>
 
-            <span className="hotels-count">
+            <span className={`hotels-count text-[12px] font-semibold text-ink-soft ml-auto text-faint text-[9px] font-semibold tabular-nums whitespace-nowrap max-[760px]:w-full max-[760px]:ml-0`}>
               {filteredVehicles.length} of {vehicles.length}
             </span>
           </div>
 
           {notice && (
-            <div className={`hotels-notice hotels-notice--${notice.tone}`}>
+            <Notice kind={notice.tone}>
               {notice.tone === "success" ? (
                 <Check size={13} />
               ) : (
                 <X size={13} />
               )}
               <span>{notice.message}</span>
-            </div>
+            </Notice>
           )}
 
-          <div className="hotels-table-wrap">
-            <table className="hotels-table">
+          <div className={`hotels-table-wrap w-full overflow-auto`}>
+            <table className={`hotels-table w-full min-w-[1060px] border-collapse [&_th]:sticky [&_th]:top-0 [&_th]:z-[1] [&_th]:pt-[9px] [&_th]:pr-[12px] [&_th]:pb-[9px] [&_th]:pl-[12px] [&_th]:[border-bottom:1px_solid_var(--line)] [&_th]:bg-paper-strong [&_th]:text-faint [&_th]:text-[7.5px] [&_th]:font-extrabold [&_th]:tracking-[0.09em] [&_th]:text-left [&_th]:uppercase [&_th]:whitespace-nowrap [&_td]:pt-[10px] [&_td]:pr-[12px] [&_td]:pb-[10px] [&_td]:pl-[12px] [&_td]:[border-bottom:1px_solid_var(--line)] [&_td]:text-ink-soft [&_td]:text-[9.5px] [&_td]:align-middle [&_tbody_tr:last-child_td]:[border-bottom:0] [&_tbody_tr:hover]:bg-bone`}>
               <thead>
                 <tr>
                   <th>Vehicle</th>
                   <th>Region / sector</th>
-                  <th className="is-number">Real cap</th>
-                  <th className="is-number">Safe cap</th>
+                  <th className={`is-number [.hotels-table_&]:text-right [.hotels-table_&]:tabular-nums`}>Real cap</th>
+                  <th className={`is-number [.hotels-table_&]:text-right [.hotels-table_&]:tabular-nums`}>Safe cap</th>
                   <th>Depot</th>
                   <th>Shift</th>
                   <th>Status</th>
@@ -508,7 +511,7 @@ export default function VehiclesDashboard({
                 {filteredVehicles.map((vehicle) => (
                   <tr key={vehicle.id}>
                     <td>
-                      <div className="hotels-name">
+                      <div className={`hotels-name flex items-center gap-[7px] min-w-[180px] [&>svg]:flex-none [&>svg]:text-muted [&>span]:flex [&>span]:flex-col [&>span]:gap-[1px] [&>span]:min-w-0 [&_b]:overflow-hidden [&_b]:text-ink [&_b]:text-[10px] [&_b]:font-[650] [&_b]:tracking-[-0.005em] [&_b]:text-ellipsis [&_b]:whitespace-nowrap [&_small]:overflow-hidden [&_small]:text-faint [&_small]:font-mono [&_small]:text-[7.5px] [&_small]:text-ellipsis [&_small]:whitespace-nowrap`}>
                         <Truck size={14} />
                         <span>
                           <b>{vehicle.name}</b>
@@ -517,45 +520,39 @@ export default function VehiclesDashboard({
                       </div>
                     </td>
                     <td>
-                      <span className="hotels-region">
+                      <span className={`hotels-region block max-w-[190px] overflow-hidden text-ink-soft text-ellipsis whitespace-nowrap`}>
                         {vehicle.regionName ?? "Unassigned"}
                         {vehicle.sector ? ` · ${vehicle.sector}` : ""}
                       </span>
                     </td>
-                    <td className="is-number">{vehicle.realCapacity}</td>
-                    <td className="is-number">{vehicle.safeCapacity}</td>
+                    <td className={`is-number [.hotels-table_&]:text-right [.hotels-table_&]:tabular-nums`}>{vehicle.realCapacity}</td>
+                    <td className={`is-number [.hotels-table_&]:text-right [.hotels-table_&]:tabular-nums`}>{vehicle.safeCapacity}</td>
                     <td>
-                      <span className="hotels-region">
+                      <span className={`hotels-region block max-w-[190px] overflow-hidden text-ink-soft text-ellipsis whitespace-nowrap`}>
                         {allDepots.find((depot) => depot.id === vehicle.depotId)
                           ?.name ?? vehicle.depotId}
                       </span>
                     </td>
                     <td>
-                      <span className="hotels-coords">
+                      <span className={`hotels-coords inline-flex items-center gap-[4px] text-faint text-[8px] tabular-nums whitespace-nowrap`}>
                         {vehicle.departureTime}–{vehicle.returnTime}
                       </span>
                     </td>
                     <td>
-                      <span
-                        className={`hotels-day ${
-                          vehicle.isActive
-                            ? "hotels-day--daily"
-                            : "hotels-day--day2"
-                        }`}
-                      >
+                      <DayBadge variant={vehicle.isActive ? "daily" : "day2"}>
                         {vehicle.isActive ? "Active" : "Inactive"}
-                      </span>
+                      </DayBadge>
                     </td>
                     <td>
-                      <div className="hotels-row-actions">
+                      <div className={`hotels-row-actions flex justify-end gap-[3px]`}>
                         <span
-                          className="vehicles-color"
+                          className={`vehicles-color w-[10px] h-[10px] flex-none self-center rounded-[50%] [box-shadow:0_0_0_2px_var(--paper),_0_0_0_3px_var(--line)]`}
                           style={{ background: vehicle.color }}
                           title={vehicle.color}
                         />
                         <button
                           type="button"
-                          className="hotels-icon-btn"
+                          className={`hotels-icon-btn grid w-[26px] h-[26px] place-items-center [border:1px_solid_transparent] rounded-[6px] text-muted [transition:background_120ms_ease,_border-color_120ms_ease,_color_120ms_ease] [&:hover:not(:disabled)]:border-line [&:hover:not(:disabled)]:bg-bone [&:hover:not(:disabled)]:text-ink disabled:opacity-35`}
                           onClick={() => openEdit(vehicle)}
                           title={`Edit ${vehicle.name}`}
                           aria-label={`Edit ${vehicle.name}`}
@@ -564,7 +561,7 @@ export default function VehiclesDashboard({
                         </button>
                         <button
                           type="button"
-                          className="hotels-icon-btn hotels-icon-btn--danger"
+                          className={`hotels-icon-btn grid w-[26px] h-[26px] place-items-center [border:1px_solid_transparent] rounded-[6px] text-muted [transition:background_120ms_ease,_border-color_120ms_ease,_color_120ms_ease] [&:hover:not(:disabled)]:border-line [&:hover:not(:disabled)]:bg-bone [&:hover:not(:disabled)]:text-ink disabled:opacity-35 hotels-icon-btn--danger [&:hover:not(:disabled)]:border-[#f2d2cc] [&:hover:not(:disabled)]:bg-[#fbeae6] [&:hover:not(:disabled)]:text-danger`}
                           onClick={() => void removeVehicle(vehicle)}
                           disabled={deletingId === vehicle.id}
                           title={`Delete ${vehicle.name}`}
@@ -581,7 +578,7 @@ export default function VehiclesDashboard({
           </div>
 
           {filteredVehicles.length === 0 && (
-            <div className="hotels-empty">
+            <div className={`hotels-empty flex flex-col items-center gap-[7px] pt-[42px] pr-[20px] pb-[42px] pl-[20px] text-faint text-center [&_p]:text-muted [&_p]:text-[11px] [&_button]:mt-[3px] [&_button]:text-green [&_button]:text-[9.5px] [&_button]:font-bold [&_button]:underline [&_button]:underline-offset-2 flex flex-col items-center gap-[4px] pt-[48px] pr-[16px] pb-[48px] pl-[16px] text-faint text-center [&_b]:text-ink-soft [&_b]:text-[11px] [&_span]:text-[9px]`}>
               <Search size={18} />
               <b>No vehicles match this filter</b>
               <span>Try a different search, region or status.</span>
@@ -592,13 +589,13 @@ export default function VehiclesDashboard({
 
       {editorOpen && (
         <div
-          className="modal-backdrop"
+          className={dialogBackdrop}
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) closeEditor();
           }}
         >
           <form
-            className="plan-dialog hotels-dialog"
+            className={cn(dialog, dialogMedium)}
             role="dialog"
             aria-modal="true"
             aria-labelledby="vehicle-dialog-title"
@@ -606,14 +603,14 @@ export default function VehiclesDashboard({
           >
             <button
               type="button"
-              className="dialog-close"
+              className={dialogClose}
               onClick={closeEditor}
               aria-label="Close vehicle dialog"
             >
               <X size={16} />
             </button>
 
-            <span className="dialog-eyebrow">
+            <span className={dialogEyebrow}>
               <Truck size={12} />
               {editingId ? "Edit vehicle" : "New vehicle"}
             </span>
@@ -625,7 +622,7 @@ export default function VehiclesDashboard({
               optimizer studio.
             </p>
 
-            <label className="plan-dialog__field">
+            <label className={dialogField}>
               <span>Vehicle name</span>
               <input
                 type="text"
@@ -642,8 +639,8 @@ export default function VehiclesDashboard({
               />
             </label>
 
-            <div className="plan-dialog__grid">
-              <label className="plan-dialog__field">
+            <div className={dialogGrid}>
+              <label className={dialogField}>
                 <span>Region</span>
                 <select
                   value={form.regionId}
@@ -663,7 +660,7 @@ export default function VehiclesDashboard({
                 </select>
               </label>
 
-              <label className="plan-dialog__field">
+              <label className={dialogField}>
                 <span>Sector</span>
                 <input
                   type="text"
@@ -679,7 +676,7 @@ export default function VehiclesDashboard({
                 />
               </label>
 
-              <label className="plan-dialog__field">
+              <label className={dialogField}>
                 <span>Real capacity (bags)</span>
                 <input
                   type="number"
@@ -696,7 +693,7 @@ export default function VehiclesDashboard({
                 />
               </label>
 
-              <label className="plan-dialog__field">
+              <label className={dialogField}>
                 <span>Color</span>
                 <input
                   type="color"
@@ -710,7 +707,7 @@ export default function VehiclesDashboard({
                 />
               </label>
 
-              <label className="plan-dialog__field">
+              <label className={dialogField}>
                 <span>Depot</span>
                 <select
                   value={form.depotId}
@@ -737,7 +734,7 @@ export default function VehiclesDashboard({
                 </select>
               </label>
 
-              <label className="plan-dialog__field">
+              <label className={dialogField}>
                 <span>Departure</span>
                 <input
                   type="time"
@@ -751,7 +748,7 @@ export default function VehiclesDashboard({
                 />
               </label>
 
-              <label className="plan-dialog__field">
+              <label className={dialogField}>
                 <span>Return</span>
                 <input
                   type="time"
@@ -765,7 +762,7 @@ export default function VehiclesDashboard({
                 />
               </label>
 
-              <label className="hotels-check">
+              <label className={`hotels-check flex items-center gap-[6px] self-end h-[33px] text-ink-soft text-[10px] font-semibold [&_input]:w-[14px] [&_input]:h-[14px] [&_input]:accent-ink`}>
                 <input
                   type="checkbox"
                   checked={form.isActive}
@@ -781,32 +778,23 @@ export default function VehiclesDashboard({
             </div>
 
             {formError && (
-              <div className="hotels-form-error">
+              <div className={formErrorClass}>
                 <X size={13} />
                 {formError}
               </div>
             )}
 
-            <div className="plan-dialog__actions">
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={closeEditor}
-                disabled={saving}
-              >
+            <div className={dialogActions}>
+              <Button variant="ghost" onClick={closeEditor} disabled={saving}>
                 Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn btn--primary"
-                disabled={saving}
-              >
+              </Button>
+              <Button type="submit" variant="primary" disabled={saving}>
                 {saving
                   ? "Saving…"
                   : editingId
                     ? "Save changes"
                     : "Add vehicle"}
-              </button>
+              </Button>
             </div>
           </form>
         </div>

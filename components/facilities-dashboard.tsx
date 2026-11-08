@@ -16,10 +16,31 @@ import {
   Power,
   Search,
   Trash2,
-  Warehouse,
   X,
 } from "lucide-react";
 import type { FacilityAdminItem, FacilityInput } from "../lib/facilities";
+import { Button, ButtonLink } from "./ui/button";
+import { DayBadge } from "./ui/badge";
+import { SummaryCard } from "./ui/summary-card";
+import { Field } from "./ui/field";
+import { Notice } from "./ui/notice";
+import { cn } from "./ui/cn";
+import {
+  addressRow,
+  addressRowButton,
+  dialog,
+  dialogActions,
+  dialogBackdrop,
+  dialogClose,
+  dialogFull,
+  dialogGrid,
+  dialogMedium,
+  eyebrow,
+  eyebrowDot,
+  field,
+  fieldLabel,
+  formError as formErrorClass,
+} from "./ui/plan-styles";
 
 type FacilitiesDashboardProps = {
   initialFacilities: FacilityAdminItem[];
@@ -462,10 +483,10 @@ export default function FacilitiesDashboard({
   };
 
   return (
-    <div className="plan-app hotels-app">
-      <header className="topbar plan-topbar">
-        <Link className="brand" href="/" aria-label="Back to the coverage atlas">
-          <span className="brand-mark" aria-hidden="true">
+    <div className={`plan-app [display:flex] [flex-direction:column] [width:100%] [height:100svh] [min-height:0] [overflow:hidden] [background:var(--bone)] hotels-app`}>
+      <header className={`topbar [position:relative] [z-index:40] [display:grid] [flex:0_0_auto] [grid-template-columns:1fr_auto_1fr] [align-items:center] [gap:18px] [height:66px] [padding:0_22px] [border-bottom:1px_solid_var(--line)] [background:rgba(247,_243,_235,_0.94)] [backdrop-filter:blur(14px)] max-[900px]:[grid-template-columns:1fr_auto] max-[760px]:[position:sticky] max-[760px]:[top:0] max-[760px]:[grid-template-columns:1fr_auto] max-[760px]:[gap:10px] max-[760px]:[height:60px] max-[760px]:[padding:0_16px] max-[560px]:[height:58px] max-[560px]:[padding:0_12px] plan-topbar [grid-template-columns:auto_minmax(0,_1fr)_auto] [height:64px] [gap:20px]`}>
+        <Link className={`brand [display:inline-flex] [align-items:center] [justify-self:start] [gap:10px] [min-width:0] [border-radius:10px] [text-align:left] max-[560px]:[gap:8px]`} href="/" aria-label="Back to the coverage atlas">
+          <span className={`brand-mark [display:grid] [flex:0_0_auto] [width:35px] [height:35px] [place-items:center] [border-radius:10px] [background:var(--ink)] [color:var(--cream)] [box-shadow:inset_0_0_0_1px_rgba(255,_255,_255,_0.07)] [transition:background_160ms_ease,_transform_160ms_ease] [.brand:hover_&]:[background:#25382d] [.brand:hover_&]:[transform:translateY(-1px)] [&_svg]:[width:21px] [&_svg]:[height:21px] max-[560px]:[width:32px] max-[560px]:[height:32px]`} aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none">
               <path
                 d="M4.5 7.5c2.4-2 4.8-2 7.2 0s4.8 2 7.2 0"
@@ -487,70 +508,51 @@ export default function FacilitiesDashboard({
               />
             </svg>
           </span>
-          <span className="brand-copy">
-            <span className="brand-name">LinenGrass</span>
-            <span className="brand-sub">Facility master</span>
+          <span className={`brand-copy [display:flex] [flex-direction:column] [gap:1px] [line-height:1.1]`}>
+            <span className={`brand-name [font-size:15px] [font-weight:600] [letter-spacing:-0.025em] max-[560px]:[font-size:14px]`}>LinenGrass</span>
+            <span className={`brand-sub [color:var(--faint)] [font-size:8.5px] [font-weight:600] [letter-spacing:0.14em] [text-transform:uppercase] max-[760px]:[display:none]`}>Facility master</span>
           </span>
         </Link>
 
-        <div className="plan-heading">
-          <span className="eyebrow">
-            <span className="eyebrow__dot" />
+        <div className={`plan-heading [display:flex] [flex-direction:column] [align-items:center] [justify-self:center] [gap:2px] [min-width:0] [text-align:center] [&_h1]:[font-family:var(--font-instrument-serif),_Georgia,_"Times_New_Roman",_serif] [&_h1]:[font-size:23px] [&_h1]:[font-weight:400] [&_h1]:[line-height:1] [&_h1]:[letter-spacing:-0.01em]`}>
+          <span className={`eyebrow [display:flex] [align-items:center] [gap:8px] [color:var(--muted)] [font-size:9px] [font-weight:700] [letter-spacing:0.145em] [text-transform:uppercase]`}>
+            <span className={`eyebrow__dot [width:5px] [height:5px] [border-radius:50%] [background:#3c7a55] [box-shadow:0_0_0_3px_rgba(60,_122,_85,_0.1)]`} />
             Operations · Logistics master
           </span>
-          <div className="plan-heading__row">
+          <div className={`plan-heading__row [display:flex] [align-items:center] [gap:11px]`}>
             <h1>Facilities</h1>
           </div>
         </div>
 
-        <div className="plan-actions">
-          <Link href="/hotels" className="btn btn--ghost">
+        <div className={`plan-actions [display:flex] [align-items:center] [justify-self:end] [gap:9px] [min-width:0]`}>
+          <ButtonLink href="/hotels" variant="ghost">
             Hotels
-          </Link>
-          <Link href="/vehicles" className="btn btn--ghost">
+          </ButtonLink>
+          <ButtonLink href="/vehicles" variant="ghost">
             Vehicles
-          </Link>
-          <Link href="/plan" className="btn btn--ghost">
+          </ButtonLink>
+          <ButtonLink href="/plan" variant="ghost">
             Plan canvas
-          </Link>
-          <button
-            type="button"
-            className="btn btn--primary"
-            onClick={openCreate}
-          >
+          </ButtonLink>
+          <Button variant="primary" onClick={openCreate}>
             <Plus size={14} />
             Add facility
-          </button>
+          </Button>
         </div>
       </header>
 
-      <main className="hotels-main">
-        <div className="hotels-summary">
-          <div className="hotels-summary__card">
-            <span>Total facilities</span>
-            <b>{totals.total}</b>
-          </div>
-          <div className="hotels-summary__card hotels-summary__card--daily">
-            <span>Active</span>
-            <b>{totals.active}</b>
-          </div>
-          <div className="hotels-summary__card hotels-summary__card--day1">
-            <span>Warehouses</span>
-            <b>{totals.warehouses}</b>
-          </div>
-          <div className="hotels-summary__card hotels-summary__card--day2">
-            <span>Laundries</span>
-            <b>{totals.laundries}</b>
-          </div>
-          <div className="hotels-summary__card">
-            <span>Dual Role (Both)</span>
-            <b>{totals.both}</b>
-          </div>
+      <main className={`hotels-main flex-1 min-h-0 overflow-auto pt-[22px] pr-[22px] pb-[22px] pl-[22px] bg-bone max-[760px]:pt-[12px] max-[760px]:pr-[12px] max-[760px]:pb-[12px] max-[760px]:pl-[12px]`}>
+        <div className={`hotels-summary grid grid-cols-[repeat(6,_minmax(0,_1fr))] gap-[10px] mb-[16px] max-[1180px]:grid-cols-[repeat(3,_minmax(0,_1fr))] max-[760px]:grid-cols-[repeat(2,_minmax(0,_1fr))]`}>
+          <SummaryCard label="Total facilities" value={totals.total} />
+          <SummaryCard label="Active" value={totals.active} tone="daily" />
+          <SummaryCard label="Warehouses" value={totals.warehouses} tone="day1" />
+          <SummaryCard label="Laundries" value={totals.laundries} tone="day2" />
+          <SummaryCard label="Dual Role (Both)" value={totals.both} />
         </div>
 
-        <section className="hotels-panel" aria-label="Facility master list">
-          <div className="hotels-toolbar">
-            <label className="hotels-search">
+        <section className={`hotels-panel overflow-hidden [border:1px_solid_var(--line)] rounded-[12px] bg-paper`} aria-label="Facility master list">
+          <div className={`hotels-toolbar flex items-center gap-[8px] flex-wrap pt-[12px] pr-[12px] pb-[12px] pl-[12px] [border-bottom:1px_solid_var(--line)] max-[760px]:items-stretch`}>
+            <label className={`hotels-search flex flex-[1_1_260px] items-center gap-[6px] h-[32px] pt-0 pr-[9px] pb-0 pl-[9px] [border:1px_solid_var(--line)] rounded-[7px] bg-paper text-muted focus-within:border-line-strong focus-within:text-ink [&_input]:flex-1 [&_input]:min-w-0 [&_input]:[border:0] [&_input]:[outline:0] [&_input]:bg-transparent [&_input]:text-ink [&_input]:text-[10px] [&_input::placeholder]:text-faint max-[760px]:basis-full`}>
               <Search size={14} />
               <input
                 type="search"
@@ -562,7 +564,7 @@ export default function FacilitiesDashboard({
             </label>
 
             <select
-              className="hotels-filter"
+              className={`hotels-filter h-[32px] max-w-[230px] pt-0 pr-[8px] pb-0 pl-[8px] [border:1px_solid_var(--line)] rounded-[7px] [outline:none] bg-paper text-ink-soft text-[9.5px] focus:border-line-strong max-[760px]:flex-1 max-[760px]:max-w-[none]`}
               value={roleFilter}
               onChange={(event) =>
                 setRoleFilter(event.target.value as RoleFilter)
@@ -576,7 +578,7 @@ export default function FacilitiesDashboard({
             </select>
 
             <select
-              className="hotels-filter"
+              className={`hotels-filter h-[32px] max-w-[230px] pt-0 pr-[8px] pb-0 pl-[8px] [border:1px_solid_var(--line)] rounded-[7px] [outline:none] bg-paper text-ink-soft text-[9.5px] focus:border-line-strong max-[760px]:flex-1 max-[760px]:max-w-[none]`}
               value={statusFilter}
               onChange={(event) =>
                 setStatusFilter(event.target.value as StatusFilter)
@@ -588,13 +590,13 @@ export default function FacilitiesDashboard({
               <option value="inactive">Inactive</option>
             </select>
 
-            <span className="hotels-count">
+            <span className={`hotels-count text-[12px] font-semibold text-ink-soft ml-auto text-faint text-[9px] font-semibold tabular-nums whitespace-nowrap max-[760px]:w-full max-[760px]:ml-0`}>
               {filtered.length} of {facilities.length} facilities
             </span>
           </div>
 
-          <div className="hotels-table-wrap">
-            <table className="hotels-table facilities-table">
+          <div className={`hotels-table-wrap w-full overflow-auto`}>
+            <table className={`hotels-table w-full min-w-[1060px] border-collapse [&_th]:sticky [&_th]:top-0 [&_th]:z-[1] [&_th]:pt-[9px] [&_th]:pr-[12px] [&_th]:pb-[9px] [&_th]:pl-[12px] [&_th]:[border-bottom:1px_solid_var(--line)] [&_th]:bg-paper-strong [&_th]:text-faint [&_th]:text-[7.5px] [&_th]:font-extrabold [&_th]:tracking-[0.09em] [&_th]:text-left [&_th]:uppercase [&_th]:whitespace-nowrap [&_td]:pt-[10px] [&_td]:pr-[12px] [&_td]:pb-[10px] [&_td]:pl-[12px] [&_td]:[border-bottom:1px_solid_var(--line)] [&_td]:text-ink-soft [&_td]:text-[9.5px] [&_td]:align-middle [&_tbody_tr:last-child_td]:[border-bottom:0] [&_tbody_tr:hover]:bg-bone facilities-table min-w-[900px]`}>
               <thead>
                 <tr>
                   <th>Facility</th>
@@ -617,20 +619,20 @@ export default function FacilitiesDashboard({
                         ? "Warehouse"
                         : "Laundry";
 
-                  const roleBadgeClass =
+                  const roleVariant =
                     item.isWarehouse && item.isLaundry
-                      ? "hotels-day hotels-day--daily"
+                      ? "daily"
                       : item.isWarehouse
-                        ? "hotels-day hotels-day--day1"
-                        : "hotels-day hotels-day--day2";
+                        ? "day1"
+                        : "day2";
 
                   return (
                     <tr
                       key={item.id}
-                      className={item.isActive ? "" : "is-inactive"}
+                      className={item.isActive ? "" : `is-inactive [.hotels-table_tbody_&]:opacity-55`}
                     >
                       <td>
-                        <div className="hotels-name">
+                        <div className={`hotels-name flex items-center gap-[7px] min-w-[180px] [&>svg]:flex-none [&>svg]:text-muted [&>span]:flex [&>span]:flex-col [&>span]:gap-[1px] [&>span]:min-w-0 [&_b]:overflow-hidden [&_b]:text-ink [&_b]:text-[10px] [&_b]:font-[650] [&_b]:tracking-[-0.005em] [&_b]:text-ellipsis [&_b]:whitespace-nowrap [&_small]:overflow-hidden [&_small]:text-faint [&_small]:font-mono [&_small]:text-[7.5px] [&_small]:text-ellipsis [&_small]:whitespace-nowrap`}>
                           <span>
                             <b>{item.name}</b>
                             <small>{item.id}</small>
@@ -638,7 +640,7 @@ export default function FacilitiesDashboard({
                         </div>
                       </td>
                       <td>
-                        <span className={roleBadgeClass}>{roleLabel}</span>
+                        <DayBadge variant={roleVariant}>{roleLabel}</DayBadge>
                       </td>
                       <td>
                         <span
@@ -655,7 +657,7 @@ export default function FacilitiesDashboard({
                           {item.shortName}
                         </span>
                       </td>
-                      <td className="hotels-address">
+                      <td className={`hotels-address block max-w-[210px] overflow-hidden text-muted text-ellipsis whitespace-nowrap`}>
                         {item.address || "—"}
                       </td>
                       <td>
@@ -663,7 +665,7 @@ export default function FacilitiesDashboard({
                           ? `${item.serviceMins} min`
                           : "—"}
                       </td>
-                      <td className="hotels-coords">
+                      <td className={`hotels-coords inline-flex items-center gap-[4px] text-faint text-[8px] tabular-nums whitespace-nowrap`}>
                         {item.latitude.toFixed(5)}, {item.longitude.toFixed(5)}
                       </td>
                       <td>
@@ -688,21 +690,15 @@ export default function FacilitiesDashboard({
                         </span>
                       </td>
                       <td>
-                        <span
-                          className={`hotels-day ${
-                            item.isActive
-                              ? "hotels-day--daily"
-                              : "hotels-day--day2"
-                          }`}
-                        >
+                        <DayBadge variant={item.isActive ? "daily" : "day2"}>
                           {item.isActive ? "Active" : "Inactive"}
-                        </span>
+                        </DayBadge>
                       </td>
                       <td>
-                        <div className="hotels-row-actions">
+                        <div className={`hotels-row-actions flex justify-end gap-[3px]`}>
                           <button
                             type="button"
-                            className="hotels-icon-btn"
+                            className={`hotels-icon-btn grid w-[26px] h-[26px] place-items-center [border:1px_solid_transparent] rounded-[6px] text-muted [transition:background_120ms_ease,_border-color_120ms_ease,_color_120ms_ease] [&:hover:not(:disabled)]:border-line [&:hover:not(:disabled)]:bg-bone [&:hover:not(:disabled)]:text-ink disabled:opacity-35`}
                             title="Edit facility"
                             onClick={() => openEdit(item)}
                             aria-label={`Edit ${item.name}`}
@@ -711,7 +707,7 @@ export default function FacilitiesDashboard({
                           </button>
                           <button
                             type="button"
-                            className="hotels-icon-btn"
+                            className={`hotels-icon-btn grid w-[26px] h-[26px] place-items-center [border:1px_solid_transparent] rounded-[6px] text-muted [transition:background_120ms_ease,_border-color_120ms_ease,_color_120ms_ease] [&:hover:not(:disabled)]:border-line [&:hover:not(:disabled)]:bg-bone [&:hover:not(:disabled)]:text-ink disabled:opacity-35`}
                             title={
                               item.isActive
                                 ? "Deactivate facility"
@@ -732,7 +728,7 @@ export default function FacilitiesDashboard({
                           </button>
                           <button
                             type="button"
-                            className="hotels-icon-btn hotels-icon-btn--danger"
+                            className={`hotels-icon-btn grid w-[26px] h-[26px] place-items-center [border:1px_solid_transparent] rounded-[6px] text-muted [transition:background_120ms_ease,_border-color_120ms_ease,_color_120ms_ease] [&:hover:not(:disabled)]:border-line [&:hover:not(:disabled)]:bg-bone [&:hover:not(:disabled)]:text-ink disabled:opacity-35 hotels-icon-btn--danger [&:hover:not(:disabled)]:border-[#f2d2cc] [&:hover:not(:disabled)]:bg-[#fbeae6] [&:hover:not(:disabled)]:text-danger`}
                             title={
                               item.usedByPlans.length > 0
                                 ? "Cannot delete while in use by a plan or vehicle. Deactivate instead."
@@ -768,12 +764,12 @@ export default function FacilitiesDashboard({
 
       {editorOpen && (
         <div
-          className="modal-backdrop"
+          className={dialogBackdrop}
           onClick={closeEditor}
           role="presentation"
         >
           <div
-            className="plan-dialog hotels-dialog"
+            className={cn(dialog, dialogMedium)}
             onClick={(event) => event.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -786,12 +782,11 @@ export default function FacilitiesDashboard({
             }}
           >
             <header
-              className="plan-dialog__head"
               style={{ padding: "24px 24px 0", flexShrink: 0 }}
             >
               <div>
-                <span className="eyebrow">
-                  <span className="eyebrow__dot" />
+                <span className={eyebrow}>
+                  <span className={eyebrowDot} />
                   {editingId ? "Edit facility" : "New facility"}
                 </span>
                 <h2 id="facility-dialog-title">
@@ -800,7 +795,7 @@ export default function FacilitiesDashboard({
               </div>
               <button
                 type="button"
-                className="dialog-close"
+                className={dialogClose}
                 onClick={closeEditor}
                 disabled={saving}
                 aria-label="Close dialog"
@@ -821,16 +816,13 @@ export default function FacilitiesDashboard({
                 }}
               >
               {formError && (
-                <div className="hotels-form-error" role="alert">
+                <div className={formErrorClass} role="alert">
                   {formError}
                 </div>
               )}
 
-              <div className="plan-dialog__grid">
-                <label className="plan-field plan-dialog__full">
-                  <span className="plan-field__label">
-                    Facility Name <b>*</b>
-                  </span>
+              <div className={dialogGrid}>
+                <Field label="Facility Name" required full>
                   <input
                     type="text"
                     required
@@ -844,12 +836,9 @@ export default function FacilitiesDashboard({
                       }))
                     }
                   />
-                </label>
+                </Field>
 
-                <label className="plan-field">
-                  <span className="plan-field__label">
-                    Short Name / Badge <b>*</b>
-                  </span>
+                <Field label="Short Name / Badge" required>
                   <input
                     type="text"
                     maxLength={16}
@@ -862,10 +851,10 @@ export default function FacilitiesDashboard({
                       }))
                     }
                   />
-                </label>
+                </Field>
 
-                <div className="plan-field">
-                  <span className="plan-field__label">
+                <div className={field}>
+                  <span className={fieldLabel}>
                     Roles <b>*</b>
                   </span>
                   <div
@@ -920,9 +909,9 @@ export default function FacilitiesDashboard({
                   </div>
                 </div>
 
-                <label className="plan-field plan-dialog__full">
-                  <span className="plan-field__label">Full Address</span>
-                  <div className="plan-address-row">
+                <label className={cn(field, dialogFull)}>
+                  <span className={fieldLabel}>Full Address</span>
+                  <div className={addressRow}>
                     <input
                       type="text"
                       maxLength={300}
@@ -937,7 +926,7 @@ export default function FacilitiesDashboard({
                     />
                     <button
                       type="button"
-                      className="btn btn--ghost plan-address-row__button"
+                      className={addressRowButton}
                       onClick={lookupCoordinates}
                       disabled={geocoding || !form.address.trim()}
                     >
@@ -949,15 +938,15 @@ export default function FacilitiesDashboard({
 
                 {geocodeError && (
                   <div
-                    className="hotels-form-error plan-dialog__full"
+                    className={cn(formErrorClass, dialogFull)}
                     role="alert"
                   >
                     {geocodeError}
                   </div>
                 )}
 
-                <label className="plan-field">
-                  <span className="plan-field__label">
+                <label className={field}>
+                  <span className={fieldLabel}>
                     Latitude <b>*</b>
                   </span>
                   <input
@@ -974,8 +963,8 @@ export default function FacilitiesDashboard({
                   />
                 </label>
 
-                <label className="plan-field">
-                  <span className="plan-field__label">
+                <label className={field}>
+                  <span className={fieldLabel}>
                     Longitude <b>*</b>
                   </span>
                   <input
@@ -993,8 +982,8 @@ export default function FacilitiesDashboard({
                 </label>
 
                 {form.isLaundry && (
-                  <label className="plan-field">
-                    <span className="plan-field__label">
+                  <label className={field}>
+                    <span className={fieldLabel}>
                       Service Time (minutes on site)
                     </span>
                     <input
@@ -1012,8 +1001,8 @@ export default function FacilitiesDashboard({
                   </label>
                 )}
 
-                <div className="plan-field">
-                  <span className="plan-field__label">Status</span>
+                <div className={field}>
+                  <span className={fieldLabel}>Status</span>
                   <label
                     style={{
                       display: "flex",
@@ -1040,28 +1029,19 @@ export default function FacilitiesDashboard({
               </div>{/* end scrollable wrapper */}
 
               <footer
-                className="plan-dialog__actions"
+                className={dialogActions}
                 style={{ padding: "16px 24px", flexShrink: 0 }}
               >
-                <button
-                  type="button"
-                  className="btn btn--ghost"
-                  onClick={closeEditor}
-                  disabled={saving}
-                >
+                <Button variant="ghost" onClick={closeEditor} disabled={saving}>
                   Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn--primary"
-                  disabled={saving}
-                >
+                </Button>
+                <Button type="submit" variant="primary" disabled={saving}>
                   {saving
                     ? "Saving..."
                     : editingId
                       ? "Save changes"
                       : "Create facility"}
-                </button>
+                </Button>
               </footer>
             </form>
           </div>
@@ -1069,13 +1049,10 @@ export default function FacilitiesDashboard({
       )}
 
       {notice && (
-        <div
-          className={`hotels-notice hotels-notice--${notice.kind}`}
-          role="status"
-        >
+        <Notice kind={notice.kind}>
           {notice.kind === "success" ? <Check size={14} /> : <X size={14} />}
           <span>{notice.message}</span>
-        </div>
+        </Notice>
       )}
     </div>
   );

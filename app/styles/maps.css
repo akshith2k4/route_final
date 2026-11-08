@@ -1,0 +1,765 @@
+@reference "../globals.css";
+
+/* =========================================================================
+   FLEET DISPATCH VIEW — Turn-by-Turn Manifests, Shift Timelines & Capacity
+   ========================================================================= */
+
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.75);
+  }
+}
+
+/* Region Filter Bar */
+
+/* All Vehicles List View */
+
+/* Vehicle Card */
+
+/* Mini Capacity Progress */
+
+/* Single Vehicle Detail View */
+
+/* Capacity Gauge in Hero */
+
+/* Trip Metrics 4-Grid */
+
+/* Driver Shift Timeline (Run-Sheet) */
+
+/* Map Elements: Depot Pin, Stop Pins & Polylines */
+.dispatch-depot-marker {
+  @apply relative;
+  @apply flex;
+  @apply items-center;
+  @apply justify-center;
+}
+
+.depot-pin {
+  @apply relative;
+  @apply w-[32px];
+  @apply h-[32px];
+  @apply rounded-[8px];
+  @apply bg-[#18241e];
+  @apply [border:2px_solid_#fbbf24];
+  @apply [box-shadow:0_4px_14px_rgba(24,_36,_30,_0.35)];
+  @apply flex;
+  @apply items-center;
+  @apply justify-center;
+}
+
+.depot-pin__badge {
+  @apply text-[12px];
+  @apply font-extrabold;
+  @apply text-[#fbbf24];
+  @apply tracking-[0.05em];
+  @apply font-sans;
+}
+
+.depot-pin__pulse {
+  @apply absolute;
+  @apply -inset-[6px];
+  @apply rounded-[12px];
+  @apply [border:2px_solid_#fbbf24];
+  @apply opacity-70;
+  @apply [animation:depot-ring_2s_ease-out_infinite];
+  @apply pointer-events-none;
+}
+
+@keyframes depot-ring {
+  0% { transform: scale(0.9); opacity: 0.9; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+.dispatch-stop-pin-container {
+  @apply flex;
+  @apply items-center;
+  @apply justify-center;
+}
+
+.dispatch-stop-pin {
+  @apply w-[24px];
+  @apply h-[24px];
+  @apply rounded-[50%];
+  @apply bg-[var(--c,_#18241e)];
+  @apply text-[#ffffff];
+  @apply [border:2px_solid_#ffffff];
+  @apply [box-shadow:0_2px_8px_rgba(0,_0,_0,_0.3)];
+  @apply flex;
+  @apply items-center;
+  @apply justify-center;
+  @apply text-[10px];
+  @apply font-extrabold;
+  @apply font-sans;
+  @apply [transition:transform_0.15s_ease];
+}
+
+.dispatch-stop-pin:hover {
+  @apply [transform:scale(1.2)];
+  @apply z-[999];
+}
+
+.dispatch-stop-pin.is-active {
+  @apply [transform:scale(1.3)];
+  @apply [box-shadow:0_0_0_3px_#18241e,_0_4px_16px_rgba(0,_0,_0,_0.4)];
+}
+
+/* Dispatch Tooltips */
+.leaflet-tooltip.stop-leaflet-tooltip,
+.leaflet-tooltip.depot-leaflet-tooltip {
+  @apply pt-[8px] pr-[10px] pb-[8px] pl-[10px];
+  @apply rounded-[8px];
+  @apply bg-paper-strong;
+  @apply [border:1px_solid_var(--line-strong)];
+  @apply [box-shadow:0_8px_24px_rgba(24,_36,_30,_0.16)];
+  @apply text-ink;
+  @apply font-sans;
+}
+
+.dispatch-stop-leaflet-tooltip {
+  @apply flex;
+  @apply flex-col;
+  @apply gap-[3px];
+  @apply min-w-[140px];
+}
+
+.tooltip-stop-badge {
+  @apply inline-block;
+  @apply self-start;
+  @apply text-[9px];
+  @apply font-extrabold;
+  @apply text-[#ffffff];
+  @apply pt-[1px] pr-[6px] pb-[1px] pl-[6px];
+  @apply rounded-[3px];
+  @apply tracking-[0.05em];
+  @apply uppercase;
+}
+
+.tooltip-stop-title {
+  @apply text-[12px];
+  @apply font-bold;
+  @apply text-ink;
+  @apply mt-[1px];
+}
+
+.tooltip-stop-meta {
+  @apply text-[10px];
+  @apply text-muted;
+}
+
+.tooltip-stop-load {
+  @apply text-[10px];
+  @apply font-semibold;
+  @apply text-[#0e7490];
+}
+
+.depot-leaflet-tooltip b {
+  @apply block;
+  @apply text-[12px];
+  @apply text-ink;
+}
+
+.depot-leaflet-tooltip span {
+  @apply block;
+  @apply text-[10px];
+  @apply text-muted;
+  @apply mt-[2px];
+}
+
+/* Dispatch Legend */
+
+/* Polyline styling */
+.dispatch-route-polyline {
+  @apply [filter:drop-shadow(0_2px_4px_rgba(0,_0,_0,_0.15))];
+  @apply cursor-pointer;
+  @apply [transition:stroke-width_0.15s_ease,_opacity_0.15s_ease];
+}
+
+.dispatch-route-polyline.is-selected {
+  @apply [filter:drop-shadow(0_3px_8px_rgba(0,_0,_0,_0.35))];
+}
+
+/* Studio depot pin variations (Leaflet-injected DOM) */
+.depot-pin--hq .depot-pin__badge {
+  @apply bg-[#18241e];
+  @apply border-[#fbbf24];
+}
+
+.depot-pin--second {
+  @apply bg-[#0f2e3a];
+  @apply border-[#38bdf8];
+}
+
+.depot-pin--second .depot-pin__pulse {
+  @apply border-[#38bdf8];
+}
+
+.depot-pin--second .depot-pin__badge {
+  @apply text-[#7dd3fc];
+  @apply text-[9px];
+}
+
+.depot-pin--laundry {
+  @apply bg-[#2e1065];
+  @apply border-[#c084fc];
+  @apply [box-shadow:0_4px_14px_rgba(46,_16,_101,_0.35)];
+}
+
+.depot-pin--laundry .depot-pin__badge {
+  @apply text-[#e9d5ff];
+  @apply text-[8px];
+  @apply tracking-[0];
+}
+
+.depot-pin--dual {
+  @apply bg-[linear-gradient(135deg,_#18241e_0_48%,_#2e1065_52%_100%)];
+  @apply border-[#f5f3ff];
+  @apply [box-shadow:0_4px_14px_rgba(24,_36,_30,_0.38),_0_0_0_2px_rgba(192,_132,_252,_0.35)];
+}
+
+.depot-pin--dual .depot-pin__badge {
+  @apply text-[#fff];
+  @apply text-[9px];
+  @apply tracking-[0];
+  @apply [text-shadow:0_1px_2px_rgba(0,_0,_0,_0.45)];
+}
+
+.depot-pin--dual::before,
+.depot-pin--dual::after {
+  @apply absolute;
+  @apply flex;
+  @apply w-[14px];
+  @apply h-[14px];
+  @apply items-center;
+  @apply justify-center;
+  @apply [border:1px_solid_#fff];
+  @apply rounded-[4px];
+  @apply font-sans;
+  @apply text-[8px];
+  @apply font-extrabold;
+  @apply leading-none;
+  @apply [box-shadow:0_1px_4px_rgba(12,_20,_16,_0.35)];
+}
+
+.depot-pin--dual::before {
+  @apply -top-[7px];
+  @apply -left-[7px];
+  @apply bg-[#fbbf24];
+  @apply text-[#18241e];
+  @apply [content:"W"];
+}
+
+.depot-pin--dual::after {
+  @apply -right-[7px];
+  @apply -bottom-[7px];
+  @apply bg-[#c084fc];
+  @apply text-[#2e1065];
+  @apply [content:"L"];
+}
+
+.depot-pin--dual .depot-pin__pulse {
+  @apply border-[#f5f3ff];
+}
+
+.depot-pin--hub .depot-pin__badge {
+  @apply bg-[#0f766e];
+  @apply border-[#5eead4];
+}
+
+/* Plan map tooltips & keyframes (Leaflet-injected DOM) */
+@keyframes plan-sync-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes plan-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.leaflet-tooltip.plan-route-tooltip {
+  @apply pt-[6px] pr-[9px] pb-[6px] pl-[9px];
+  @apply [border:1px_solid_var(--line-strong)];
+  @apply rounded-[7px];
+  @apply bg-paper-strong;
+  @apply [box-shadow:0_8px_24px_rgba(24,_36,_30,_0.14)];
+  @apply text-ink;
+  @apply font-sans;
+  @apply text-[10px];
+}
+
+.plan-route-tooltip b {
+  @apply text-[10.5px];
+}
+
+.plan-route-tooltip span {
+  @apply block;
+  @apply text-muted;
+  @apply text-[9px];
+}
+
+/* Coverage map injected-DOM styles */
+.leaflet-container {
+  background: var(--map-bg);
+  color: var(--ink);
+  font-family: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  outline: none;
+}
+
+.leaflet-tile-pane {
+  filter: grayscale(0.35) brightness(1.03) contrast(0.96);
+  opacity: 0.85;
+}
+
+.leaflet-control-attribution {
+  padding: 2px 6px !important;
+  border-radius: 4px 0 0 0;
+  background: rgba(249, 246, 238, 0.82) !important;
+  color: var(--faint) !important;
+  font-size: 8.5px !important;
+  backdrop-filter: blur(4px);
+}
+
+.leaflet-control-attribution a {
+  color: #5f6d63 !important;
+}
+
+.leaflet-interactive {
+  outline: none;
+}
+
+.hex-poly {
+  cursor: pointer;
+}
+
+.region-outline {
+  pointer-events: none;
+}
+
+.region-label-marker,
+.region-label {
+  display: none !important;
+}
+
+.region-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid rgba(24, 36, 30, 0.14);
+  border-radius: 999px;
+  background: rgba(251, 248, 241, 0.94);
+  box-shadow: 0 2px 8px rgba(24, 36, 30, 0.12);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  backdrop-filter: blur(7px);
+  transform: translate(-50%, -50%);
+  transition: background 150ms ease, color 150ms ease,
+    border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.region-label:hover,
+.region-label.is-hovered {
+  border-color: rgba(24, 36, 30, 0.26);
+  box-shadow: 0 3px 12px rgba(24, 36, 30, 0.18);
+}
+
+.region-label.is-active {
+  border-color: var(--ink);
+  background: var(--ink);
+  box-shadow: 0 4px 14px rgba(24, 36, 30, 0.26);
+  color: var(--cream);
+}
+
+.region-label__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 16%, transparent);
+}
+
+.region-label.is-active .region-label__dot {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.16);
+}
+
+.region-label__code {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.region-label.is-active .region-label__code {
+  color: rgba(251, 247, 236, 0.5);
+}
+
+.region-label__name {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.leaflet-tooltip.coverage-tooltip {
+  display: none !important;
+}
+
+.leaflet-tooltip.coverage-tooltip::before,
+.leaflet-tooltip.hotel-hover-tooltip::before {
+  display: none;
+}
+
+.coverage-tooltip__code {
+  color: #aebbb2;
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.coverage-tooltip__name {
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.coverage-tooltip__route {
+  margin-top: 3px;
+  color: #aeb9b1;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.coverage-tooltip__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: #dbe2dc;
+  font-size: 8.5px;
+}
+
+.leaflet-tooltip.hotel-hover-tooltip {
+  padding: 5px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--paper-strong);
+  box-shadow: 0 4px 14px rgba(24, 36, 30, 0.14);
+  color: var(--ink);
+  font-size: 10px;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.hotel-hover-tooltip__name {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.hotel-hover-tooltip__meta {
+  display: block;
+  margin-top: 1px;
+  color: var(--faint);
+  font-size: 8px;
+  letter-spacing: 0.01em;
+}
+
+.pin-marker {
+  border: 0;
+  background: transparent;
+}
+
+.pin-marker__pulse,
+.pin-marker__core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 50%;
+}
+
+.pin-marker__pulse {
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  background: color-mix(in srgb, var(--pin-color) 24%, transparent);
+  animation: pin-pulse 2.2s ease-out infinite;
+}
+
+.pin-marker__core {
+  width: 11px;
+  height: 11px;
+  margin: -5.5px 0 0 -5.5px;
+  border: 2px solid var(--paper-strong);
+  background: var(--pin-color);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.28);
+}
+
+@media (max-width: 560px) {
+
+  .region-label {
+    gap: 5px;
+    padding: 4px 7px;
+  }
+
+  .region-label__name {
+    display: none;
+  }
+}
+
+.dispatch-depot-marker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.depot-pin {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #18241e;
+  border: 2px solid #fbbf24;
+  box-shadow: 0 4px 14px rgba(24, 36, 30, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.depot-pin__badge {
+  font-size: 12px;
+  font-weight: 800;
+  color: #fbbf24;
+  letter-spacing: 0.05em;
+  font-family: var(--font-dm-sans), sans-serif;
+}
+
+.depot-pin__pulse {
+  position: absolute;
+  inset: -6px;
+  border-radius: 12px;
+  border: 2px solid #fbbf24;
+  opacity: 0.7;
+  animation: depot-ring 2s ease-out infinite;
+  pointer-events: none;
+}
+
+.dispatch-stop-pin-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dispatch-stop-pin {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--c, #18241e);
+  color: #ffffff;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  font-family: var(--font-dm-sans), sans-serif;
+  transition: transform 0.15s ease;
+}
+
+.dispatch-stop-pin:hover {
+  transform: scale(1.2);
+  z-index: 999;
+}
+
+.dispatch-stop-pin.is-active {
+  transform: scale(1.3);
+  box-shadow: 0 0 0 3px #18241e, 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.leaflet-tooltip.stop-leaflet-tooltip,
+.leaflet-tooltip.depot-leaflet-tooltip {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--paper-strong);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 8px 24px rgba(24, 36, 30, 0.16);
+  color: var(--ink);
+  font-family: var(--font-dm-sans), sans-serif;
+}
+
+.dispatch-stop-leaflet-tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 140px;
+}
+
+.tooltip-stop-badge {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 9px;
+  font-weight: 800;
+  color: #ffffff;
+  padding: 1px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.tooltip-stop-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-top: 1px;
+}
+
+.tooltip-stop-meta {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.tooltip-stop-load {
+  font-size: 10px;
+  font-weight: 600;
+  color: #0e7490;
+}
+
+.depot-leaflet-tooltip b {
+  display: block;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.depot-leaflet-tooltip span {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.dispatch-route-polyline {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+  cursor: pointer;
+  transition: stroke-width 0.15s ease, opacity 0.15s ease;
+}
+
+.dispatch-route-polyline.is-selected {
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.35));
+}
+
+.depot-pin--hq .depot-pin__badge {
+  background: #18241e;
+  border-color: #fbbf24;
+}
+
+.depot-pin--second {
+  background: #0f2e3a;
+  border-color: #38bdf8;
+}
+
+.depot-pin--second .depot-pin__pulse {
+  border-color: #38bdf8;
+}
+
+.depot-pin--second .depot-pin__badge {
+  color: #7dd3fc;
+  font-size: 9px;
+}
+
+.depot-pin--laundry {
+  background: #2e1065;
+  border-color: #c084fc;
+  box-shadow: 0 4px 14px rgba(46, 16, 101, 0.35);
+}
+
+.depot-pin--laundry .depot-pin__badge {
+  color: #e9d5ff;
+  font-size: 8px;
+  letter-spacing: 0;
+}
+
+.depot-pin--dual {
+  background: linear-gradient(135deg, #18241e 0 48%, #2e1065 52% 100%);
+  border-color: #f5f3ff;
+  box-shadow:
+    0 4px 14px rgba(24, 36, 30, 0.38),
+    0 0 0 2px rgba(192, 132, 252, 0.35);
+}
+
+.depot-pin--dual .depot-pin__badge {
+  color: #fff;
+  font-size: 9px;
+  letter-spacing: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.depot-pin--dual::before,
+.depot-pin--dual::after {
+  position: absolute;
+  display: flex;
+  width: 14px;
+  height: 14px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #fff;
+  border-radius: 4px;
+  font-family: var(--font-dm-sans), sans-serif;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(12, 20, 16, 0.35);
+}
+
+.depot-pin--dual::before {
+  top: -7px;
+  left: -7px;
+  background: #fbbf24;
+  color: #18241e;
+  content: "W";
+}
+
+.depot-pin--dual::after {
+  right: -7px;
+  bottom: -7px;
+  background: #c084fc;
+  color: #2e1065;
+  content: "L";
+}
+
+.depot-pin--dual .depot-pin__pulse {
+  border-color: #f5f3ff;
+}
+
+.depot-pin--hub .depot-pin__badge {
+  background: #0f766e;
+  border-color: #5eead4;
+}

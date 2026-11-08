@@ -11,6 +11,7 @@ import { cellToBoundary, cellsToMultiPolygon } from "h3-js";
 import type * as Leaflet from "leaflet";
 import type { HexMap, RegionMeta } from "../lib/coverage";
 import { escapeHtml } from "../lib/coverage";
+import { mapCanvas, mapStatus, mapStatusCard } from "./ui/plan-styles";
 import {
   depotLabel,
   getPlanDepots,
@@ -566,19 +567,19 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
     );
 
     return (
-      <div className="plan-map">
-        <div ref={containerRef} className="plan-map__canvas" />
+      <div className="absolute z-0 inset-0">
+        <div ref={containerRef} className={mapCanvas} />
         {status === "loading" && (
-          <div className="plan-map__status">
-            <div className="plan-map__status-card">
+          <div className={mapStatus}>
+            <div className={mapStatusCard}>
               <b>Loading canvas</b>
               <span>Preparing the route surface…</span>
             </div>
           </div>
         )}
         {status === "error" && (
-          <div className="plan-map__status">
-            <div className="plan-map__status-card">
+          <div className={mapStatus}>
+            <div className={mapStatusCard}>
               <b>Map unavailable</b>
               <span>Leaflet could not initialise. Reload the page.</span>
             </div>

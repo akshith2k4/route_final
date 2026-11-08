@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { DM_Sans, Instrument_Serif } from "next/font/google";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
+import "./styles/maps.css";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],

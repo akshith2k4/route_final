@@ -775,31 +775,31 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
     const isReady = status === "ready";
 
     return (
-      <div className="map-shell">
+      <div className={`map-shell [position:absolute] [inset:0] [overflow:hidden] [background:var(--map-bg)] [isolation:isolate]`}>
         <div
           ref={containerRef}
-          className="coverage-map"
+          className={`coverage-map [position:absolute] [inset:0] [z-index:0] [background:var(--map-bg)]`}
           role="application"
           aria-label="Map of LinenGrass hotel coverage across five Bengaluru regions"
         />
 
         {status === "loading" && (
-          <div className="map-skeleton" aria-hidden="true">
-            <div className="map-skeleton__card">
-              <span className="spinner" />
+          <div className={`map-skeleton [position:absolute] [inset:0] [z-index:20] [display:grid] [place-items:center] [background-color:#ece6d9] [background-image:radial-gradient(_rgba(24,_36,_30,_0.13)_0.8px,_transparent_0.8px_)] [background-size:20px_20px]`} aria-hidden="true">
+            <div className={`map-skeleton__card [display:flex] [align-items:center] [gap:10px] [padding:12px_15px] [border:1px_solid_var(--line)] [border-radius:10px] [background:var(--paper)] [box-shadow:0_8px_28px_rgba(24,_36,_30,_0.1)] [color:var(--muted)] [font-size:10.5px] [font-weight:500]`}>
+              <span className={`spinner [width:13px] [height:13px] [border:2px_solid_var(--line-strong)] [border-top-color:var(--green)] [border-radius:50%] [animation:spin_0.8s_linear_infinite]`} />
               Plotting the coverage footprint
             </div>
           </div>
         )}
 
         {status === "error" && (
-          <div className="map-error" role="alert">
-            <div className="map-error__card">
+          <div className={`map-error [position:absolute] [inset:0] [z-index:21] [display:grid] [place-items:center] [padding:20px] [background:rgba(236,_230,_217,_0.88)] [backdrop-filter:blur(4px)]`} role="alert">
+            <div className={`map-error__card [display:flex] [flex-direction:column] [align-items:flex-start] [gap:5px] [max-width:300px] [padding:18px] [border:1px_solid_var(--line)] [border-radius:12px] [background:var(--paper-strong)] [box-shadow:0_12px_40px_rgba(24,_36,_30,_0.14)] [&_strong]:[font-size:13px] [&_span]:[color:var(--muted)] [&_span]:[font-size:10.5px]`}>
               <strong>The map could not load.</strong>
               <span>Refresh the page to try again.</span>
               <button
                 type="button"
-                className="btn btn--primary"
+                className={`btn [.plan-actions_>_&]:[height:33px] [.plan-actions_>_&]:[padding:0_11px] [.plan-actions_>_&]:[font-size:10px] [.map-error__card_&]:[margin-top:8px] [display:inline-flex] [align-items:center] [justify-content:center] [gap:7px] [height:37px] [padding:0_14px] [border:1px_solid_transparent] [border-radius:9px] [font-size:10.5px] [font-weight:600] [letter-spacing:-0.005em] [transition:background_150ms_ease,_border-color_150ms_ease] max-[560px]:[.dialog-actions_&]:[flex:1] [.plan-actions_>_&]:[height:33px] [.plan-actions_>_&]:[padding:0_11px] [.plan-actions_>_&]:[font-size:10px] btn--primary [background:var(--ink)] [color:var(--cream)] hover:[background:#273a2f]`}
                 onClick={() => window.location.reload()}
               >
                 Reload map
@@ -808,25 +808,25 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
           </div>
         )}
 
-        <div className="map-context">
+        <div className={`map-context [position:absolute] [top:16px] [left:16px] [z-index:6] [display:flex] [align-items:center] [gap:7px] [max-width:calc(100%_-_124px)] [height:32px] [padding:0_6px_0_10px] [border:1px_solid_var(--line-strong)] [border-radius:8px] [background:rgba(251,_248,_241,_0.92)] [box-shadow:0_2px_10px_rgba(24,_36,_30,_0.08)] [font-size:10px] [font-weight:600] [backdrop-filter:blur(9px)] max-[760px]:[top:12px] max-[760px]:[left:12px] max-[760px]:[max-width:calc(100%_-_64px)] max-[560px]:[gap:6px] max-[560px]:[height:30px] max-[560px]:[padding-left:9px] max-[560px]:[font-size:9.5px]`}>
           {workspace === "dispatch" ? (
             activeRouteOnMap ? (
               <>
                 <span
-                  className="map-context__dot"
+                  className={`map-context__dot [flex:0_0_auto] [width:6px] [height:6px] [border-radius:50%] [background:var(--c)] [box-shadow:0_0_0_2px_color-mix(in_srgb,_var(--c)_15%,_transparent)]`}
                   style={{ backgroundColor: activeRouteOnMap.color }}
                 />
-                <span className="map-context__code">
+                <span className={`map-context__code [color:var(--faint)] [font-family:var(--font-mono)] [font-size:8px] [font-weight:600]`}>
                   {activeRouteOnMap.vehicle_label.split(" (")[0]}
                 </span>
-                <span className="map-context__name">
+                <span className={`map-context__name [overflow:hidden] [color:var(--ink)] [text-overflow:ellipsis] [white-space:nowrap]`}>
                   {activeRouteOnMap.vehicle_label.includes(" - ")
                     ? activeRouteOnMap.vehicle_label.split(" - ")[1].replace(")", "")
                     : activeRouteOnMap.region_name}
                 </span>
                 <button
                   type="button"
-                  className="map-context__clear"
+                  className={`map-context__clear [display:grid] [flex:0_0_auto] [width:21px] [height:21px] [place-items:center] [border-radius:5px] [color:var(--muted)] hover:[background:var(--bone)] hover:[color:var(--ink)]`}
                   onClick={() => onSelectRoute?.(null)}
                   aria-label="Clear route selection"
                   title="Show all vehicles"
@@ -836,24 +836,24 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
               </>
             ) : (
               <>
-                <span className="map-context__dot map-context__dot--dispatch" />
-                <span className="map-context__name">Fleet dispatch · 10 vehicles</span>
-                <span className="map-context__count">102 stops · 608 km</span>
+                <span className={`map-context__dot [flex:0_0_auto] [width:6px] [height:6px] [border-radius:50%] [background:var(--c)] [box-shadow:0_0_0_2px_color-mix(in_srgb,_var(--c)_15%,_transparent)] map-context__dot--dispatch [background:#0891b2] [box-shadow:0_0_0_3px_rgba(8,_145,_178,_0.25)]`} />
+                <span className={`map-context__name [overflow:hidden] [color:var(--ink)] [text-overflow:ellipsis] [white-space:nowrap]`}>Fleet dispatch · 10 vehicles</span>
+                <span className={`map-context__count [padding-left:7px] [border-left:1px_solid_var(--line)] [color:var(--faint)] [font-size:8px] [letter-spacing:0.03em] [white-space:nowrap] max-[560px]:[display:none]`}>102 stops · 608 km</span>
               </>
             )
           ) : selectedMeta ? (
             <>
               <span
-                className="map-context__dot"
+                className={`map-context__dot [flex:0_0_auto] [width:6px] [height:6px] [border-radius:50%] [background:var(--c)] [box-shadow:0_0_0_2px_color-mix(in_srgb,_var(--c)_15%,_transparent)]`}
                 style={regionStyle(selectedMeta.color)}
               />
-              <span className="map-context__code">{selectedMeta.code}</span>
-              <span className="map-context__name">
+              <span className={`map-context__code [color:var(--faint)] [font-family:var(--font-mono)] [font-size:8px] [font-weight:600]`}>{selectedMeta.code}</span>
+              <span className={`map-context__name [overflow:hidden] [color:var(--ink)] [text-overflow:ellipsis] [white-space:nowrap]`}>
                 {REGION_MAP_LABELS[selectedMeta.id] ?? selectedMeta.short_name}
               </span>
               <button
                 type="button"
-                className="map-context__clear"
+                className={`map-context__clear [display:grid] [flex:0_0_auto] [width:21px] [height:21px] [place-items:center] [border-radius:5px] [color:var(--muted)] hover:[background:var(--bone)] hover:[color:var(--ink)]`}
                 onClick={() => onSelectRegion(null, true)}
                 aria-label="Clear region selection"
                 title="Show all regions"
@@ -863,17 +863,17 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
             </>
           ) : (
             <>
-              <span className="map-context__dot map-context__dot--all" />
-              <span className="map-context__name">All five regions</span>
-              <span className="map-context__count">{hotels.length} hotels</span>
+              <span className={`map-context__dot [flex:0_0_auto] [width:6px] [height:6px] [border-radius:50%] [background:var(--c)] [box-shadow:0_0_0_2px_color-mix(in_srgb,_var(--c)_15%,_transparent)] map-context__dot--all [background:#3c7a55] [box-shadow:0_0_0_2px_rgba(60,_122,_85,_0.13)]`} />
+              <span className={`map-context__name [overflow:hidden] [color:var(--ink)] [text-overflow:ellipsis] [white-space:nowrap]`}>All five regions</span>
+              <span className={`map-context__count [padding-left:7px] [border-left:1px_solid_var(--line)] [color:var(--faint)] [font-size:8px] [letter-spacing:0.03em] [white-space:nowrap] max-[560px]:[display:none]`}>{hotels.length} hotels</span>
             </>
           )}
         </div>
 
-        <div className="map-toolbar" role="group" aria-label="Map controls">
+        <div className={`map-toolbar [position:absolute] [top:16px] [right:16px] [z-index:6] [display:flex] [flex-direction:column] [gap:1px] [padding:3px] [border:1px_solid_var(--line-strong)] [border-radius:10px] [background:rgba(251,_248,_241,_0.94)] [box-shadow:0_6px_20px_rgba(24,_36,_30,_0.12)] [backdrop-filter:blur(9px)] max-[760px]:[top:12px] max-[760px]:[right:12px]`} role="group" aria-label="Map controls">
           <button
             type="button"
-            className="map-tool"
+            className={`map-tool [display:grid] [width:31px] [height:31px] [place-items:center] [border-radius:7px] [color:var(--ink-soft)] [transition:background_140ms_ease,_color_140ms_ease] hover:[background:var(--bone)] hover:[color:var(--ink)] [background:var(--bone)] [color:var(--ink)] disabled:[opacity:0.32] max-[560px]:[width:30px] max-[560px]:[height:30px]`}
             onClick={() => mapRef.current?.zoomIn(0.5)}
             aria-label="Zoom in"
             title="Zoom in"
@@ -883,7 +883,7 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
           </button>
           <button
             type="button"
-            className="map-tool"
+            className={`map-tool [display:grid] [width:31px] [height:31px] [place-items:center] [border-radius:7px] [color:var(--ink-soft)] [transition:background_140ms_ease,_color_140ms_ease] hover:[background:var(--bone)] hover:[color:var(--ink)] [background:var(--bone)] [color:var(--ink)] disabled:[opacity:0.32] max-[560px]:[width:30px] max-[560px]:[height:30px]`}
             onClick={() => mapRef.current?.zoomOut(0.5)}
             aria-label="Zoom out"
             title="Zoom out"
@@ -891,10 +891,10 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
           >
             <Minus size={15} />
           </button>
-          <span className="map-toolbar__sep" />
+          <span className={`map-toolbar__sep [height:1px] [margin:3px_5px] [background:var(--line)]`} />
           <button
             type="button"
-            className="map-tool"
+            className={`map-tool [display:grid] [width:31px] [height:31px] [place-items:center] [border-radius:7px] [color:var(--ink-soft)] [transition:background_140ms_ease,_color_140ms_ease] hover:[background:var(--bone)] hover:[color:var(--ink)] [background:var(--bone)] [color:var(--ink)] disabled:[opacity:0.32] max-[560px]:[width:30px] max-[560px]:[height:30px]`}
             onClick={onResetView}
             aria-label="Fit all regions"
             title="Fit all regions"
@@ -902,10 +902,10 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
           >
             <Frame size={15} />
           </button>
-          <span className="map-toolbar__sep" />
+          <span className={`map-toolbar__sep [height:1px] [margin:3px_5px] [background:var(--line)]`} />
           <button
             type="button"
-            className="map-tool"
+            className={`map-tool [display:grid] [width:31px] [height:31px] [place-items:center] [border-radius:7px] [color:var(--ink-soft)] [transition:background_140ms_ease,_color_140ms_ease] hover:[background:var(--bone)] hover:[color:var(--ink)] [background:var(--bone)] [color:var(--ink)] disabled:[opacity:0.32] max-[560px]:[width:30px] max-[560px]:[height:30px]`}
             onClick={onToggleHotels}
             aria-label={hotelsVisible ? "Hide hotel pins" : "Show hotel pins"}
             aria-pressed={hotelsVisible}
@@ -917,16 +917,16 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
         </div>
 
         {workspace === "coverage" ? (
-          <div className="map-legend" aria-label="Region legend">
-            <div className="map-legend__head">
+          <div className={`map-legend [position:absolute] [bottom:16px] [left:16px] [z-index:6] [width:202px] [padding:10px_11px_9px] [border:1px_solid_var(--line-strong)] [border-radius:11px] [background:rgba(251,_248,_241,_0.94)] [box-shadow:0_8px_26px_rgba(24,_36,_30,_0.13)] [backdrop-filter:blur(10px)] max-[760px]:[display:none]`} aria-label="Region legend">
+            <div className={`map-legend__head [display:flex] [align-items:center] [justify-content:space-between] [gap:8px] [margin-bottom:6px] [color:var(--muted)] [font-size:7.5px] [font-weight:700] [letter-spacing:0.1em] [text-transform:uppercase]`}>
               <span>Coverage footprint</span>
-              <span className="map-legend__res">H3 · R7</span>
+              <span className={`map-legend__res [padding:1px_4px] [border:1px_solid_var(--line)] [border-radius:3px] [color:var(--faint)] [font-family:var(--font-mono)] [font-size:7px] [font-weight:500] [letter-spacing:0.01em] [text-transform:none]`}>H3 · R7</span>
             </div>
             {regions.map((region) => (
               <button
                 type="button"
                 key={region.id}
-                className="map-legend__row"
+                className={`map-legend__row [display:grid] [grid-template-columns:9px_25px_minmax(0,_1fr)_auto] [gap:6px] [align-items:center] [width:100%] [padding:4px_3px] [border-radius:5px] [text-align:left] [transition:background_130ms_ease] hover:[background:var(--bone)]`}
                 data-proposed={region.route_status === "Proposed"}
                 style={regionStyle(region.color)}
                 onClick={() => onSelectRegion(region.id, true)}
@@ -934,24 +934,24 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
                 onMouseLeave={() => onHoverRegion(null)}
                 aria-label={`${region.code} ${region.short_name}, ${region.route_status}`}
               >
-                <span className="map-legend__dot" />
-                <span className="map-legend__code">{region.code}</span>
-                <span className="map-legend__name">
+                <span className={`map-legend__dot [width:7px] [height:7px] [border-radius:2px] [background:var(--c)] [box-shadow:inset_0_0_0_1px_rgba(0,_0,_0,_0.09)] [.map-legend__row[data-proposed="true"]_&]:[border:1.5px_solid_var(--c)] [.map-legend__row[data-proposed="true"]_&]:[background:transparent]`} />
+                <span className={`map-legend__code [color:var(--faint)] [font-family:var(--font-mono)] [font-size:8px] [font-weight:600]`}>{region.code}</span>
+                <span className={`map-legend__name [overflow:hidden] [color:var(--ink-soft)] [font-size:9px] [font-weight:600] [text-overflow:ellipsis] [white-space:nowrap]`}>
                   {REGION_MAP_LABELS[region.id] ?? region.short_name}
                 </span>
-                <span className="map-legend__count">
+                <span className={`map-legend__count [color:var(--faint)] [font-family:var(--font-mono)] [font-size:8px] [font-variant-numeric:tabular-nums]`}>
                   {hotels.filter((hotel) => hotel.region === region.id).length}
                 </span>
               </button>
             ))}
-            <div className="map-legend__foot">
+            <div className={`map-legend__foot [display:flex] [justify-content:space-between] [gap:8px] [margin-top:6px] [padding-top:6px] [border-top:1px_solid_var(--line)] [color:var(--faint)] [font-size:7px] [letter-spacing:0.02em]`}>
               <span>{hotels.length} hotels</span>
               <span>R1 is proposed</span>
             </div>
           </div>
         ) : (
-          <div className="map-legend map-legend--dispatch" aria-label="Dispatch legend">
-            <div className="map-legend__head">
+          <div className={`map-legend [position:absolute] [bottom:16px] [left:16px] [z-index:6] [width:202px] [padding:10px_11px_9px] [border:1px_solid_var(--line-strong)] [border-radius:11px] [background:rgba(251,_248,_241,_0.94)] [box-shadow:0_8px_26px_rgba(24,_36,_30,_0.13)] [backdrop-filter:blur(10px)] max-[760px]:[display:none] map-legend--dispatch [max-width:240px]`} aria-label="Dispatch legend">
+            <div className={`map-legend__head [display:flex] [align-items:center] [justify-content:space-between] [gap:8px] [margin-bottom:6px] [color:var(--muted)] [font-size:7.5px] [font-weight:700] [letter-spacing:0.1em] [text-transform:uppercase]`}>
               <span>
                 {workspace === "studio"
                   ? "Studio solver"
@@ -959,7 +959,7 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
                     ? "Manual route plan"
                     : "Fleet dispatch"}
               </span>
-              <span className="map-legend__res">
+              <span className={`map-legend__res [padding:1px_4px] [border:1px_solid_var(--line)] [border-radius:3px] [color:var(--faint)] [font-family:var(--font-mono)] [font-size:7px] [font-weight:500] [letter-spacing:0.01em] [text-transform:none]`}>
                 {workspace === "studio"
                   ? `${routes.length} active vans`
                   : workspace === "manual"
@@ -967,27 +967,27 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
                     : "10 Vans"}
               </span>
             </div>
-            <div className="dispatch-legend__depot">
-              <span className="depot-legend-dot" />
+            <div className={`dispatch-legend__depot [display:flex] [align-items:center] [gap:7px] [padding:5px_6px] [border-radius:5px] [background:var(--bone)] [font-size:10px] [font-weight:600] [color:var(--ink)] [margin-bottom:6px]`}>
+              <span className={`depot-legend-dot [width:9px] [height:9px] [border-radius:2px] [background:#18241e] [border:1px_solid_#fbbf24] [flex-shrink:0]`} />
               <span>LinenGrass HQ (Yeshwanthpur Central Laundry)</span>
             </div>
             {routes.slice(0, 8).map((route, idx) => (
               <button
                 type="button"
                 key={route.vehicle_label}
-                className="map-legend__row"
+                className={`map-legend__row [display:grid] [grid-template-columns:9px_25px_minmax(0,_1fr)_auto] [gap:6px] [align-items:center] [width:100%] [padding:4px_3px] [border-radius:5px] [text-align:left] [transition:background_130ms_ease] hover:[background:var(--bone)]`}
                 style={{ "--region": route.color } as CSSProperties}
                 onClick={() => onSelectRoute?.(idx)}
               >
-                <span className="map-legend__dot" style={{ backgroundColor: route.color }} />
-                <span className="map-legend__code">{route.vehicle_label.split(" - ")[0]}</span>
-                <span className="map-legend__name">
+                <span className={`map-legend__dot [width:7px] [height:7px] [border-radius:2px] [background:var(--c)] [box-shadow:inset_0_0_0_1px_rgba(0,_0,_0,_0.09)] [.map-legend__row[data-proposed="true"]_&]:[border:1.5px_solid_var(--c)] [.map-legend__row[data-proposed="true"]_&]:[background:transparent]`} style={{ backgroundColor: route.color }} />
+                <span className={`map-legend__code [color:var(--faint)] [font-family:var(--font-mono)] [font-size:8px] [font-weight:600]`}>{route.vehicle_label.split(" - ")[0]}</span>
+                <span className={`map-legend__name [overflow:hidden] [color:var(--ink-soft)] [font-size:9px] [font-weight:600] [text-overflow:ellipsis] [white-space:nowrap]`}>
                   {route.vehicle_label.split(" - ")[1]?.split(" (")[0] ?? route.vehicle_label}
                 </span>
-                <span className="map-legend__count">{route.total_hotels} stops</span>
+                <span className={`map-legend__count [color:var(--faint)] [font-family:var(--font-mono)] [font-size:8px] [font-variant-numeric:tabular-nums]`}>{route.total_hotels} stops</span>
               </button>
             ))}
-            <div className="map-legend__foot">
+            <div className={`map-legend__foot [display:flex] [justify-content:space-between] [gap:8px] [margin-top:6px] [padding-top:6px] [border-top:1px_solid_var(--line)] [color:var(--faint)] [font-size:7px] [letter-spacing:0.02em]`}>
               <span>{routes.reduce((acc, r) => acc + r.total_hotels, 0)} stops total</span>
               <span>
                 {workspace === "studio"
@@ -1001,97 +1001,97 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
         )}
 
         {activeHotel && activeMeta ? (
-          <div className="map-card">
-            <div className="map-card__head">
-              <span className="map-card__kicker">
+          <div className={`map-card [position:absolute] [top:58px] [left:16px] [z-index:7] [width:318px] [padding:14px] [border:1px_solid_var(--line-strong)] [border-radius:12px] [background:rgba(255,_253,_247,_0.97)] [box-shadow:0_14px_40px_rgba(24,_36,_30,_0.18)] [animation:card-in_200ms_ease_both] [backdrop-filter:blur(12px)] max-[760px]:[top:auto] max-[760px]:[right:12px] max-[760px]:[bottom:12px] max-[760px]:[left:12px] max-[760px]:[width:auto] max-[760px]:[max-height:calc(100%_-_74px)] max-[760px]:[overflow-y:auto] max-[560px]:[padding:13px]`}>
+            <div className={`map-card__head [display:flex] [align-items:center] [justify-content:space-between] [gap:10px]`}>
+              <span className={`map-card__kicker [display:flex] [align-items:center] [gap:5px] [color:var(--muted)] [font-size:7.5px] [font-weight:700] [letter-spacing:0.1em] [text-transform:uppercase] [&_svg]:[color:var(--green)]`}>
                 <HotelIcon size={12} />
                 Hotel pin
               </span>
               <button
                 type="button"
-                className="map-card__close"
+                className={`map-card__close [display:grid] [width:23px] [height:23px] [place-items:center] [border-radius:5px] [color:var(--muted)] hover:[background:var(--bone)] hover:[color:var(--ink)]`}
                 onClick={onCloseHotel}
                 aria-label="Close hotel details"
               >
                 <X size={14} />
               </button>
             </div>
-            <div className="map-card__title">{activeHotel.name}</div>
-            <div className="map-card__sub">
+            <div className={`map-card__title [margin-top:8px] [color:var(--ink)] [font-size:14.5px] [font-weight:600] [letter-spacing:-0.02em] [line-height:1.26] max-[560px]:[font-size:14px]`}>{activeHotel.name}</div>
+            <div className={`map-card__sub [display:flex] [align-items:center] [gap:6px] [margin-top:4px] [color:var(--muted)] [font-size:9.5px]`}>
               <span
-                className="map-card__dot"
+                className={`map-card__dot [flex:0_0_auto] [width:5px] [height:5px] [border-radius:50%] [background:var(--c)]`}
                 style={regionStyle(activeMeta.color)}
               />
               {activeMeta.code} ·{" "}
               {REGION_MAP_LABELS[activeMeta.id] ?? activeMeta.short_name}
             </div>
-            <div className="map-card__metrics">
-              <div className="map-card__metric">
+            <div className={`map-card__metrics [display:grid] [grid-template-columns:repeat(3,_1fr)] [margin-top:11px] [padding-top:10px] [border-top:1px_solid_var(--line)]`}>
+              <div className={`map-card__metric [padding:0_9px] [border-left:1px_solid_var(--line)] first:[padding-left:0] first:[border-left:0] [&_span]:[display:block] [&_span]:[margin-bottom:2px] [&_span]:[color:var(--faint)] [&_span]:[font-size:7px] [&_span]:[font-weight:600] [&_span]:[letter-spacing:0.08em] [&_span]:[text-transform:uppercase] [&_b]:[color:var(--ink)] [&_b]:[font-size:10.5px] [&_b]:[font-weight:600] [&_b]:[font-variant-numeric:tabular-nums]`}>
                 <span>Stop</span>
                 <b>{activeHotel.stop_mins} min</b>
               </div>
-              <div className="map-card__metric">
+              <div className={`map-card__metric [padding:0_9px] [border-left:1px_solid_var(--line)] first:[padding-left:0] first:[border-left:0] [&_span]:[display:block] [&_span]:[margin-bottom:2px] [&_span]:[color:var(--faint)] [&_span]:[font-size:7px] [&_span]:[font-weight:600] [&_span]:[letter-spacing:0.08em] [&_span]:[text-transform:uppercase] [&_b]:[color:var(--ink)] [&_b]:[font-size:10.5px] [&_b]:[font-weight:600] [&_b]:[font-variant-numeric:tabular-nums]`}>
                 <span>Load</span>
                 <b>{activeHotel.load} bags</b>
               </div>
-              <div className="map-card__metric">
+              <div className={`map-card__metric [padding:0_9px] [border-left:1px_solid_var(--line)] first:[padding-left:0] first:[border-left:0] [&_span]:[display:block] [&_span]:[margin-bottom:2px] [&_span]:[color:var(--faint)] [&_span]:[font-size:7px] [&_span]:[font-weight:600] [&_span]:[letter-spacing:0.08em] [&_span]:[text-transform:uppercase] [&_b]:[color:var(--ink)] [&_b]:[font-size:10.5px] [&_b]:[font-weight:600] [&_b]:[font-variant-numeric:tabular-nums]`}>
                 <span>Route</span>
                 <b>{activeMeta.route_status}</b>
               </div>
             </div>
           </div>
         ) : pinned && pinnedMeta ? (
-          <div className="map-card" role="status">
-            <div className="map-card__head">
-              <span className="map-card__kicker">
+          <div className={`map-card [position:absolute] [top:58px] [left:16px] [z-index:7] [width:318px] [padding:14px] [border:1px_solid_var(--line-strong)] [border-radius:12px] [background:rgba(255,_253,_247,_0.97)] [box-shadow:0_14px_40px_rgba(24,_36,_30,_0.18)] [animation:card-in_200ms_ease_both] [backdrop-filter:blur(12px)] max-[760px]:[top:auto] max-[760px]:[right:12px] max-[760px]:[bottom:12px] max-[760px]:[left:12px] max-[760px]:[width:auto] max-[760px]:[max-height:calc(100%_-_74px)] max-[760px]:[overflow-y:auto] max-[560px]:[padding:13px]`} role="status">
+            <div className={`map-card__head [display:flex] [align-items:center] [justify-content:space-between] [gap:10px]`}>
+              <span className={`map-card__kicker [display:flex] [align-items:center] [gap:5px] [color:var(--muted)] [font-size:7.5px] [font-weight:700] [letter-spacing:0.1em] [text-transform:uppercase] [&_svg]:[color:var(--green)]`}>
                 <MapPin size={12} />
                 Pinned coordinate
               </span>
               <button
                 type="button"
-                className="map-card__close"
+                className={`map-card__close [display:grid] [width:23px] [height:23px] [place-items:center] [border-radius:5px] [color:var(--muted)] hover:[background:var(--bone)] hover:[color:var(--ink)]`}
                 onClick={onClearPinned}
                 aria-label="Clear pinned coordinate"
               >
                 <X size={14} />
               </button>
             </div>
-            <div className="map-card__title">
+            <div className={`map-card__title [margin-top:8px] [color:var(--ink)] [font-size:14.5px] [font-weight:600] [letter-spacing:-0.02em] [line-height:1.26] max-[560px]:[font-size:14px]`}>
               {pinned.inside
                 ? "Inside the coverage footprint"
                 : "Outside the footprint"}
             </div>
-            <div className="map-card__coords">
+            <div className={`map-card__coords [margin-top:4px] [color:var(--muted)] [font-family:var(--font-mono)] [font-size:9.5px] [letter-spacing:0.01em]`}>
               {pinned.lat.toFixed(5)}, {pinned.lon.toFixed(5)}
             </div>
-            <div className="map-card__badge-row">
+            <div className={`map-card__badge-row [margin-top:8px]`}>
               <span
                 className={
                   pinned.inside
-                    ? "map-badge map-badge--inside"
-                    : "map-badge map-badge--outside"
+                    ? `map-badge [display:inline-flex] [align-items:center] [padding:2px_6px] [border:1px_solid] [border-radius:999px] [font-size:7px] [font-weight:700] [letter-spacing:0.055em] [text-transform:uppercase] map-badge--inside [border-color:#d5e5d8] [background:#eaf3ec] [color:#2f6b4c]`
+                    : `map-badge [display:inline-flex] [align-items:center] [padding:2px_6px] [border:1px_solid] [border-radius:999px] [font-size:7px] [font-weight:700] [letter-spacing:0.055em] [text-transform:uppercase] map-badge--outside [border-color:#e9d8b5] [background:#f8f0de] [color:#8a6428]`
                 }
               >
                 {pinned.inside ? "Mapped cell" : "Nearest region assigned"}
               </span>
             </div>
-            <dl className="map-card__rows">
-              <div className="map-card__row">
+            <dl className={`map-card__rows [display:flex] [flex-direction:column] [gap:6px] [margin-top:10px] [padding-top:9px] [border-top:1px_solid_var(--line)]`}>
+              <div className={`map-card__row [display:flex] [justify-content:space-between] [gap:12px] [font-size:9.5px] [&_dt]:[flex:0_0_auto] [&_dt]:[color:var(--faint)] [&_dd]:[color:var(--ink-soft)] [&_dd]:[font-weight:600] [&_dd]:[line-height:1.35] [&_dd]:[text-align:right]`}>
                 <dt>Region</dt>
                 <dd>
                   <span
-                    className="map-card__inline-dot"
+                    className={`map-card__inline-dot [display:inline-block] [width:5px] [height:5px] [margin-right:4px] [border-radius:50%] [background:var(--c)] [vertical-align:middle]`}
                     style={regionStyle(pinnedMeta.color)}
                   />
                   {pinnedMeta.code} ·{" "}
                   {REGION_MAP_LABELS[pinnedMeta.id] ?? pinnedMeta.short_name}
                 </dd>
               </div>
-              <div className="map-card__row">
+              <div className={`map-card__row [display:flex] [justify-content:space-between] [gap:12px] [font-size:9.5px] [&_dt]:[flex:0_0_auto] [&_dt]:[color:var(--faint)] [&_dd]:[color:var(--ink-soft)] [&_dd]:[font-weight:600] [&_dd]:[line-height:1.35] [&_dd]:[text-align:right]`}>
                 <dt>Nearest hotel</dt>
                 <dd>{pinned.nearestHotel?.name ?? "None on record"}</dd>
               </div>
-              <div className="map-card__row">
+              <div className={`map-card__row [display:flex] [justify-content:space-between] [gap:12px] [font-size:9.5px] [&_dt]:[flex:0_0_auto] [&_dt]:[color:var(--faint)] [&_dd]:[color:var(--ink-soft)] [&_dd]:[font-weight:600] [&_dd]:[line-height:1.35] [&_dd]:[text-align:right]`}>
                 <dt>Distance</dt>
                 <dd>{formatDistance(pinned.nearestDistanceKm)}</dd>
               </div>
