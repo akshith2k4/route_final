@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -9,7 +9,6 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  Download,
   Eye,
   EyeOff,
   FileSpreadsheet,
@@ -35,7 +34,6 @@ import {
   emptyCityBasics,
   nextRegionId,
   standardZoneRegions,
-  toCityConfigJson,
   toDraftCityInput,
   type CityBasicsDraft,
   type RegionDraft,
@@ -92,6 +90,15 @@ export default function CityWizard() {
   const [warehouseShortName, setWarehouseShortName] = useState("");
   const [warehouseAddress, setWarehouseAddress] = useState("");
   const [warehouseLocation, setWarehouseLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const [warehouseId, setWarehouseId] = useState<string | null>(null);
+  const [fleetVehicles, setFleetVehicles] = useState<
+    { id: string; name: string; realCapacity: number; regionName: string | null; color: string }[]
+  >([]);
+  const [vehicleName, setVehicleName] = useState("");
+  const [vehicleCapacity, setVehicleCapacity] = useState("40");
+  const [vehicleRegionIndex, setVehicleRegionIndex] = useState("0");
+  const [vehicleBusy, setVehicleBusy] = useState(false);
+  const [vehicleError, setVehicleError] = useState<string | null>(null);
 
   // Generation state
   const [generating, setGenerating] = useState(false);
@@ -214,21 +221,6 @@ export default function CityWizard() {
     }
   }
 
-  function downloadConfig() {
-    const config = toCityConfigJson(basics, regions);
-    const blob = new Blob([JSON.stringify(config, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${basics.slug || "city"}.city.config.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }
-
   async function previewHotels(commit = false) {
     if (!savedSlug) return;
     setHotelBusy(true);
@@ -303,15 +295,131 @@ export default function CityWizard() {
       if (!response.ok) {
         setFleetResult(data.error ?? "Could not create the warehouse.");
       } else {
-        setFleetResult(
-          `Created "${warehouseName.trim()}". Now add the city's vehicles in the Vehicles dashboard.`,
-        );
+        setWarehouseId(data.warehouse ?? null);
+        setFleetResult(`Created "${warehouseName.trim()}". Now add the vehicles below.`);
+        await refreshFleet(savedSlug);
         await loadCityStatus(savedSlug);
       }
     } catch {
       setFleetResult("Network error during fleet setup.");
     } finally {
       setFleetBusy(false);
+    }
+  }
+
+  async function refreshFleet(slug: string) {
+    try {
+      const [facilityResponse, vehicleResponse] = await Promise.all([
+        fetch(`/api/${slug}/facilities`),
+        fetch(`/api/${slug}/vehicles`),
+      ]);
+      if (facilityResponse.ok) {
+        const data = (await facilityResponse.json()) as {
+          facilities?: { id: string; isWarehouse: boolean; isActive: boolean }[];
+        };
+        const warehouse = (data.facilities ?? []).find(
+          (facility) => facility.isWarehouse && facility.isActive,
+        );
+        setWarehouseId(warehouse?.id ?? null);
+      }
+      if (vehicleResponse.ok) {
+        const data = (await vehicleResponse.json()) as {
+          vehicles?: {
+            id: string;
+            name: string;
+            realCapacity: number;
+            regionName: string | null;
+            color: string;
+          }[];
+        };
+        setFleetVehicles(
+          (data.vehicles ?? []).map((vehicle) => ({
+            id: vehicle.id,
+            name: vehicle.name,
+            realCapacity: vehicle.realCapacity,
+            regionName: vehicle.regionName,
+            color: vehicle.color,
+          })),
+        );
+      }
+    } catch {
+      // best effort — the form still works from the create response
+    }
+  }
+
+  // When the fleet step is opened for an already-saved city, show the
+  // warehouse and vehicles that are already in the DB.
+  useEffect(() => {
+    if (step === 4 && savedSlug) void refreshFleet(savedSlug);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, savedSlug]);
+
+  async function addFleetVehicle() {
+    if (!savedSlug || !warehouseId) {
+      setVehicleError("Create the warehouse first.");
+      return;
+    }
+    if (vehicleName.trim().length < 1) {
+      setVehicleError("Enter the vehicle name.");
+      return;
+    }
+    const capacity = Number(vehicleCapacity);
+    if (!Number.isFinite(capacity) || capacity < 1) {
+      setVehicleError("Capacity must be at least 1.");
+      return;
+    }
+    const regionIndex = Number(vehicleRegionIndex);
+    const region = regions[regionIndex];
+    setVehicleBusy(true);
+    setVehicleError(null);
+    try {
+      const response = await fetch(`/api/${savedSlug}/vehicles`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: vehicleName.trim(),
+          realCapacity: capacity,
+          color: REGION_COLOR_PALETTE[regionIndex % REGION_COLOR_PALETTE.length],
+          regionId: regionIndex,
+          regionName: region?.short_name ?? null,
+          sector: null,
+          depotId: warehouseId,
+          departureTime: "07:00",
+          returnTime: "17:00",
+          isActive: true,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setVehicleError(data.error ?? "Could not add the vehicle.");
+        return;
+      }
+      setVehicleName("");
+      await refreshFleet(savedSlug);
+      await loadCityStatus(savedSlug);
+    } catch {
+      setVehicleError("Network error while adding the vehicle.");
+    } finally {
+      setVehicleBusy(false);
+    }
+  }
+
+  async function removeFleetVehicle(id: string) {
+    if (!savedSlug) return;
+    setVehicleError(null);
+    try {
+      const response = await fetch(`/api/${savedSlug}/vehicles/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        setVehicleError(data?.error ?? "Could not remove the vehicle.");
+        return;
+      }
+      await refreshFleet(savedSlug);
+      await loadCityStatus(savedSlug);
+    } catch {
+      setVehicleError("Network error while removing the vehicle.");
     }
   }
 
@@ -390,7 +498,7 @@ export default function CityWizard() {
     }
   }
 
-  const fleetReady = warehouseValid || (cityCounts?.facilities ?? 0) > 0;
+  const fleetReady = !!warehouseId && fleetVehicles.length > 0;
   const canContinue =
     step === 0
       ? basicsValid
@@ -855,7 +963,7 @@ export default function CityWizard() {
                 <p className="mt-2 max-w-[560px] text-[12.5px] leading-relaxed text-muted">
                   The city and its {regions.length} regions are saved. Continue to add
                   hotels, set up the fleet, generate datasets and go live — all in this
-                  wizard, no offline scripts.
+                  wizard — all in the app.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2.5">
                   <button
@@ -926,23 +1034,12 @@ export default function CityWizard() {
                     <div>
                       <h3 className="text-[13px] font-bold text-ink">Save this draft</h3>
                       <p className="mt-1 max-w-[520px] text-[11.5px] leading-relaxed text-muted">
-                        Persists the city + regions as an inactive draft. Or download the
-                        config — it is byte-compatible with{" "}
-                        <code className="rounded bg-bone px-1 py-0.5 font-mono text-[10.5px]">
-                          scripts/seed-city.ts
-                        </code>{" "}
-                        for the offline pipeline.
+                        Persists the city + regions as an inactive draft. Next you will
+                        import hotels, add the fleet, generate datasets and activate the
+                        city — all in this wizard.
                       </p>
                     </div>
                     <div className="flex gap-2.5">
-                      <button
-                        type="button"
-                        onClick={downloadConfig}
-                        className="flex items-center gap-1.5 rounded-lg border border-line-strong bg-paper px-4 py-2 text-[12px] font-semibold text-ink transition-colors hover:bg-bone"
-                      >
-                        <Download size={13} />
-                        Download config
-                      </button>
                       <button
                         type="button"
                         onClick={saveDraft}
@@ -974,8 +1071,7 @@ export default function CityWizard() {
               <h2 className="mt-1 font-serif text-[26px] text-ink">Import the hotel list</h2>
               <p className="mt-2 max-w-[640px] text-[12.5px] leading-relaxed text-muted">
                 Paste the standard hotel CSV — the same format already used across the
-                operations team. Each hotel gets a stable id (same pipeline as the
-                offline seed), and any row without a valid region code is auto-assigned
+                operations team. Each hotel gets a stable id (same stable id pipeline), and any row without a valid region code is auto-assigned
                 to its nearest region centre.
               </p>
               <div className="mt-3 overflow-x-auto rounded-xl border border-line bg-bone/60 p-3">
@@ -1048,126 +1144,221 @@ export default function CityWizard() {
         )}
 
         {step === 4 && (
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
-            <section className="rounded-2xl border border-line bg-paper p-5">
-              <p className="text-[9px] font-bold uppercase tracking-[0.145em] text-muted">
-                Step 5 · Fleet
-              </p>
-              <h2 className="mt-1 font-serif text-[26px] text-ink">Add the primary warehouse</h2>
-              <p className="mt-2 text-[12px] leading-relaxed text-muted">
-                Enter the warehouse name and pick its exact location on the map.
-                Vehicles are yours to add — once the warehouse exists, open the
-                city's Vehicles dashboard and create exactly the fleet you need.
-              </p>
+          <div className="flex flex-col gap-5">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+              <section className="rounded-2xl border border-line bg-paper p-5">
+                <p className="text-[9px] font-bold uppercase tracking-[0.145em] text-muted">
+                  Step 5 · Fleet
+                </p>
+                <h2 className="mt-1 font-serif text-[26px] text-ink">Add the warehouse</h2>
+                <p className="mt-2 text-[12px] leading-relaxed text-muted">
+                  Enter the warehouse name and pick its exact location on the map.
+                  Then add the vehicles you need right here — no separate dashboard.
+                </p>
 
-              <div className="mt-4 flex flex-col gap-3.5">
-                <Field label="Warehouse name">
-                  <input
-                    className={inputClass}
-                    value={warehouseName}
-                    onChange={(event) => setWarehouseName(event.target.value)}
-                    placeholder="e.g. Central Laundry & Warehouse"
-                  />
-                </Field>
-                <Field label="Short name (optional)">
-                  <input
-                    className={inputClass}
-                    value={warehouseShortName}
-                    onChange={(event) => setWarehouseShortName(event.target.value)}
-                    placeholder="e.g. HQ"
-                  />
-                </Field>
-                <Field label="Address (optional)">
-                  <input
-                    className={inputClass}
-                    value={warehouseAddress}
-                    onChange={(event) => setWarehouseAddress(event.target.value)}
-                    placeholder="Street, area, city"
-                  />
-                </Field>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Latitude">
+                <div className="mt-4 flex flex-col gap-3.5">
+                  <Field label="Warehouse name">
                     <input
                       className={inputClass}
-                      type="number"
-                      step="0.0001"
-                      value={warehouseLocation?.lat ?? ""}
-                      onChange={(event) =>
-                        setWarehouseLocation({
-                          lat: Number(event.target.value),
-                          lon: warehouseLocation?.lon ?? basics.center.lon,
-                        })
-                      }
-                      placeholder="Pick on map"
+                      value={warehouseName}
+                      onChange={(event) => setWarehouseName(event.target.value)}
+                      placeholder="e.g. Central Laundry & Warehouse"
                     />
                   </Field>
-                  <Field label="Longitude">
+                  <Field label="Short name (optional)">
                     <input
                       className={inputClass}
-                      type="number"
-                      step="0.0001"
-                      value={warehouseLocation?.lon ?? ""}
-                      onChange={(event) =>
-                        setWarehouseLocation({
-                          lat: warehouseLocation?.lat ?? basics.center.lat,
-                          lon: Number(event.target.value),
-                        })
-                      }
-                      placeholder="Pick on map"
+                      value={warehouseShortName}
+                      onChange={(event) => setWarehouseShortName(event.target.value)}
+                      placeholder="e.g. HQ"
                     />
                   </Field>
-                </div>
-                <button
-                  type="button"
-                  onClick={quickStartFleet}
-                  disabled={fleetBusy || !warehouseValid}
-                  className="flex items-center justify-center gap-1.5 rounded-lg bg-ink px-4 py-2.5 text-[12px] font-semibold text-cream transition-opacity hover:opacity-90 disabled:opacity-40"
-                >
-                  <Building2 size={13} />
-                  {fleetBusy ? "Creating…" : "Create warehouse"}
-                </button>
-                {cityCounts && (
-                  <span className="text-[11px] font-semibold text-muted">
-                    {cityCounts.facilities} facilities · {cityCounts.vehicles} vehicles
-                  </span>
-                )}
-                {fleetResult && (
-                  <p className="rounded-lg border border-line bg-bone px-3 py-2 text-[11.5px] font-semibold text-ink">
-                    {fleetResult}
-                  </p>
-                )}
-                {savedSlug && (cityCounts?.facilities ?? 0) > 0 && (
-                  <Link
-                    href={`/${savedSlug}/vehicles`}
-                    className="flex items-center justify-center gap-1.5 rounded-lg border border-line-strong bg-paper px-4 py-2.5 text-[12px] font-semibold text-ink transition-colors hover:bg-bone"
+                  <Field label="Address (optional)">
+                    <input
+                      className={inputClass}
+                      value={warehouseAddress}
+                      onChange={(event) => setWarehouseAddress(event.target.value)}
+                      placeholder="Street, area, city"
+                    />
+                  </Field>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Latitude">
+                      <input
+                        className={inputClass}
+                        type="number"
+                        step="0.0001"
+                        value={warehouseLocation?.lat ?? ""}
+                        onChange={(event) =>
+                          setWarehouseLocation({
+                            lat: Number(event.target.value),
+                            lon: warehouseLocation?.lon ?? basics.center.lon,
+                          })
+                        }
+                        placeholder="Pick on map"
+                      />
+                    </Field>
+                    <Field label="Longitude">
+                      <input
+                        className={inputClass}
+                        type="number"
+                        step="0.0001"
+                        value={warehouseLocation?.lon ?? ""}
+                        onChange={(event) =>
+                          setWarehouseLocation({
+                            lat: warehouseLocation?.lat ?? basics.center.lat,
+                            lon: Number(event.target.value),
+                          })
+                        }
+                        placeholder="Pick on map"
+                      />
+                    </Field>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={quickStartFleet}
+                    disabled={fleetBusy || !warehouseValid || !!warehouseId}
+                    className="flex items-center justify-center gap-1.5 rounded-lg bg-ink px-4 py-2.5 text-[12px] font-semibold text-cream transition-opacity hover:opacity-90 disabled:opacity-40"
                   >
-                    <Truck size={13} />
-                    Open Vehicles dashboard to add vehicles
-                  </Link>
-                )}
-              </div>
-            </section>
+                    <Building2 size={13} />
+                    {warehouseId
+                      ? "Warehouse created"
+                      : fleetBusy
+                        ? "Creating…"
+                        : "Create warehouse"}
+                  </button>
+                  {fleetResult && (
+                    <p className="rounded-lg border border-line bg-bone px-3 py-2 text-[11.5px] font-semibold text-ink">
+                      {fleetResult}
+                    </p>
+                  )}
+                </div>
+              </section>
 
-            <section className="flex min-h-[420px] flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
-                  Warehouse location
-                </p>
-                <p className="font-mono text-[10.5px] text-faint">
-                  {warehouseLocation
-                    ? `${warehouseLocation.lat.toFixed(4)}, ${warehouseLocation.lon.toFixed(4)}`
-                    : "Not set"}
-                </p>
+              <section className="flex min-h-[420px] flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
+                    Warehouse location
+                  </p>
+                  <p className="font-mono text-[10.5px] text-faint">
+                    {warehouseLocation
+                      ? `${warehouseLocation.lat.toFixed(4)}, ${warehouseLocation.lon.toFixed(4)}`
+                      : "Not set"}
+                  </p>
+                </div>
+                <div className="min-h-[380px] flex-1">
+                  <CenterPickerMap
+                    center={basics.center}
+                    zoom={basics.default_zoom}
+                    value={warehouseLocation}
+                    onChange={(lat, lon) => setWarehouseLocation({ lat, lon })}
+                    hint="Click the map to place the warehouse pin"
+                  />
+                </div>
+              </section>
+            </div>
+
+            <section className="rounded-2xl border border-line bg-paper p-5">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.145em] text-muted">
+                    Vehicles
+                  </p>
+                  <h3 className="mt-1 font-serif text-[22px] text-ink">Add your fleet</h3>
+                  <p className="mt-1 max-w-[560px] text-[11.5px] leading-relaxed text-muted">
+                    Add each vehicle with its name, capacity and region. They are
+                    created immediately against this city and its warehouse.
+                  </p>
+                </div>
+                <span className="rounded-full bg-bone px-3 py-1 text-[11px] font-semibold text-ink">
+                  {fleetVehicles.length} vehicle{fleetVehicles.length === 1 ? "" : "s"}
+                </span>
               </div>
-              <div className="min-h-[380px] flex-1">
-                <CenterPickerMap
-                  center={basics.center}
-                  zoom={basics.default_zoom}
-                  value={warehouseLocation}
-                  onChange={(lat, lon) => setWarehouseLocation({ lat, lon })}
-                  hint="Click the map to place the warehouse pin"
-                />
-              </div>
+
+              {!warehouseId ? (
+                <p className="mt-4 rounded-lg border border-dashed border-line-strong px-3 py-4 text-center text-[11.5px] text-muted">
+                  Create the warehouse first, then add vehicles here.
+                </p>
+              ) : (
+                <div className="mt-4 flex flex-col gap-3">
+                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)_minmax(0,1fr)_auto]">
+                    <Field label="Vehicle name">
+                      <input
+                        className={inputClass}
+                        value={vehicleName}
+                        onChange={(event) => setVehicleName(event.target.value)}
+                        placeholder="e.g. Van 1"
+                      />
+                    </Field>
+                    <Field label="Capacity">
+                      <input
+                        className={inputClass}
+                        type="number"
+                        min={1}
+                        value={vehicleCapacity}
+                        onChange={(event) => setVehicleCapacity(event.target.value)}
+                      />
+                    </Field>
+                    <Field label="Region">
+                      <select
+                        className={inputClass}
+                        value={vehicleRegionIndex}
+                        onChange={(event) => setVehicleRegionIndex(event.target.value)}
+                      >
+                        {regions.map((region, index) => (
+                          <option key={region.id} value={index}>
+                            R{index} · {region.short_name}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <button
+                      type="button"
+                      onClick={addFleetVehicle}
+                      disabled={vehicleBusy || vehicleName.trim().length === 0}
+                      className="flex h-[38px] items-center justify-center gap-1.5 self-end rounded-lg bg-ink px-4 text-[12px] font-semibold text-cream transition-opacity hover:opacity-90 disabled:opacity-40"
+                    >
+                      <Plus size={13} />
+                      {vehicleBusy ? "Adding…" : "Add vehicle"}
+                    </button>
+                  </div>
+                  {vehicleError && (
+                    <p className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-[11.5px] font-semibold text-danger">
+                      {vehicleError}
+                    </p>
+                  )}
+
+                  {fleetVehicles.length > 0 && (
+                    <ul className="flex flex-col gap-2">
+                      {fleetVehicles.map((vehicle) => (
+                        <li
+                          key={vehicle.id}
+                          className="flex items-center gap-2.5 rounded-xl border border-line bg-bone/50 px-3 py-2"
+                        >
+                          <span
+                            className="h-3 w-3 shrink-0 rounded-full border border-black/10"
+                            style={{ background: vehicle.color }}
+                          />
+                          <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-ink">
+                            {vehicle.name}
+                          </span>
+                          <span className="text-[11px] text-muted">{vehicle.realCapacity} bags</span>
+                          <span className="rounded bg-paper px-2 py-0.5 text-[10px] font-semibold text-muted">
+                            {vehicle.regionName ?? "No region"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => void removeFleetVehicle(vehicle.id)}
+                            className="grid h-6 w-6 place-items-center rounded-md text-danger transition-colors hover:bg-paper"
+                            aria-label={`Remove ${vehicle.name}`}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
             </section>
           </div>
         )}
@@ -1191,10 +1382,14 @@ export default function CityWizard() {
               {savedSlug && (cityCounts?.vehicles ?? 0) === 0 && (
                 <p className="mt-2 rounded-lg border border-line bg-bone px-3 py-2 text-[11.5px] font-semibold text-ink">
                   No vehicles yet.{" "}
-                  <Link href={`/${savedSlug}/vehicles`} className="underline">
-                    Add them in the Vehicles dashboard
-                  </Link>{" "}
-                  before generating the baseline plan.
+                  <button
+                    type="button"
+                    onClick={() => setStep(4)}
+                    className="underline"
+                  >
+                    Go back to Fleet
+                  </button>{" "}
+                  and add at least one before generating the baseline plan.
                 </p>
               )}
 
@@ -1288,7 +1483,7 @@ export default function CityWizard() {
             {step === 1 && "Click the map to add regions · drag pins to move them."}
             {step === 2 && "Save the city to unlock the remaining steps."}
             {step === 3 && "Import hotels from the standard CSV."}
-            {step === 4 && "Enter the warehouse name and pick its location."}
+            {step === 4 && "Add the warehouse, then at least one vehicle."}
             {step === 5 && "Generate datasets, then activate."}
           </p>
           {step < 5 ? (

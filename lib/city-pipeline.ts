@@ -1,10 +1,10 @@
 /**
  * City pipeline, server-side.
  *
- * These are the in-process equivalents of the offline scripts
+ * These are the in-process equivalents of the original pipeline scripts
  * (09_ensure_hotel_ids, 10_build_plan, 11_build_travel_matrix,
  * 12_build_plan_geometries). The admin wizard and the seed script both call
- * these, so there is a single code path and no offline dependency.
+ * these, so there is a single code path for every city.
  *
  * The OSRM-backed builders are *resumable*: they accept an existing partial
  * result, fill what they can within a time budget, and report completion so a
@@ -109,14 +109,17 @@ function circlePolygon(
 
 /**
  * Builds a continuous coverage hex map. The city is covered as one filled
- * area around its hotels and region centres — not isolated hotel dots — so the
- * atlas shows unbroken territories. Hotel cells keep their assigned region;
- * every other cell goes to the nearest region centre.
+ * area around its hotels, region centres and facilities — not isolated hotel
+ * dots — so the atlas shows unbroken territories. Facilities are included so a
+ * warehouse or laundry outside the hotel cluster still falls inside a region.
+ * Hotel cells keep their assigned region; every other cell goes to the nearest
+ * region centre.
  */
 export function buildHexMap(
   hotels: Hotel[],
   regions: RegionMeta[],
   resolution: number,
+  facilities: { lat: number; lon: number }[] = [],
 ): HexMap {
   const hexMap: HexMap = {};
   if (regions.length === 0) return hexMap;
@@ -146,6 +149,7 @@ export function buildHexMap(
   const points = [
     ...hotels.map((hotel) => ({ lat: hotel.lat, lon: hotel.lon })),
     ...regions.map((region) => region.center),
+    ...facilities.map((facility) => ({ lat: facility.lat, lon: facility.lon })),
   ];
 
   let cells: string[] = [];

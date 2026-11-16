@@ -194,7 +194,38 @@ export default function ManualRouteBuilder({
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Could not publish routes.");
-      setMessage("Published! Your routes are now the manual dispatch. Reloading…");
+
+      // Draw the routes from their real road geometry by default. The publish
+      // endpoint writes the plan; these passes build the OSRM path for each
+      // route. If OSRM is unavailable, the map falls back to straight lines.
+      setMessage("Published. Drawing the road-accurate route lines…");
+      let complete = false;
+      for (let pass = 0; pass < 8 && !complete; pass += 1) {
+        const geometryResponse = await fetch(
+          `/api/admin/cities/${cityId}/generate`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ step: "geometries", budgetMs: 10_000 }),
+          },
+        );
+        const geometryData = await geometryResponse.json();
+        if (!geometryResponse.ok) {
+          throw new Error(geometryData.error ?? "Could not generate route lines.");
+        }
+        complete = geometryData.complete === true;
+        if (!complete) {
+          setMessage(
+            `Drawing route lines… ${geometryData.done}/${geometryData.total} routes`,
+          );
+        }
+      }
+
+      setMessage(
+        complete
+          ? "Published with road-accurate route lines. Reloading…"
+          : "Published. Some lines may use the straight-line fallback until OSRM is available.",
+      );
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not publish routes.");
@@ -329,7 +360,7 @@ export default function ManualRouteBuilder({
           className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-ink py-2 text-[12px] font-semibold text-cream transition-opacity hover:opacity-90 disabled:opacity-40"
         >
           {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-          {saving ? "Publishing…" : "Publish as manual dispatch"}
+          {saving ? "Publishing & drawing…" : "Publish as manual dispatch"}
         </button>
       </div>
       {message && (

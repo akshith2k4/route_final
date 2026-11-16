@@ -5,7 +5,7 @@
  *
  * `Region` is a code such as R4. When it is blank or unknown, the hotel is
  * auto-assigned to the nearest region centre. Hotel ids come from the same
- * pipeline-09 slug logic used by `seed-city.ts`, so imports are stable.
+ * pipeline-09 slug logic, so imports are stable.
  */
 import { haversineKm, type RegionMeta } from "./coverage";
 import { ensureHotelIds } from "./city-pipeline";

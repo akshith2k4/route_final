@@ -51,6 +51,7 @@ export function PlanHeader({
   return (
     <header className="relative z-40 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-5 h-16 px-5 border-b border-line bg-[#f7f3eb]/95 backdrop-blur-md shrink-0 max-[780px]:sticky max-[780px]:top-0 max-[780px]:grid-cols-[1fr_auto] max-[780px]:gap-3 max-[780px]:h-[58px] max-[780px]:px-[13px]">
       {/* Brand logo */}
+      <div className="flex min-w-0 items-center gap-3 justify-self-start">
       <Link
         className="inline-flex items-center gap-2.5 justify-self-start min-w-0 rounded-lg text-left group"
         href={`/${currentCityId}`}
@@ -90,6 +91,8 @@ export function PlanHeader({
           </span>
         </span>
       </Link>
+        <CitySwitcher cities={cities} currentCityId={currentCityId} />
+      </div>
 
       {/* Plan Title & Mode Switcher */}
       <div className="flex flex-col items-center justify-self-center gap-0.5 min-w-0 text-center max-[780px]:hidden">
@@ -142,7 +145,6 @@ export function PlanHeader({
 
       {/* Topbar Actions */}
       <div className="flex items-center justify-self-end gap-2.5 min-w-0">
-        <CitySwitcher cities={cities} currentCityId={currentCityId} />
         {/* Undo / Redo */}
         <div className="flex gap-px p-0.5 border border-line rounded-lg bg-paper">
           <button

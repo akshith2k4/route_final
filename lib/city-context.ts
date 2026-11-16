@@ -9,6 +9,7 @@ import type { City } from "./city-types";
 import {
   fleetDepots,
   fleetVehicles,
+  haversineKm,
   type CityFleet,
   type DispatchRoute,
   type HexMap,
@@ -42,8 +43,7 @@ export type CityContext = {
 
 /**
  * Loads everything a city page needs in one place: the registry entry, its
- * regions, its master hotels and the reference datasets published by the
- * offline pipeline.
+ * regions, its master hotels and the reference datasets published for it.
  */
 export async function getCityContext(
   slug: string,
@@ -118,21 +118,83 @@ export async function getCityContext(
     | { routes?: Record<string, [number, number][]> }
     | undefined;
 
+  const depots = fleetDepots(fleet);
+  const vehicles = fleetVehicles(fleet);
+  const geoRoutes = geometries?.routes ?? {};
+
+  // Manual routes carry their own stops. Attach the road geometry by route id
+  // when it exists; otherwise draw a depot → stops → depot line so the map
+  // always shows the route, even before OSRM geometries are generated.
+  const manualRoutes = ((datasets.manual_routes as DispatchRoute[] | undefined) ?? []).map(
+    (route) => {
+      const geometry = route.route_id ? geoRoutes[route.route_id] : undefined;
+      const path: [number, number][] =
+        route.path_coordinates?.length > 0
+          ? route.path_coordinates
+          : geometry && geometry.length > 1
+            ? geometry
+            : straightLinePath(route, depots[0]);
+
+      const distanceKm =
+        route.total_dist_km > 0
+          ? route.total_dist_km
+          : pathDistanceKm(path) * (geometry ? 1 : city.roadFactor);
+      const driveMins =
+        route.total_drive_mins > 0
+          ? route.total_drive_mins
+          : Math.round((distanceKm / Math.max(1, city.fallbackSpeedKmh)) * 60);
+
+      return {
+        ...route,
+        path_coordinates: path,
+        total_dist_km: Number(distanceKm.toFixed(1)),
+        total_drive_mins: driveMins,
+      };
+    },
+  );
+
   return {
     city,
     cities,
     regions,
     hotels,
     fleet: fleet ?? {},
-    depots: fleetDepots(fleet),
-    vehicles: fleetVehicles(fleet),
+    depots,
+    vehicles,
     hexMap: (datasets.hex_map as HexMap | undefined) ?? {},
     travelMatrix: (datasets.travel_matrix as TravelMatrix | undefined) ?? null,
-    planGeometries: geometries?.routes ?? {},
+    planGeometries: geoRoutes,
     optimizedRoutes: (datasets.optimized_routes as DispatchRoute[]) ?? [],
-    manualRoutes: (datasets.manual_routes as DispatchRoute[]) ?? [],
+    manualRoutes,
     baselinePlan: (datasets.baseline_plan as Plan | undefined) ?? null,
   };
+}
+
+function pathDistanceKm(path: [number, number][]): number {
+  let total = 0;
+  for (let index = 1; index < path.length; index += 1) {
+    total += haversineKm(
+      path[index - 1][0],
+      path[index - 1][1],
+      path[index][0],
+      path[index][1],
+    );
+  }
+  return total;
+}
+
+/** Straight depot → stops → depot path used before road geometries exist. */
+function straightLinePath(
+  route: DispatchRoute,
+  depot: StudioDepot | undefined,
+): [number, number][] {
+  if (!depot || route.stops.length === 0) return [];
+  const start: [number, number] = [depot.latitude, depot.longitude];
+  return [
+    start,
+    ...route.stops.map((stop) => [stop.lat, stop.lon] as [number, number]),
+    start,
+  ];
 }
 
 /** The travel matrix of a city, or null when the city has not published one. */

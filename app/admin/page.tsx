@@ -65,7 +65,7 @@ export default async function AdminCitiesPage() {
           around its centre. The wizard then covers{" "}
           <b className="text-ink">region editing</b>, <b className="text-ink">hotel CSV import</b>,{" "}
           <b className="text-ink">fleet setup</b>, <b className="text-ink">dataset generation</b>{" "}
-          and <b className="text-ink">activation</b> — no offline scripts.
+          and <b className="text-ink">activation</b> — all in the app.
         </div>
 
         <ul className="mt-5 flex flex-col gap-3">

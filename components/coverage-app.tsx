@@ -384,6 +384,7 @@ const SHOW_DISPATCH_AND_STUDIO = false;
   return (
     <div className={`app [display:flex] [flex-direction:column] [width:100%] [height:100svh] [min-height:0] [overflow:hidden] [background:var(--bone)] max-[760px]:[height:auto] max-[760px]:[min-height:100svh] max-[760px]:[overflow:visible]`}>
       <header className={`topbar [position:relative] [z-index:40] [display:grid] [flex:0_0_auto] [grid-template-columns:1fr_auto_1fr] [align-items:center] [gap:18px] [height:66px] [padding:0_22px] [border-bottom:1px_solid_var(--line)] [background:rgba(247,_243,_235,_0.94)] [backdrop-filter:blur(14px)] max-[900px]:[grid-template-columns:1fr_auto] max-[760px]:[position:sticky] max-[760px]:[top:0] max-[760px]:[grid-template-columns:1fr_auto] max-[760px]:[gap:10px] max-[760px]:[height:60px] max-[760px]:[padding:0_16px] max-[560px]:[height:58px] max-[560px]:[padding:0_12px] [position:relative] [z-index:40] [display:grid] [flex:0_0_auto] [grid-template-columns:1fr_auto_1fr] [align-items:center] [gap:18px] [height:66px] [padding:0_22px] [border-bottom:1px_solid_var(--line)] [background:rgba(247,_243,_235,_0.94)] [backdrop-filter:blur(14px)] max-[900px]:[grid-template-columns:1fr_auto] max-[760px]:[position:sticky] max-[760px]:[top:0] max-[760px]:[grid-template-columns:1fr_auto] max-[760px]:[gap:10px] max-[760px]:[height:60px] max-[760px]:[padding:0_16px] max-[560px]:[height:58px] max-[560px]:[padding:0_12px]`}>
+        <div className="flex min-w-0 items-center gap-3 justify-self-start">
         <button
           type="button"
           className={`brand [display:inline-flex] [align-items:center] [justify-self:start] [gap:10px] [min-width:0] [border-radius:10px] [text-align:left] max-[560px]:[gap:8px] [display:inline-flex] [align-items:center] [justify-self:start] [gap:10px] [min-width:0] [border-radius:10px] [text-align:left] max-[560px]:[gap:8px]`}
@@ -417,6 +418,8 @@ const SHOW_DISPATCH_AND_STUDIO = false;
             <span className={`brand-sub [color:var(--faint)] [font-size:8.5px] [font-weight:600] [letter-spacing:0.14em] [text-transform:uppercase] max-[760px]:[display:none] [color:var(--faint)] [font-size:8.5px] [font-weight:600] [letter-spacing:0.14em] [text-transform:uppercase] max-[760px]:[display:none]`}>Field atlas</span>
           </span>
         </button>
+          <CitySwitcher cities={cities} currentCityId={cityId} />
+        </div>
 
         <nav className={`topnav [display:flex] [align-items:center] [gap:2px] [padding:3px] [border:1px_solid_var(--line)] [border-radius:10px] [background:var(--paper)] max-[900px]:[display:none]`} aria-label="Primary">
           <button
@@ -498,7 +501,6 @@ const SHOW_DISPATCH_AND_STUDIO = false;
         </nav>
 
         <div className={`topbar__actions [display:flex] [align-items:center] [justify-self:end] [gap:14px] [min-width:0] max-[560px]:[gap:0] [display:flex] [align-items:center] [justify-self:end] [gap:14px] [min-width:0] max-[560px]:[gap:0]`}>
-          <CitySwitcher cities={cities} currentCityId={cityId} />
           <div className={`topbar-stat [display:flex] [align-items:center] [gap:7px] [color:var(--muted)] [font-size:10.5px] [white-space:nowrap] [&_b]:[color:var(--ink)] [&_b]:[font-weight:600] [&_b]:[font-variant-numeric:tabular-nums] max-[1180px]:[display:none] [display:flex] [align-items:center] [gap:7px] [color:var(--muted)] [font-size:10.5px] [white-space:nowrap] [&_b]:[color:var(--ink)] [&_b]:[font-weight:600] [&_b]:[font-variant-numeric:tabular-nums] max-[1180px]:[display:none]`}>
             <span className={`topbar-stat__dot [width:5px] [height:5px] [border-radius:50%] [background:#3c7a55] [box-shadow:0_0_0_3px_rgba(60,_122,_85,_0.11)] [width:5px] [height:5px] [border-radius:50%] [background:#3c7a55] [box-shadow:0_0_0_3px_rgba(60,_122,_85,_0.11)]`} />
             <span>

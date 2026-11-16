@@ -2,7 +2,7 @@
  * In-app city generation: reads the city's DB masters, runs the pipeline
  * library, and publishes the results into `city_datasets`. This is what the
  * wizard's "Generate" step and the Plan Canvas "publish" action call, so a
- * city never needs the offline scripts.
+ * city is generated entirely in-app.
  */
 import { and, eq } from "drizzle-orm";
 import { db } from "./db";
@@ -106,10 +106,21 @@ async function loadMasters(cityId: string): Promise<CityMasters> {
   return { city, regions, hotels, depots, planDepots, laundries, vehicles };
 }
 
-/** Step: coverage hex map from hotels + regions. */
+/** Step: coverage hex map from hotels + regions + facilities. */
 export async function generateHexMap(cityId: string): Promise<{ cells: number }> {
-  const { city, regions, hotels } = await loadMasters(cityId);
-  const hexMap = buildHexMap(hotels, regions, city.h3Resolution);
+  const { city, regions, hotels, planDepots, laundries } = await loadMasters(cityId);
+  const hexMap = buildHexMap(
+    hotels,
+    regions,
+    city.h3Resolution,
+    // Facilities are part of the operational footprint: the warehouse must
+    // always sit inside a region's territory, even when it is outside the
+    // hotel cluster.
+    [
+      ...planDepots.map((depot) => ({ lat: depot.lat, lon: depot.lon })),
+      ...laundries.map((laundry) => ({ lat: laundry.lat, lon: laundry.lon })),
+    ],
+  );
   await writeDataset(cityId, "hex_map", hexMap);
   return { cells: Object.keys(hexMap).length };
 }

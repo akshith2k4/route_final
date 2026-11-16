@@ -107,8 +107,8 @@ export type StudioDepot = {
 };
 
 /**
- * The per-city fleet definition published by the offline pipeline. Each city
- * owns its own warehouses, laundries and vehicles.
+ * The per-city fleet definition. Each city owns its own warehouses, laundries
+ * and vehicles.
  */
 export type CityFleet = {
   depot?: {

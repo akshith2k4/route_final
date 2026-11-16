@@ -64,7 +64,7 @@ export type CityRegion = {
   isActive: boolean;
 };
 
-/** The kinds of reference data the offline pipeline publishes per city. */
+/** The kinds of reference data the city pipeline publishes. */
 export const CITY_DATASET_KINDS = [
   "hex_map",
   "travel_matrix",
