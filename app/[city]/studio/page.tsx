@@ -35,7 +35,7 @@ export default async function StudioPage({ params }: PageProps) {
     regions,
     hotels,
     hexMap,
-    optimizedRoutes,
+    optimizedRoutes, manualRoutes,
     depots,
     vehicles,
   } = context;
@@ -57,6 +57,7 @@ export default async function StudioPage({ params }: PageProps) {
       hotels={hotels}
       hexMap={hexMap}
       routes={optimizedRoutes}
+      manualRoutes={manualRoutes}
       depots={depots}
       vehicles={vehicles}
       initialWorkspace="studio"

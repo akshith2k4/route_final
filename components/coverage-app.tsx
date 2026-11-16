@@ -40,6 +40,7 @@ import {
   type StudioVehicle,
 } from "../lib/coverage";
 import CitySwitcher from "./city-switcher";
+import ManualRouteBuilder from "./manual-route-builder";
 
 type CoverageAppProps = {
   cityId: string;
@@ -104,6 +105,7 @@ export default function CoverageApp({
     () => manualRoutesProp,
     [manualRoutesProp],
   );
+  const [buildingManualRoutes, setBuildingManualRoutes] = useState(false);
   const regions = useMemo(
     () => [...regionData].sort((a, b) => a.id - b.id),
     [regionData],
@@ -438,8 +440,17 @@ const SHOW_DISPATCH_AND_STUDIO = false;
             }}
           >
             Manual routes
-            <span className={`topnav__live-pill [display:inline-flex] [align-items:center] [gap:4px] [margin-left:6px] [padding:2px_7px] [border:1px_solid_rgba(16,_185,_129,_0.35)] [border-radius:999px] [background:rgba(16,_185,_129,_0.12)] [color:#065f46] [font-size:9px] [font-weight:700] [text-transform:uppercase] [letter-spacing:0.05em] [line-height:1] before:[content:""] before:[display:inline-block] before:[width:5px] before:[height:5px] before:[border-radius:50%] before:[background:#10b981] before:[box-shadow:0_0_6px_rgba(16,_185,_129,_0.8)] before:[animation:pulse-dot_1.8s_cubic-bezier(0.4,_0,_0.6,_1)_infinite]`}>8 Routes</span>
+            <span className={`topnav__live-pill [display:inline-flex] [align-items:center] [gap:4px] [margin-left:6px] [padding:2px_7px] [border:1px_solid_rgba(16,_185,_129,_0.35)] [border-radius:999px] [background:rgba(16,_185,_129,_0.12)] [color:#065f46] [font-size:9px] [font-weight:700] [text-transform:uppercase] [letter-spacing:0.05em] [line-height:1] before:[content:""] before:[display:inline-block] before:[width:5px] before:[height:5px] before:[border-radius:50%] before:[background:#10b981] before:[box-shadow:0_0_6px_rgba(16,_185,_129,_0.8)] before:[animation:pulse-dot_1.8s_cubic-bezier(0.4,_0,_0.6,_1)_infinite]`}>{manualRoutes.length} Routes</span>
           </button>
+          {activeWorkspace === "manual" && manualRoutes.length > 0 && !buildingManualRoutes && (
+            <button
+              type="button"
+              onClick={() => setBuildingManualRoutes(true)}
+              className="topnav__item [display:inline-flex] [align-items:center] [gap:6px] [height:28px] [padding:0_11px] [border-radius:7px] [color:var(--muted)] [font-size:11.5px] [font-weight:600] hover:[background:var(--bone)] hover:[color:var(--ink)]"
+            >
+              Edit routes
+            </button>
+          )}
           <Link className={`topnav__item [display:inline-flex] [align-items:center] [gap:6px] [height:28px] [padding:0_11px] [border-radius:7px] [color:var(--muted)] [font-size:11.5px] [font-weight:600] [letter-spacing:-0.005em] [&:hover:not(.topnav__item--active):not(.topnav__item--disabled)]:[background:var(--bone)] [&:hover:not(.topnav__item--active):not(.topnav__item--disabled)]:[color:var(--ink)]`} href={`/${cityId}/plan`}>
             Plan canvas
             <ArrowUpRight size={11} />
@@ -579,7 +590,39 @@ const SHOW_DISPATCH_AND_STUDIO = false;
                   : "Coverage explorer"
           }
         >
-          {activeWorkspace === "manual" ? (
+          {activeWorkspace === "manual" && (manualRoutes.length === 0 || buildingManualRoutes) ? (
+            <div className="flex h-full flex-col">
+              <div className="flex items-center justify-between border-b border-line bg-paper px-4 py-2.5">
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-muted">
+                    Manual route mapping
+                  </p>
+                  <p className="text-[12px] font-semibold text-ink">
+                    {buildingManualRoutes ? "Build your routes" : "No manual routes yet"}
+                  </p>
+                </div>
+                {manualRoutes.length > 0 && buildingManualRoutes && (
+                  <button
+                    type="button"
+                    onClick={() => setBuildingManualRoutes(false)}
+                    className="rounded-lg border border-line-strong bg-paper px-3 py-1.5 text-[11px] font-semibold text-ink transition-colors hover:bg-bone"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+              <div className="min-h-0 flex-1">
+                <ManualRouteBuilder
+                  cityId={cityId}
+                  cityName={cityName}
+                  hotels={hotels}
+                  regions={regions}
+                  depots={simulatedDepots}
+                  vehicles={vehicles}
+                />
+              </div>
+            </div>
+          ) : activeWorkspace === "manual" ? (
             <DispatchPanel
               cityName={cityName}
               title="Manual route mapping"

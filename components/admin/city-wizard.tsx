@@ -5,17 +5,22 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
+  Building2,
   Check,
   ChevronDown,
   ChevronUp,
   Download,
   Eye,
   EyeOff,
+  FileSpreadsheet,
   Hotel,
   Layers,
+  Loader2,
   MapPin,
+  Play,
   Plus,
   RefreshCw,
+  Rocket,
   Save,
   Sparkles,
   Trash2,
@@ -23,17 +28,20 @@ import {
 } from "lucide-react";
 import RegionMapEditor from "./region-map-editor";
 import CenterPickerMap from "./center-picker-map";
+import { HOTEL_CSV_TEMPLATE } from "../../lib/hotel-csv";
 import {
-  DELHI_BASICS,
   REGION_COLOR_PALETTE,
   TIMEZONE_OPTIONS,
-  delhiStarterRegions,
+  emptyCityBasics,
   nextRegionId,
+  standardZoneRegions,
   toCityConfigJson,
   toDraftCityInput,
   type CityBasicsDraft,
   type RegionDraft,
 } from "../../lib/city-presets";
+
+const INITIAL_BASICS = emptyCityBasics();
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -47,23 +55,50 @@ function slugify(value: string): string {
     .slice(0, 40);
 }
 
-const STEP_LABELS = ["Basics", "Regions", "Review & save"];
-const FUTURE_STEPS = [
-  { label: "Hotels", icon: Hotel },
-  { label: "Fleet", icon: Truck },
-  { label: "Generate & publish", icon: Sparkles },
-];
+const STEP_LABELS = ["Basics", "Regions", "Review & save", "Hotels", "Fleet", "Generate & publish"];
+const STEP_ICONS = [MapPin, Layers, Save, Hotel, Truck, Sparkles];
 
 export default function CityWizard() {
   const [step, setStep] = useState(0);
-  const [basics, setBasics] = useState<CityBasicsDraft>({ ...DELHI_BASICS });
-  const [regions, setRegions] = useState<RegionDraft[]>(() => delhiStarterRegions());
+  const [basics, setBasics] = useState<CityBasicsDraft>(() => ({ ...INITIAL_BASICS }));
+  const [regions, setRegions] = useState<RegionDraft[]>(() =>
+    standardZoneRegions(INITIAL_BASICS.center),
+  );
+  // While true, moving the city centre repositions the five standard zones.
+  // Any manual region edit turns this off so the manager's layout is kept.
+  const [templateRegions, setTemplateRegions] = useState(true);
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
   const [showTerritories, setShowTerritories] = useState(true);
   const [slugTouched, setSlugTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedSlug, setSavedSlug] = useState<string | null>(null);
+
+  // Hotels import state
+  const [hotelCsv, setHotelCsv] = useState(HOTEL_CSV_TEMPLATE);
+  const [hotelPreview, setHotelPreview] = useState<{
+    total: number;
+    valid: number;
+    invalid: number;
+    rows: { line: number; name: string; region: string; latitude: number; longitude: number; bags: number; serviceMins: number; errors: string[] }[];
+  } | null>(null);
+  const [hotelBusy, setHotelBusy] = useState(false);
+  const [hotelMessage, setHotelMessage] = useState<string | null>(null);
+
+  // Fleet state — the manager supplies the warehouse details.
+  const [fleetBusy, setFleetBusy] = useState(false);
+  const [fleetResult, setFleetResult] = useState<string | null>(null);
+  const [warehouseName, setWarehouseName] = useState("");
+  const [warehouseShortName, setWarehouseShortName] = useState("");
+  const [warehouseAddress, setWarehouseAddress] = useState("");
+  const [warehouseLocation, setWarehouseLocation] = useState<{ lat: number; lon: number } | null>(null);
+
+  // Generation state
+  const [generating, setGenerating] = useState(false);
+  const [genProgress, setGenProgress] = useState<Record<string, string>>({});
+  const [genMessage, setGenMessage] = useState<string | null>(null);
+  const [genError, setGenError] = useState<string | null>(null);
+  const [activated, setActivated] = useState(false);
 
   const basicsValid =
     basics.name.trim().length >= 2 &&
@@ -83,7 +118,20 @@ export default function CityWizard() {
     });
   }
 
+  /**
+   * Updates the city centre. While the standard zones are untouched, they
+   * follow the centre so the template always surrounds the chosen city.
+   */
+  function changeCenter(lat: number, lon: number) {
+    updateBasics({ center: { lat, lon } });
+    if (templateRegions) {
+      setRegions(standardZoneRegions({ lat, lon }));
+      setSelectedRegionId(null);
+    }
+  }
+
   function addRegion(lat?: number, lon?: number) {
+    setTemplateRegions(false);
     const index = regions.length;
     const offset = 0.015 * (index + 1);
     const region: RegionDraft = {
@@ -102,6 +150,7 @@ export default function CityWizard() {
   }
 
   function updateRegion(id: string, patch: Partial<RegionDraft>) {
+    setTemplateRegions(false);
     setRegions((current) =>
       current.map((region) => (region.id === id ? { ...region, ...patch } : region)),
     );
@@ -112,6 +161,7 @@ export default function CityWizard() {
   }
 
   function removeRegion(id: string) {
+    setTemplateRegions(false);
     setRegions((current) => current.filter((region) => region.id !== id));
     if (selectedRegionId === id) setSelectedRegionId(null);
   }
@@ -128,10 +178,18 @@ export default function CityWizard() {
     });
   }
 
-  function resetStarterRegions() {
-    const fresh = delhiStarterRegions();
-    setRegions(fresh);
-    setSelectedRegionId(fresh[0]?.id ?? null);
+  function resetStandardZones() {
+    setRegions(standardZoneRegions(basics.center));
+    setSelectedRegionId(null);
+    setTemplateRegions(true);
+  }
+
+  function clearRegions() {
+    if (regions.length === 0) return;
+    if (!window.confirm(`Remove all ${regions.length} regions? This cannot be undone.`)) return;
+    setRegions([]);
+    setSelectedRegionId(null);
+    setTemplateRegions(false);
   }
 
   async function saveDraft() {
@@ -171,7 +229,178 @@ export default function CityWizard() {
     URL.revokeObjectURL(url);
   }
 
-  const canContinue = step === 0 ? basicsValid : step === 1 ? regionsValid : true;
+  async function previewHotels(commit = false) {
+    if (!savedSlug) return;
+    setHotelBusy(true);
+    setHotelMessage(null);
+    try {
+      const response = await fetch(`/api/admin/cities/${savedSlug}/hotels/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csv: hotelCsv, commit }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setHotelMessage(data.error ?? "Import failed.");
+        return;
+      }
+      if (commit) {
+        setHotelMessage(`Imported ${data.inserted} new hotels, updated ${data.updated}.`);
+        await loadCityStatus(savedSlug);
+      } else {
+        setHotelPreview(data);
+      }
+    } catch {
+      setHotelMessage("Network error during import.");
+    } finally {
+      setHotelBusy(false);
+    }
+  }
+
+  async function loadCityStatus(slug: string) {
+    try {
+      const response = await fetch("/api/admin/cities");
+      if (!response.ok) return;
+      const data = await response.json();
+      const city = data.cities.find((c: { id: string }) => c.id === slug);
+      if (city) setCityCounts(city.counts);
+    } catch {
+      // best effort
+    }
+  }
+
+  const [cityCounts, setCityCounts] = useState<{ hotels: number; vehicles: number; facilities: number } | null>(null);
+
+  const warehouseValid =
+    warehouseName.trim().length >= 2 &&
+    !!warehouseLocation &&
+    Number.isFinite(warehouseLocation.lat) &&
+    Number.isFinite(warehouseLocation.lon);
+
+  async function quickStartFleet() {
+    if (!savedSlug) return;
+    if (!warehouseValid || !warehouseLocation) {
+      setFleetResult("Enter a warehouse name and pick its location on the map.");
+      return;
+    }
+    setFleetBusy(true);
+    setFleetResult(null);
+    try {
+      const response = await fetch(`/api/admin/cities/${savedSlug}/fleet`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          warehouse: {
+            name: warehouseName.trim(),
+            shortName: warehouseShortName.trim() || undefined,
+            address: warehouseAddress.trim() || null,
+            latitude: warehouseLocation.lat,
+            longitude: warehouseLocation.lon,
+          },
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setFleetResult(data.error ?? "Could not create the warehouse.");
+      } else {
+        setFleetResult(
+          `Created "${warehouseName.trim()}". Now add the city's vehicles in the Vehicles dashboard.`,
+        );
+        await loadCityStatus(savedSlug);
+      }
+    } catch {
+      setFleetResult("Network error during fleet setup.");
+    } finally {
+      setFleetBusy(false);
+    }
+  }
+
+  const GENERATION_STEPS = [
+    { key: "hex_map", label: "Coverage hex map", icon: Layers },
+    { key: "baseline_plan", label: "Baseline dispatch plan", icon: Sparkles },
+    { key: "travel_matrix", label: "Travel-time matrix (OSRM)", icon: MapPin },
+    { key: "geometries", label: "Route geometries (OSRM)", icon: Truck },
+  ] as const;
+
+  async function runGeneration(stepKey: string, budgetMs?: number): Promise<boolean> {
+    if (!savedSlug) return false;
+    const response = await fetch(`/api/admin/cities/${savedSlug}/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ step: stepKey, budgetMs }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error ?? `Generation of ${stepKey} failed.`);
+    return data.complete === true;
+  }
+
+  async function generateAll() {
+    if (!savedSlug) return;
+    setGenerating(true);
+    setGenError(null);
+    setGenProgress({});
+    try {
+      // Hex map + plan (fast, deterministic)
+      setGenProgress((p) => ({ ...p, hex_map: "running" }));
+      await runGeneration("hex_map");
+      setGenProgress((p) => ({ ...p, hex_map: "done" }));
+
+      setGenProgress((p) => ({ ...p, baseline_plan: "running" }));
+      const planResult = await runGeneration("baseline_plan");
+      setGenProgress((p) => ({ ...p, baseline_plan: "done" }));
+
+      // Matrix: loop resumable steps until complete (10s budget each)
+      setGenProgress((p) => ({ ...p, travel_matrix: "running" }));
+      let matrixDone = false;
+      for (let i = 0; i < 40 && !matrixDone; i += 1) {
+        matrixDone = await runGeneration("travel_matrix", 10_000);
+        setGenMessage(`Travel matrix: pass ${i + 1}…`);
+      }
+      setGenProgress((p) => ({ ...p, travel_matrix: "done" }));
+
+      // Geometries: loop resumable steps until complete
+      setGenProgress((p) => ({ ...p, geometries: "running" }));
+      let geoDone = false;
+      for (let i = 0; i < 40 && !geoDone; i += 1) {
+        geoDone = await runGeneration("geometries", 10_000);
+        setGenMessage(`Route geometries: pass ${i + 1}…`);
+      }
+      setGenProgress((p) => ({ ...p, geometries: "done" }));
+      setGenMessage(`Done. Plan built with ${planResult ? "the solver" : "fallback"}.`);
+    } catch (error) {
+      setGenError(error instanceof Error ? error.message : "Generation failed.");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function activateCity() {
+    if (!savedSlug) return;
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const response = await fetch(`/api/admin/cities/${savedSlug}/activate`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Could not activate city.");
+      setActivated(true);
+    } catch (error) {
+      setGenError(error instanceof Error ? error.message : "Could not activate.");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  const fleetReady = warehouseValid || (cityCounts?.facilities ?? 0) > 0;
+  const canContinue =
+    step === 0
+      ? basicsValid
+      : step === 1
+        ? regionsValid
+        : step === 2
+          ? !!savedSlug
+          : step === 4
+            ? fleetReady
+            : true;
 
   return (
     <div className="flex min-h-[100svh] flex-col bg-bone">
@@ -192,7 +421,7 @@ export default function CityWizard() {
         </Link>
         <div className="flex items-center gap-3">
           <span className="hidden rounded-full border border-line-strong bg-paper px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.1em] text-muted sm:inline">
-            Prototype · Basics + Regions
+            Full in-app onboarding
           </span>
           <Link
             href="/admin"
@@ -238,24 +467,6 @@ export default function CityWizard() {
               </li>
             );
           })}
-          {FUTURE_STEPS.map(({ label, icon: Icon }, index) => (
-            <li key={label} className="flex items-center gap-2">
-              {index === 0 && <span className="h-px w-4 bg-line-strong" aria-hidden="true" />}
-              <span
-                className="flex items-center gap-2 rounded-full border border-dashed border-line px-3 py-1.5 text-[11px] font-semibold text-faint"
-                title="Arrives in the next phase of the onboarding build"
-              >
-                <Icon size={12} />
-                {label}
-                <span className="rounded bg-bone px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-faint">
-                  Next phase
-                </span>
-              </span>
-              {index < FUTURE_STEPS.length - 1 && (
-                <span className="h-px w-4 bg-line-strong" aria-hidden="true" />
-              )}
-            </li>
-          ))}
         </ol>
       </div>
 
@@ -271,8 +482,9 @@ export default function CityWizard() {
                 Name the city
               </h1>
               <p className="mt-2 text-[12px] leading-relaxed text-muted">
-                Loaded with the Delhi preset. Rename it, move the centre pin, or
-                start typing a different city — everything stays editable.
+                Type the city name and click the map to set its centre. Five
+                standard zones — North, South, East, West and Central — are placed
+                around it automatically; rename and refine them on the next step.
               </p>
 
               <div className="mt-4 flex flex-col gap-3.5">
@@ -281,7 +493,7 @@ export default function CityWizard() {
                     className={inputClass}
                     value={basics.name}
                     onChange={(event) => updateBasics({ name: event.target.value })}
-                    placeholder="e.g. Delhi"
+                    placeholder="e.g. Pune"
                   />
                 </Field>
                 <Field label="Display name (optional)">
@@ -289,7 +501,7 @@ export default function CityWizard() {
                     className={inputClass}
                     value={basics.display_name}
                     onChange={(event) => updateBasics({ display_name: event.target.value })}
-                    placeholder="e.g. Delhi NCR"
+                    placeholder="e.g. Pune Metropolitan"
                   />
                 </Field>
                 <Field label="URL slug">
@@ -302,7 +514,7 @@ export default function CityWizard() {
                         setSlugTouched(true);
                         updateBasics({ slug: slugify(event.target.value) });
                       }}
-                      placeholder="delhi"
+                      placeholder="pune"
                     />
                   </div>
                 </Field>
@@ -328,9 +540,7 @@ export default function CityWizard() {
                       step="0.0001"
                       value={basics.center.lat}
                       onChange={(event) =>
-                        updateBasics({
-                          center: { ...basics.center, lat: Number(event.target.value) },
-                        })
+                        changeCenter(Number(event.target.value), basics.center.lon)
                       }
                     />
                   </Field>
@@ -341,9 +551,7 @@ export default function CityWizard() {
                       step="0.0001"
                       value={basics.center.lon}
                       onChange={(event) =>
-                        updateBasics({
-                          center: { ...basics.center, lon: Number(event.target.value) },
-                        })
+                        changeCenter(basics.center.lat, Number(event.target.value))
                       }
                     />
                   </Field>
@@ -421,7 +629,8 @@ export default function CityWizard() {
                 <CenterPickerMap
                   center={basics.center}
                   zoom={basics.default_zoom}
-                  onChange={(lat, lon) => updateBasics({ center: { lat, lon } })}
+                  value={basics.center}
+                  onChange={changeCenter}
                 />
               </div>
             </section>
@@ -572,14 +781,21 @@ export default function CityWizard() {
                 </ul>
               </div>
 
-              <div className="border-t border-line px-4 py-2.5">
+              <div className="flex items-center justify-between border-t border-line px-4 py-2.5">
                 <button
                   type="button"
-                  onClick={resetStarterRegions}
+                  onClick={resetStandardZones}
                   className="flex items-center gap-1.5 text-[10.5px] font-semibold text-muted transition-colors hover:text-ink"
                 >
                   <RefreshCw size={11} />
-                  Reset to Delhi starter regions
+                  Reset to 5 standard zones
+                </button>
+                <button
+                  type="button"
+                  onClick={clearRegions}
+                  className="text-[10.5px] font-semibold text-faint transition-colors hover:text-danger"
+                >
+                  Clear all
                 </button>
               </div>
             </section>
@@ -637,31 +853,25 @@ export default function CityWizard() {
                   {basics.name} is saved as a draft
                 </h2>
                 <p className="mt-2 max-w-[560px] text-[12.5px] leading-relaxed text-muted">
-                  The city and its {regions.length} regions are in the database, marked
-                  inactive — so it stays out of the live switcher until hotels, fleet and
-                  datasets are added in the next phases. You can preview its coverage map
-                  right now.
+                  The city and its {regions.length} regions are saved. Continue to add
+                  hotels, set up the fleet, generate datasets and go live — all in this
+                  wizard, no offline scripts.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2.5">
-                  <Link
-                    href={`/${savedSlug}`}
-                    className="rounded-lg bg-ink px-4 py-2 text-[12px] font-semibold text-cream transition-opacity hover:opacity-90"
+                  <button
+                    type="button"
+                    onClick={() => setStep(3)}
+                    className="flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-[12px] font-semibold text-cream transition-opacity hover:opacity-90"
                   >
-                    Open coverage preview
-                  </Link>
+                    Continue to hotels
+                    <ArrowRight size={13} />
+                  </button>
                   <Link
                     href="/admin"
                     className="rounded-lg border border-line-strong bg-paper px-4 py-2 text-[12px] font-semibold text-ink transition-colors hover:bg-bone"
                   >
                     Back to all cities
                   </Link>
-                  <button
-                    type="button"
-                    onClick={() => setSavedSlug(null)}
-                    className="rounded-lg border border-line px-4 py-2 text-[12px] font-semibold text-muted transition-colors hover:bg-bone"
-                  >
-                    Keep editing
-                  </button>
                 </div>
               </section>
             ) : (
@@ -754,6 +964,311 @@ export default function CityWizard() {
             )}
           </div>
         )}
+
+        {step === 3 && (
+          <div className="flex flex-col gap-4">
+            <section className="rounded-2xl border border-line bg-paper p-5">
+              <p className="text-[9px] font-bold uppercase tracking-[0.145em] text-muted">
+                Step 4 · Hotels
+              </p>
+              <h2 className="mt-1 font-serif text-[26px] text-ink">Import the hotel list</h2>
+              <p className="mt-2 max-w-[640px] text-[12.5px] leading-relaxed text-muted">
+                Paste the standard hotel CSV — the same format already used across the
+                operations team. Each hotel gets a stable id (same pipeline as the
+                offline seed), and any row without a valid region code is auto-assigned
+                to its nearest region centre.
+              </p>
+              <div className="mt-3 overflow-x-auto rounded-xl border border-line bg-bone/60 p-3">
+                <code className="whitespace-nowrap font-mono text-[10.5px] text-ink-soft">
+                  {HOTEL_CSV_TEMPLATE.trim()}
+                </code>
+              </div>
+              <textarea
+                className="mt-3 w-full rounded-xl border border-line-strong bg-paper-strong p-3 font-mono text-[11px] text-ink outline-none focus:border-[var(--focus)] focus:ring-2 focus:ring-[rgba(59,107,80,0.18)]"
+                rows={10}
+                value={hotelCsv}
+                onChange={(event) => setHotelCsv(event.target.value)}
+                aria-label="Hotel CSV data"
+              />
+              <div className="mt-3 flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => previewHotels(false)}
+                  disabled={hotelBusy}
+                  className="flex items-center gap-1.5 rounded-lg border border-line-strong bg-paper px-4 py-2 text-[12px] font-semibold text-ink transition-colors hover:bg-bone disabled:opacity-40"
+                >
+                  <Eye size={13} />
+                  {hotelBusy ? "Working…" : "Preview import"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => previewHotels(true)}
+                  disabled={hotelBusy}
+                  className="flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-[12px] font-semibold text-cream transition-opacity hover:opacity-90 disabled:opacity-40"
+                >
+                  <FileSpreadsheet size={13} />
+                  Import hotels
+                </button>
+                {hotelPreview && (
+                  <span className="text-[11.5px] font-semibold text-muted">
+                    {hotelPreview.valid} valid · {hotelPreview.invalid} invalid of {hotelPreview.total}
+                  </span>
+                )}
+                {cityCounts && (
+                  <span className="rounded-full bg-bone px-3 py-1 text-[11px] font-semibold text-ink">
+                    {cityCounts.hotels} hotels in this city
+                  </span>
+                )}
+              </div>
+              {hotelMessage && (
+                <p className="mt-3 rounded-lg border border-line bg-bone px-3 py-2 text-[11.5px] font-semibold text-ink">
+                  {hotelMessage}
+                </p>
+              )}
+              {hotelPreview && hotelPreview.invalid > 0 && (
+                <div className="mt-3 rounded-xl border border-danger/30 bg-danger/10 p-3">
+                  <p className="text-[11px] font-bold text-danger">Rows to fix:</p>
+                  <ul className="mt-1.5 max-h-40 overflow-y-auto text-[11px] text-danger">
+                    {hotelPreview.rows
+                      .filter((row) => row.errors.length > 0)
+                      .map((row) => (
+                        <li key={row.line}>
+                          Line {row.line} ({row.name}): {row.errors.join("; ")}
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              )}
+            </section>
+            <p className="text-[11px] leading-relaxed text-faint">
+              You can also add or edit individual hotels later in the city's Hotels
+              dashboard. Importing again with the same file updates existing rows.
+            </p>
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+            <section className="rounded-2xl border border-line bg-paper p-5">
+              <p className="text-[9px] font-bold uppercase tracking-[0.145em] text-muted">
+                Step 5 · Fleet
+              </p>
+              <h2 className="mt-1 font-serif text-[26px] text-ink">Add the primary warehouse</h2>
+              <p className="mt-2 text-[12px] leading-relaxed text-muted">
+                Enter the warehouse name and pick its exact location on the map.
+                Vehicles are yours to add — once the warehouse exists, open the
+                city's Vehicles dashboard and create exactly the fleet you need.
+              </p>
+
+              <div className="mt-4 flex flex-col gap-3.5">
+                <Field label="Warehouse name">
+                  <input
+                    className={inputClass}
+                    value={warehouseName}
+                    onChange={(event) => setWarehouseName(event.target.value)}
+                    placeholder="e.g. Central Laundry & Warehouse"
+                  />
+                </Field>
+                <Field label="Short name (optional)">
+                  <input
+                    className={inputClass}
+                    value={warehouseShortName}
+                    onChange={(event) => setWarehouseShortName(event.target.value)}
+                    placeholder="e.g. HQ"
+                  />
+                </Field>
+                <Field label="Address (optional)">
+                  <input
+                    className={inputClass}
+                    value={warehouseAddress}
+                    onChange={(event) => setWarehouseAddress(event.target.value)}
+                    placeholder="Street, area, city"
+                  />
+                </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Latitude">
+                    <input
+                      className={inputClass}
+                      type="number"
+                      step="0.0001"
+                      value={warehouseLocation?.lat ?? ""}
+                      onChange={(event) =>
+                        setWarehouseLocation({
+                          lat: Number(event.target.value),
+                          lon: warehouseLocation?.lon ?? basics.center.lon,
+                        })
+                      }
+                      placeholder="Pick on map"
+                    />
+                  </Field>
+                  <Field label="Longitude">
+                    <input
+                      className={inputClass}
+                      type="number"
+                      step="0.0001"
+                      value={warehouseLocation?.lon ?? ""}
+                      onChange={(event) =>
+                        setWarehouseLocation({
+                          lat: warehouseLocation?.lat ?? basics.center.lat,
+                          lon: Number(event.target.value),
+                        })
+                      }
+                      placeholder="Pick on map"
+                    />
+                  </Field>
+                </div>
+                <button
+                  type="button"
+                  onClick={quickStartFleet}
+                  disabled={fleetBusy || !warehouseValid}
+                  className="flex items-center justify-center gap-1.5 rounded-lg bg-ink px-4 py-2.5 text-[12px] font-semibold text-cream transition-opacity hover:opacity-90 disabled:opacity-40"
+                >
+                  <Building2 size={13} />
+                  {fleetBusy ? "Creating…" : "Create warehouse"}
+                </button>
+                {cityCounts && (
+                  <span className="text-[11px] font-semibold text-muted">
+                    {cityCounts.facilities} facilities · {cityCounts.vehicles} vehicles
+                  </span>
+                )}
+                {fleetResult && (
+                  <p className="rounded-lg border border-line bg-bone px-3 py-2 text-[11.5px] font-semibold text-ink">
+                    {fleetResult}
+                  </p>
+                )}
+                {savedSlug && (cityCounts?.facilities ?? 0) > 0 && (
+                  <Link
+                    href={`/${savedSlug}/vehicles`}
+                    className="flex items-center justify-center gap-1.5 rounded-lg border border-line-strong bg-paper px-4 py-2.5 text-[12px] font-semibold text-ink transition-colors hover:bg-bone"
+                  >
+                    <Truck size={13} />
+                    Open Vehicles dashboard to add vehicles
+                  </Link>
+                )}
+              </div>
+            </section>
+
+            <section className="flex min-h-[420px] flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
+                  Warehouse location
+                </p>
+                <p className="font-mono text-[10.5px] text-faint">
+                  {warehouseLocation
+                    ? `${warehouseLocation.lat.toFixed(4)}, ${warehouseLocation.lon.toFixed(4)}`
+                    : "Not set"}
+                </p>
+              </div>
+              <div className="min-h-[380px] flex-1">
+                <CenterPickerMap
+                  center={basics.center}
+                  zoom={basics.default_zoom}
+                  value={warehouseLocation}
+                  onChange={(lat, lon) => setWarehouseLocation({ lat, lon })}
+                  hint="Click the map to place the warehouse pin"
+                />
+              </div>
+            </section>
+          </div>
+        )}
+
+        {step === 5 && (
+          <div className="flex flex-col gap-4">
+            <section className="rounded-2xl border border-line bg-paper p-5">
+              <p className="text-[9px] font-bold uppercase tracking-[0.145em] text-muted">
+                Step 6 · Generate & publish
+              </p>
+              <h2 className="mt-1 font-serif text-[26px] text-ink">
+                {activated ? "City is live" : "Generate the dispatch datasets"}
+              </h2>
+              <p className="mt-2 max-w-[640px] text-[12.5px] leading-relaxed text-muted">
+                Everything below runs server-side — no scripts. The baseline plan is
+                built with the solver from the hotels and vehicles you added, so a
+                city with no hand-written manual routes still opens with a working
+                dispatch. Managers can then edit routes in the Manual tab / Plan
+                Canvas and publish them as the manual dispatch.
+              </p>
+              {savedSlug && (cityCounts?.vehicles ?? 0) === 0 && (
+                <p className="mt-2 rounded-lg border border-line bg-bone px-3 py-2 text-[11.5px] font-semibold text-ink">
+                  No vehicles yet.{" "}
+                  <Link href={`/${savedSlug}/vehicles`} className="underline">
+                    Add them in the Vehicles dashboard
+                  </Link>{" "}
+                  before generating the baseline plan.
+                </p>
+              )}
+
+              <ol className="mt-4 flex flex-col gap-2">
+                {GENERATION_STEPS.map(({ key, label, icon: Icon }) => {
+                  const status = genProgress[key];
+                  return (
+                    <li
+                      key={key}
+                      className="flex items-center gap-3 rounded-xl border border-line px-3.5 py-2.5"
+                    >
+                      <Icon size={14} className="text-muted" />
+                      <span className="flex-1 text-[12px] font-semibold text-ink">{label}</span>
+                      {status === "done" ? (
+                        <span className="flex items-center gap-1 text-[11px] font-semibold text-green">
+                          <Check size={12} /> Done
+                        </span>
+                      ) : status === "running" ? (
+                        <span className="flex items-center gap-1 text-[11px] font-semibold text-muted">
+                          <Loader2 size={12} className="animate-spin" /> Working…
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-faint">Pending</span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+
+              {genMessage && (
+                <p className="mt-3 text-[11.5px] font-semibold text-muted">{genMessage}</p>
+              )}
+              {genError && (
+                <p className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-[11.5px] font-semibold text-danger">
+                  {genError}
+                </p>
+              )}
+
+              <div className="mt-4 flex flex-wrap gap-2.5">
+                <button
+                  type="button"
+                  onClick={generateAll}
+                  disabled={generating || activated}
+                  className="flex items-center gap-1.5 rounded-lg border border-line-strong bg-paper px-4 py-2 text-[12px] font-semibold text-ink transition-colors hover:bg-bone disabled:opacity-40"
+                >
+                  <Sparkles size={13} />
+                  {generating ? "Generating…" : "Generate all datasets"}
+                </button>
+                <button
+                  type="button"
+                  onClick={activateCity}
+                  disabled={generating || activated}
+                  className="flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-[12px] font-semibold text-cream transition-opacity hover:opacity-90 disabled:opacity-40"
+                >
+                  <Rocket size={13} />
+                  {activated ? "Live" : "Activate city"}
+                </button>
+                {activated && savedSlug && (
+                  <Link
+                    href={`/${savedSlug}`}
+                    className="flex items-center gap-1.5 rounded-lg border border-line-strong bg-paper px-4 py-2 text-[12px] font-semibold text-ink transition-colors hover:bg-bone"
+                  >
+                    Open city <ArrowRight size={13} />
+                  </Link>
+                )}
+              </div>
+            </section>
+            <p className="text-[11px] leading-relaxed text-faint">
+              After activation, open the city's Manual tab. If no hand-authored routes
+              exist yet, build them there — whatever you create becomes the manual
+              dispatch that the Plan Canvas reads.
+            </p>
+          </div>
+        )}
       </main>
 
       {/* Footer navigation */}
@@ -769,18 +1284,21 @@ export default function CityWizard() {
             Back
           </button>
           <p className="hidden text-[10.5px] text-faint sm:block">
-            {step === 0 && "Delhi preset loaded — edit anything."}
+            {step === 0 && "Five standard zones follow the centre — rename them next."}
             {step === 1 && "Click the map to add regions · drag pins to move them."}
-            {step === 2 && "Drafts stay invisible to the live app until published."}
+            {step === 2 && "Save the city to unlock the remaining steps."}
+            {step === 3 && "Import hotels from the standard CSV."}
+            {step === 4 && "Enter the warehouse name and pick its location."}
+            {step === 5 && "Generate datasets, then activate."}
           </p>
-          {step < 2 ? (
+          {step < 5 ? (
             <button
               type="button"
               onClick={() => canContinue && setStep((current) => current + 1)}
               disabled={!canContinue}
               className="flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-[12px] font-semibold text-cream transition-opacity hover:opacity-90 disabled:opacity-40"
             >
-              {step === 0 ? "Design regions" : "Review"}
+              {step === 0 ? "Design regions" : step === 1 ? "Review" : step === 2 ? "Hotels" : step === 3 ? "Fleet" : "Generate"}
               <ArrowRight size={13} />
             </button>
           ) : (

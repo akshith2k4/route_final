@@ -101,7 +101,9 @@ export default function RegionMapEditor({
       });
 
       setStatus("ready");
-      requestAnimationFrame(() => map?.invalidateSize());
+      requestAnimationFrame(() => {
+        if (!cancelled && map) map.invalidateSize();
+      });
     }
 
     initialise().catch((error) => {

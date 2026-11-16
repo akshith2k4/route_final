@@ -18,6 +18,8 @@ import {
   type StudioVehicle,
 } from "./coverage";
 import { getCoverageHotels } from "./hotels";
+import { getFacilityRows } from "./facilities";
+import { getVehicleRows } from "./vehicles";
 import type { Plan, TravelMatrix } from "./plan";
 
 export type CityContext = {
@@ -57,7 +59,61 @@ export async function getCityContext(
 
   const hotels = await getCoverageHotels(city.id, regions);
 
-  const fleet = (datasets.fleet as CityFleet | undefined) ?? null;
+  // Prefer the published fleet dataset; fall back to the live DB masters so a
+  // city onboarded entirely in-app (facilities + vehicles, no dataset) still
+  // renders its depots and fleet.
+  let fleet = (datasets.fleet as CityFleet | undefined) ?? null;
+  const hasDatasetFleet =
+    !!fleet &&
+    ((fleet.depots?.length ?? 0) > 0 ||
+      !!fleet.depot ||
+      (fleet.vehicles?.length ?? 0) > 0);
+  if (!hasDatasetFleet) {
+    const [facilityRows, vehicleRows] = await Promise.all([
+      getFacilityRows(city.id),
+      getVehicleRows(city.id),
+    ]);
+    if (facilityRows.length > 0 || vehicleRows.length > 0) {
+      fleet = {
+        depots: facilityRows
+          .filter((facility) => facility.isWarehouse && facility.isActive)
+          .map((facility) => ({
+            id: facility.id,
+            name: facility.name,
+            short_name: facility.shortName,
+            latitude: facility.latitude,
+            longitude: facility.longitude,
+          })),
+        laundries: facilityRows
+          .filter((facility) => facility.isLaundry && facility.isActive)
+          .map((facility) => ({
+            id: facility.id,
+            name: facility.name,
+            short_name: facility.shortName,
+            latitude: facility.latitude,
+            longitude: facility.longitude,
+            service_mins: facility.serviceMins,
+          })),
+        vehicles: vehicleRows
+          .filter((vehicle) => vehicle.isActive)
+          .map((vehicle, index) => ({
+            // DB ids are strings; the studio fleet uses a numeric sequence.
+            id: index + 1,
+            label: vehicle.name,
+            region_id: vehicle.regionId ?? 0,
+            region_name: vehicle.regionName ?? "",
+            sector: vehicle.sector ?? "",
+            color: vehicle.color,
+            nominal_capacity: vehicle.realCapacity,
+            max_load_90pct: vehicle.safeCapacity,
+            depot_id: vehicle.depotId,
+            departure_time: vehicle.departureTime,
+            return_time: vehicle.returnTime,
+          })),
+      };
+    }
+  }
+
   const geometries = datasets.plan_geometries as
     | { routes?: Record<string, [number, number][]> }
     | undefined;

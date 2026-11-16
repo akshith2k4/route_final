@@ -1,9 +1,10 @@
 /**
- * Starter presets for the onboarding wizard.
+ * Blank starter state for the onboarding wizard.
  *
- * The Delhi preset gives the manager a running start: sensible city basics
- * and five editable starter regions. Everything can be renamed, re-coloured,
- * moved or deleted in the wizard — it is a template, not a decision.
+ * A new city starts empty: the manager types its name, clicks the map to set
+ * the centre, and places regions themselves. Generic defaults (zoom, H3,
+ * road estimates, timezone) are kept so the map renders and the form is valid,
+ * but no city or region is pre-authored.
  */
 import type { DraftCityInput } from "./admin-cities";
 
@@ -62,64 +63,73 @@ export function nextRegionId(): string {
   return `region-draft-${regionIdCounter}`;
 }
 
-export const DELHI_BASICS: CityBasicsDraft = {
-  name: "Delhi",
-  display_name: "Delhi NCR",
-  slug: "delhi",
-  timezone: "Asia/Kolkata",
-  center: { lat: 28.6139, lon: 77.209 },
-  default_zoom: 11,
-  min_zoom: 9,
-  max_zoom: 17,
-  h3_resolution: 7,
-  fallback_speed_kmh: 24,
-  road_factor: 1.35,
-};
+/** Neutral starting point: no name, no regions, sensible generic defaults. */
+export function emptyCityBasics(): CityBasicsDraft {
+  return {
+    name: "",
+    display_name: "",
+    slug: "",
+    timezone: "Asia/Kolkata",
+    center: { lat: 20.5937, lon: 78.9629 },
+    default_zoom: 5,
+    min_zoom: 3,
+    max_zoom: 17,
+    h3_resolution: 7,
+    fallback_speed_kmh: 24,
+    road_factor: 1.35,
+  };
+}
 
-/** Approximate starter territories — the manager adjusts them on the map. */
-export const DELHI_STARTER_REGIONS: Omit<RegionDraft, "id">[] = [
-  {
-    name: "Central Delhi: Connaught Place, Karol Bagh & Paharganj",
-    short_name: "CP, Karol Bagh & Paharganj",
-    map_label: "Central",
-    color: "#2563EB",
-    center: { lat: 28.6328, lon: 77.2197 },
-  },
-  {
-    name: "South Delhi: Saket, Hauz Khas, GK & Vasant Kunj",
-    short_name: "Saket, Hauz Khas & GK",
-    map_label: "South",
-    color: "#F59E0B",
-    center: { lat: 28.5245, lon: 77.1855 },
-  },
-  {
-    name: "West Delhi: Rajouri Garden, Punjabi Bagh & Janakpuri",
-    short_name: "Rajouri Garden & Janakpuri",
-    map_label: "West",
-    color: "#0891B2",
-    center: { lat: 28.6415, lon: 77.1209 },
-  },
-  {
-    name: "North Delhi: Model Town, Rohini & Pitampura",
-    short_name: "Model Town, Rohini & Pitampura",
-    map_label: "North",
-    color: "#10B981",
-    center: { lat: 28.71, lon: 77.1 },
-  },
-  {
-    name: "East Delhi: Laxmi Nagar, Preet Vihar & Mayur Vihar",
-    short_name: "Laxmi Nagar & Mayur Vihar",
-    map_label: "East",
-    color: "#EF4444",
-    center: { lat: 28.6304, lon: 77.2773 },
-  },
-];
+/**
+ * The standard five-zone layout every new city starts with, positioned around
+ * the city centre: North, South, East, West and Central. Names and colours are
+ * neutral and fully editable — the manager renames them to the city's real
+ * operational territories.
+ */
+export function standardZoneRegions(center: { lat: number; lon: number }): RegionDraft[] {
+  // ~8 km offsets, longitude scaled so east/west match north/south on the ground.
+  const latOffset = 0.075;
+  const lonOffset = 0.075 / Math.max(0.2, Math.cos((center.lat * Math.PI) / 180));
 
-export function delhiStarterRegions(): RegionDraft[] {
-  return DELHI_STARTER_REGIONS.map((region) => ({
-    ...region,
-    id: nextRegionId(),
-  }));
+  const zones: Omit<RegionDraft, "id">[] = [
+    {
+      name: "North Zone",
+      short_name: "North",
+      map_label: "North",
+      color: "#0891B2",
+      center: { lat: center.lat + latOffset, lon: center.lon },
+    },
+    {
+      name: "South Zone",
+      short_name: "South",
+      map_label: "South",
+      color: "#F59E0B",
+      center: { lat: center.lat - latOffset, lon: center.lon },
+    },
+    {
+      name: "East Zone",
+      short_name: "East",
+      map_label: "East",
+      color: "#EF4444",
+      center: { lat: center.lat, lon: center.lon + lonOffset },
+    },
+    {
+      name: "West Zone",
+      short_name: "West",
+      map_label: "West",
+      color: "#10B981",
+      center: { lat: center.lat, lon: center.lon - lonOffset },
+    },
+    {
+      name: "Central Zone",
+      short_name: "Central",
+      map_label: "Central",
+      color: "#2563EB",
+      center: { lat: center.lat, lon: center.lon },
+    },
+  ];
+
+  return zones.map((zone) => ({ ...zone, id: nextRegionId() }));
 }
 
 /** Serializes wizard state into the payload the admin API accepts. */

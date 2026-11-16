@@ -11,7 +11,7 @@ export type CitySwitcherOption = {
 
 /**
  * Switches between the cities a deployment runs. The current path is kept,
- * so moving from `/bengaluru/plan` lands on `/delhi/plan`.
+ * so moving from `/city-a/plan` lands on `/city-b/plan`.
  */
 export default function CitySwitcher({
   cities,

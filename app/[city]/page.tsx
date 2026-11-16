@@ -29,7 +29,7 @@ export default async function CityHome({ params }: PageProps) {
   const context = await getCityContext(slug);
   if (!context) notFound();
 
-  const { city, regions, hotels, hexMap, optimizedRoutes, depots } = context;
+  const { city, regions, hotels, hexMap, optimizedRoutes, manualRoutes, depots } = context;
 
   return (
     <CoverageApp
@@ -48,6 +48,7 @@ export default async function CityHome({ params }: PageProps) {
       hotels={hotels}
       hexMap={hexMap}
       routes={optimizedRoutes}
+      manualRoutes={manualRoutes}
       depots={depots}
     />
   );

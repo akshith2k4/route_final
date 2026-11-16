@@ -60,10 +60,12 @@ export default async function AdminCitiesPage() {
         </div>
 
         <div className="mt-4 rounded-xl border border-line-strong bg-paper px-4 py-3 text-[11.5px] leading-relaxed text-muted">
-          <b className="text-ink">Prototype scope:</b> the wizard currently covers{" "}
-          <b className="text-ink">Basics</b> and the <b className="text-ink">region map editor</b>.
-          Hotels import, fleet setup and dataset generation arrive in the next phase —
-          their steps are shown greyed-out in the wizard so you can see the full journey.
+          <b className="text-ink">Full in-app onboarding:</b> a new city starts with{" "}
+          <b className="text-ink">five standard zones</b> (North, South, East, West, Central)
+          around its centre. The wizard then covers{" "}
+          <b className="text-ink">region editing</b>, <b className="text-ink">hotel CSV import</b>,{" "}
+          <b className="text-ink">fleet setup</b>, <b className="text-ink">dataset generation</b>{" "}
+          and <b className="text-ink">activation</b> — no offline scripts.
         </div>
 
         <ul className="mt-5 flex flex-col gap-3">
