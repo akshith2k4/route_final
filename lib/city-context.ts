@@ -19,6 +19,8 @@ import {
   type StudioVehicle,
 } from "./coverage";
 import { getCoverageHotels } from "./hotels";
+import { scheduleDispatchRoutes } from "./schedule";
+import { clockToMinutes, formatClock, minutesToClock } from "./clock";
 import { getFacilityRows } from "./facilities";
 import { getVehicleRows } from "./vehicles";
 import type { Plan, TravelMatrix } from "./plan";
@@ -59,59 +61,54 @@ export async function getCityContext(
 
   const hotels = await getCoverageHotels(city.id, regions);
 
-  // Prefer the published fleet dataset; fall back to the live DB masters so a
-  // city onboarded entirely in-app (facilities + vehicles, no dataset) still
-  // renders its depots and fleet.
+  // The live DB masters are the source of truth for facilities and vehicles:
+  // the wizard writes there, and a stale `fleet` dataset must never hide a
+  // vehicle the manager just added. The dataset is only a fallback for cities
+  // that have no DB masters at all.
+  const [facilityRows, vehicleRows] = await Promise.all([
+    getFacilityRows(city.id),
+    getVehicleRows(city.id),
+  ]);
+
   let fleet = (datasets.fleet as CityFleet | undefined) ?? null;
-  const hasDatasetFleet =
-    !!fleet &&
-    ((fleet.depots?.length ?? 0) > 0 ||
-      !!fleet.depot ||
-      (fleet.vehicles?.length ?? 0) > 0);
-  if (!hasDatasetFleet) {
-    const [facilityRows, vehicleRows] = await Promise.all([
-      getFacilityRows(city.id),
-      getVehicleRows(city.id),
-    ]);
-    if (facilityRows.length > 0 || vehicleRows.length > 0) {
-      fleet = {
-        depots: facilityRows
-          .filter((facility) => facility.isWarehouse && facility.isActive)
-          .map((facility) => ({
-            id: facility.id,
-            name: facility.name,
-            short_name: facility.shortName,
-            latitude: facility.latitude,
-            longitude: facility.longitude,
-          })),
-        laundries: facilityRows
-          .filter((facility) => facility.isLaundry && facility.isActive)
-          .map((facility) => ({
-            id: facility.id,
-            name: facility.name,
-            short_name: facility.shortName,
-            latitude: facility.latitude,
-            longitude: facility.longitude,
-            service_mins: facility.serviceMins,
-          })),
-        vehicles: vehicleRows
-          .filter((vehicle) => vehicle.isActive)
-          .map((vehicle, index) => ({
-            // DB ids are strings; the studio fleet uses a numeric sequence.
-            id: index + 1,
-            label: vehicle.name,
-            region_id: vehicle.regionId ?? 0,
-            region_name: vehicle.regionName ?? "",
-            sector: vehicle.sector ?? "",
-            color: vehicle.color,
-            nominal_capacity: vehicle.realCapacity,
-            max_load_90pct: vehicle.safeCapacity,
-            depot_id: vehicle.depotId,
-            departure_time: vehicle.departureTime,
-            return_time: vehicle.returnTime,
-          })),
-      };
-    }
+  if (facilityRows.length > 0 || vehicleRows.length > 0) {
+    fleet = {
+      depots: facilityRows
+        .filter((facility) => facility.isWarehouse && facility.isActive)
+        .map((facility) => ({
+          id: facility.id,
+          name: facility.name,
+          short_name: facility.shortName,
+          latitude: facility.latitude,
+          longitude: facility.longitude,
+        })),
+      laundries: facilityRows
+        .filter((facility) => facility.isLaundry && facility.isActive)
+        .map((facility) => ({
+          id: facility.id,
+          name: facility.name,
+          short_name: facility.shortName,
+          latitude: facility.latitude,
+          longitude: facility.longitude,
+          service_mins: facility.serviceMins,
+        })),
+      vehicles: vehicleRows
+        .filter((vehicle) => vehicle.isActive)
+        .map((vehicle, index) => ({
+          // DB ids are strings; the studio fleet uses a numeric sequence.
+          id: index + 1,
+          label: vehicle.name,
+          region_id: vehicle.regionId ?? 0,
+          region_name: vehicle.regionName ?? "",
+          sector: vehicle.sector ?? "",
+          color: vehicle.color,
+          nominal_capacity: vehicle.realCapacity,
+          max_load_90pct: vehicle.safeCapacity,
+          depot_id: vehicle.depotId,
+          departure_time: vehicle.departureTime,
+          return_time: vehicle.returnTime,
+        })),
+    };
   }
 
   const geometries = datasets.plan_geometries as
@@ -121,6 +118,15 @@ export async function getCityContext(
   const depots = fleetDepots(fleet);
   const vehicles = fleetVehicles(fleet);
   const geoRoutes = geometries?.routes ?? {};
+  const matrix = (datasets.travel_matrix as TravelMatrix | undefined) ?? null;
+  const primaryDepot = depots[0]
+    ? {
+        id: depots[0].id,
+        name: depots[0].name,
+        lat: depots[0].latitude,
+        lon: depots[0].longitude,
+      }
+    : undefined;
 
   // Manual routes carry their own stops. Attach the road geometry by route id
   // when it exists; otherwise draw a depot → stops → depot line so the map
@@ -144,12 +150,36 @@ export async function getCityContext(
           ? route.total_drive_mins
           : Math.round((distanceKm / Math.max(1, city.fallbackSpeedKmh)) * 60);
 
-      return {
+      // Every route shows a full shift window. When the source data has no
+      // return time, estimate it from departure + drive + stop service.
+      const departureHq = formatClock(route.departure_hq || "07:00");
+      const returnHq = route.return_hq
+        ? formatClock(route.return_hq)
+        : formatClock(
+            minutesToClock(
+              clockToMinutes(departureHq) + driveMins + route.total_service_mins,
+            ),
+          );
+
+      const enriched: DispatchRoute = {
         ...route,
+        departure_hq: departureHq,
+        return_hq: returnHq,
         path_coordinates: path,
         total_dist_km: Number(distanceKm.toFixed(1)),
         total_drive_mins: driveMins,
       };
+
+      // Cities onboarded in-app arrive without stop times. Fill each stop's
+      // arrival/departure from the travel matrix, so every route has real
+      // times like the hand-authored Bengaluru data.
+      if (enriched.stops.every((stop) => !stop.arrival_time)) {
+        return scheduleDispatchRoutes([enriched], primaryDepot, matrix, {
+          fallbackSpeedKmh: city.fallbackSpeedKmh,
+          roadFactor: city.roadFactor,
+        })[0];
+      }
+      return enriched;
     },
   );
 
@@ -162,7 +192,7 @@ export async function getCityContext(
     depots,
     vehicles,
     hexMap: (datasets.hex_map as HexMap | undefined) ?? {},
-    travelMatrix: (datasets.travel_matrix as TravelMatrix | undefined) ?? null,
+    travelMatrix: matrix,
     planGeometries: geoRoutes,
     optimizedRoutes: (datasets.optimized_routes as DispatchRoute[]) ?? [],
     manualRoutes,

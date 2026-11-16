@@ -25,6 +25,7 @@ import {
   type StudioVehicle,
 } from "./coverage";
 import { runStudioOptimization } from "./studio-optimizer";
+import { minutesToClock } from "./clock";
 import type {
   MatrixPoint,
   Plan,
@@ -360,7 +361,7 @@ export function planToDispatchRoutes(plan: Plan): DispatchRoute[] {
       color: route.color,
       nominal_cap: route.nominal_cap,
       max_load: route.max_load,
-      departure_hq: minToClock(route.departure_min),
+      departure_hq: minutesToClock(route.departure_min),
       total_hotels: stops.length,
       total_dist_km: 0,
       total_drive_mins: 0,
@@ -373,11 +374,6 @@ export function planToDispatchRoutes(plan: Plan): DispatchRoute[] {
   });
 }
 
-function minToClock(min: number): string {
-  const h = Math.floor(min / 60) % 24;
-  const m = min % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-}
 
 /* ------------------------------------------------------------------ */
 /* 11 — travel matrix (resumable)                                      */
@@ -632,3 +628,10 @@ export async function buildGeometries(
 
   return { routes, complete: done >= total, done, total };
 }
+
+
+/**
+ * Fills per-stop arrival/departure times from the travel matrix (OSRM,
+ * calibrated to Google). Routes that already carry times are left untouched.
+ * Falls back to a road-factor estimate when the matrix is missing.
+ */

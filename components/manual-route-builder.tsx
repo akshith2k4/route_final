@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import {
   Plus,
   Trash2,
@@ -12,7 +11,11 @@ import {
   Hotel as HotelIcon,
   Loader2,
 } from "lucide-react";
-import type { Hotel, RegionMeta, StudioDepot, StudioVehicle } from "../lib/coverage";
+import {
+  type Hotel,
+  type RegionMeta,
+  type StudioDepot,
+} from "../lib/coverage";
 import { REGION_COLOR_PALETTE } from "../lib/city-presets";
 
 type DraftRoute = {
@@ -20,7 +23,19 @@ type DraftRoute = {
   name: string;
   color: string;
   hotelIds: string[];
+  /** The region this route belongs to. */
+  regionIndex: number | null;
 };
+
+function routeFromRegion(region: RegionMeta): DraftRoute {
+  return {
+    id: `auto-${region.id}`,
+    name: `Route ${region.code} · ${region.map_label}`,
+    color: region.color,
+    hotelIds: [],
+    regionIndex: region.id,
+  };
+}
 
 type ManualRouteBuilderProps = {
   cityId: string;
@@ -28,7 +43,6 @@ type ManualRouteBuilderProps = {
   hotels: Hotel[];
   regions: RegionMeta[];
   depots: StudioDepot[];
-  vehicles: StudioVehicle[];
 };
 
 /**
@@ -42,9 +56,7 @@ export default function ManualRouteBuilder({
   hotels,
   regions,
   depots,
-  vehicles,
 }: ManualRouteBuilderProps) {
-  const router = useRouter();
   const [routes, setRoutes] = useState<DraftRoute[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -65,18 +77,29 @@ export default function ManualRouteBuilder({
   );
 
   function addRoute() {
-    const index = routes.length;
-    const id = `custom-route-${Date.now()}`;
-    setRoutes((current) => [
-      ...current,
-      {
-        id,
-        name: `Route ${index + 1}`,
-        color: REGION_COLOR_PALETTE[index % REGION_COLOR_PALETTE.length],
+    const usedRegions = new Set(
+      routes.map((route) => route.regionIndex).filter((id): id is number => id !== null),
+    );
+    const region =
+      regions.find((candidate) => !usedRegions.has(candidate.id)) ?? regions[0] ?? null;
+
+    let route: DraftRoute;
+    if (region) {
+      route = routeFromRegion(region);
+    } else {
+      route = {
+        id: "custom-route",
+        name: `Route ${routes.length + 1}`,
+        color: REGION_COLOR_PALETTE[routes.length % REGION_COLOR_PALETTE.length],
         hotelIds: [],
-      },
-    ]);
-    setExpanded(id);
+        regionIndex: null,
+      };
+    }
+    if (routes.some((existing) => existing.id === route.id)) {
+      route = { ...route, id: `custom-route-${Date.now()}` };
+    }
+    setRoutes((current) => [...current, route]);
+    setExpanded(route.id);
   }
 
   function updateRoute(id: string, patch: Partial<DraftRoute>) {
@@ -104,20 +127,31 @@ export default function ManualRouteBuilder({
   }
 
   function autoAssign() {
-    // One route per region, matching vehicles where possible.
-    const regionRoutes = regions.map((region, index) => ({
-      id: `auto-${region.id}`,
-      name: vehicles[index]?.label ?? `Route ${region.code} · ${region.map_label}`,
-      color: region.color,
-      hotelIds: [] as string[],
-    }));
-    for (const hotel of hotels) {
-      const route = regionRoutes.find((r) => r.id === `auto-${hotel.region}`) ?? regionRoutes[0];
-      if (route) route.hotelIds.push(hotel.id);
+    // One route per region, exactly as the regions are defined.
+    const regionRoutes = regions.map((region) => routeFromRegion(region));
+    if (regionRoutes.length === 0) {
+      setMessage("Add at least one region before auto-assigning.");
+      return;
     }
-    setRoutes(regionRoutes.filter((r) => r.hotelIds.length > 0));
-    setExpanded(regionRoutes[0]?.id ?? null);
-    setMessage("Auto-assigned one route per region. Adjust as needed, then publish.");
+
+    let unassigned = 0;
+    for (const hotel of hotels) {
+      const target = regionRoutes.find((route) => route.regionIndex === hotel.region);
+      if (target) {
+        target.hotelIds.push(hotel.id);
+      } else {
+        unassigned += 1;
+      }
+    }
+
+    const next = regionRoutes.filter((route) => route.hotelIds.length > 0);
+    setRoutes(next);
+    setExpanded(next[0]?.id ?? null);
+    setMessage(
+      unassigned > 0
+        ? `Auto-assigned by region: ${next.length} route${next.length === 1 ? "" : "s"}. ${unassigned} hotel${unassigned === 1 ? "" : "s"} have no matching region.`
+        : `Auto-assigned by region: ${next.length} route${next.length === 1 ? "" : "s"}. Adjust as needed, then publish.`,
+    );
   }
 
   async function publish() {
@@ -149,17 +183,10 @@ export default function ManualRouteBuilder({
           lon: d.longitude,
         })),
         laundries: [],
-        vehicles: vehicles.map((v) => ({
-          id: `vehicle-${v.id}`,
-          name: v.label,
-          nominal_cap: v.nominal_capacity,
-          max_load: v.max_load,
-          color: v.color,
-        })),
         vehicles_version: 2,
         days_version: 1,
         shift: { start_min: 7 * 60, end_min: 17 * 60 },
-        routes: routes.map((route, index) => ({
+        routes: routes.map((route) => ({
           route_id: route.id,
           route_key: route.id,
           name: route.name,
@@ -186,6 +213,37 @@ export default function ManualRouteBuilder({
         })),
         unassigned_hotel_ids: [],
       };
+
+      // Ensure the travel matrix exists so the publish endpoint can stamp
+      // real arrival/departure times on every stop. If it is already complete
+      // this returns immediately; if OSRM is down we still publish with
+      // distance-based estimates.
+      setMessage("Preparing travel times…");
+      try {
+        let matrixComplete = false;
+        for (let pass = 0; pass < 20 && !matrixComplete; pass += 1) {
+          const matrixResponse = await fetch(
+            `/api/admin/cities/${cityId}/generate`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ step: "travel_matrix", budgetMs: 10_000 }),
+            },
+          );
+          const matrixData = await matrixResponse.json();
+          if (!matrixResponse.ok) {
+            throw new Error(matrixData.error ?? "Could not prepare travel times.");
+          }
+          matrixComplete = matrixData.complete === true;
+          if (!matrixComplete) {
+            setMessage(
+              `Preparing travel times… ${matrixData.filledPairs}/${matrixData.totalPairs} pairs`,
+            );
+          }
+        }
+      } catch {
+        setMessage("Travel times unavailable — using distance estimates.");
+      }
 
       const response = await fetch(`/api/admin/cities/${cityId}/publish`, {
         method: "POST",
@@ -226,7 +284,10 @@ export default function ManualRouteBuilder({
           ? "Published with road-accurate route lines. Reloading…"
           : "Published. Some lines may use the straight-line fallback until OSRM is available.",
       );
-      router.refresh();
+      // A clean reload is the reliable way to leave the builder with the
+      // freshly published routes. The query makes the server render the
+      // Manual workspace directly.
+      window.location.replace(`/${cityId}?view=manual`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not publish routes.");
     } finally {
@@ -316,7 +377,8 @@ export default function ManualRouteBuilder({
               </button>
             </div>
             {expanded === route.id && (
-              <div className="max-h-48 overflow-y-auto border-t border-line px-2 py-2">
+              <>
+                <div className="max-h-48 overflow-y-auto px-2 py-2">
                 {visibleHotels.map((hotel) => {
                   const owner = assigned.get(hotel.id);
                   const checked = owner === route.id;
@@ -341,7 +403,8 @@ export default function ManualRouteBuilder({
                     </label>
                   );
                 })}
-              </div>
+                </div>
+              </>
             )}
           </div>
         ))}

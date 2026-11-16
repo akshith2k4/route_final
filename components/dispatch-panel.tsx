@@ -73,16 +73,16 @@ export default function DispatchPanel({
   const activeRoute = selectedRouteIndex !== null ? routes[selectedRouteIndex] : null;
 
   const fleetStats = useMemo(() => {
-    const totalVans = routes.length;
+    const routeCount = routes.length;
     const totalStops = routes.reduce((sum, r) => sum + r.total_hotels, 0);
     const totalBags = routes.reduce((sum, r) => sum + r.total_bags, 0);
     const totalDistance = routes.reduce((sum, r) => sum + r.total_dist_km, 0);
     const totalDriveMins = routes.reduce((sum, r) => sum + r.total_drive_mins, 0);
     const avgUtilization =
-      routes.reduce((sum, r) => sum + r.capacity_utilization_pct, 0) / (totalVans || 1);
+      routes.reduce((sum, r) => sum + r.capacity_utilization_pct, 0) / (routeCount || 1);
 
     return {
-      totalVans,
+      routeCount,
       totalStops,
       totalBags,
       totalDistance: Math.round(totalDistance),
@@ -95,7 +95,7 @@ export default function DispatchPanel({
     const targetRoutes = route ? [route] : routes;
     const header = [
       "Region",
-      "Vehicle",
+      "Route",
       "Nominal Cap",
       "90% Cap Limit",
       "Stop Number",
@@ -156,13 +156,13 @@ export default function DispatchPanel({
         <h1>{title ?? "Fleet dispatch"}</h1>
         <p>
           {description ??
-            `${fleetStats.totalVans} multi-van routes across ${regions.length} regions. Central HQ: ${depot.name}.`}
+            `${fleetStats.routeCount} routes across ${regions.length} regions. Central HQ: ${depot.name}.`}
         </p>
 
         <div className={`intro-stats [display:grid] [grid-template-columns:repeat(3,_1fr)] [margin-top:15px] [padding:10px_0] [border-top:1px_solid_var(--line)] [border-bottom:1px_solid_var(--line)] dispatch-stats-strip [margin-top:14px] [grid-template-columns:repeat(4,_1fr)] [gap:8px]`}>
           <div className={`intro-stat [padding:0_12px] [border-left:1px_solid_var(--line)] first:[padding-left:0] first:[border-left:0] [&_b]:[display:block] [&_b]:[color:var(--ink)] [&_b]:[font-size:19px] [&_b]:[font-weight:600] [&_b]:[font-variant-numeric:tabular-nums] [&_b]:[letter-spacing:-0.035em] [&_b]:[line-height:1] [&_span]:[display:block] [&_span]:[margin-top:5px] [&_span]:[color:var(--faint)] [&_span]:[font-size:8.5px] [&_span]:[font-weight:600] [&_span]:[letter-spacing:0.1em] [&_span]:[text-transform:uppercase]`}>
-            <b>{fleetStats.totalVans}</b>
-            <span>Vehicles</span>
+            <b>{fleetStats.routeCount}</b>
+            <span>Routes</span>
           </div>
           <div className={`intro-stat [padding:0_12px] [border-left:1px_solid_var(--line)] first:[padding-left:0] first:[border-left:0] [&_b]:[display:block] [&_b]:[color:var(--ink)] [&_b]:[font-size:19px] [&_b]:[font-weight:600] [&_b]:[font-variant-numeric:tabular-nums] [&_b]:[letter-spacing:-0.035em] [&_b]:[line-height:1] [&_span]:[display:block] [&_span]:[margin-top:5px] [&_span]:[color:var(--faint)] [&_span]:[font-size:8.5px] [&_span]:[font-weight:600] [&_span]:[letter-spacing:0.1em] [&_span]:[text-transform:uppercase]`}>
             <b>{fleetStats.totalStops}</b>
@@ -189,7 +189,7 @@ export default function DispatchPanel({
               className={`dispatch-clear-filter [background:none] [border:none] [color:var(--green)] [font-size:11px] [font-weight:600] [cursor:pointer] [text-decoration:underline] [padding:0] hover:[color:var(--green-deep)]`}
               onClick={() => onSelectRegionFilter(null)}
             >
-              Show all 10 vans
+              Show all routes
             </button>
           )}
         </div>
@@ -231,7 +231,7 @@ export default function DispatchPanel({
               onClick={() => onSelectRoute(null)}
             >
               <ArrowLeft size={14} />
-              <span>All vehicles</span>
+              <span>All routes</span>
             </button>
             <button
               type="button"
@@ -274,38 +274,6 @@ export default function DispatchPanel({
 
             <div className={`dispatch-hero-card__meta [font-size:12px] [color:var(--muted)]`}>
               <span>{activeRoute.region_name}</span>
-            </div>
-
-            {/* Capacity Gauge */}
-            <div className={`dispatch-capacity-gauge [display:flex] [flex-direction:column] [gap:6px] [padding:14px_16px] [border-radius:10px] [background:var(--bone)] [border:1px_solid_var(--line)]`}>
-              <div className={`dispatch-capacity-gauge__labels [display:flex] [align-items:center] [justify-content:space-between] [font-size:12px]`}>
-                <span className={`dispatch-capacity-gauge__title [display:flex] [align-items:center] [gap:5px] [font-weight:600] [color:var(--ink)]`}>
-                  <Package size={13} />
-                  Operational Payload (90% Cap)
-                </span>
-                <span className={`dispatch-capacity-gauge__nums [color:var(--muted)] [font-size:12px] [&_b]:[color:var(--ink)] [&_b]:[font-size:14px]`}>
-                  <b>{activeRoute.total_bags}</b> / {activeRoute.max_load} bags{" "}
-                  <span className={`dispatch-pct [.dispatch-capacity-gauge__nums_&]:[font-weight:700] [.dispatch-capacity-gauge__nums_&]:[color:var(--ink)]`}>
-                    ({activeRoute.capacity_utilization_pct}%)
-                  </span>
-                </span>
-              </div>
-              <div className={`dispatch-progress-bar [width:100%] [height:10px] [border-radius:5px] [background:rgba(24,_36,_30,_0.1)] [overflow:hidden] [position:relative]`}>
-                <div
-                  className={`dispatch-progress-fill [height:100%] [border-radius:5px] [transition:width_0.4s_cubic-bezier(0.4,_0,_0.2,_1)]`}
-                  style={{
-                    width: `${Math.min(activeRoute.capacity_utilization_pct, 100)}%`,
-                    backgroundColor:
-                      activeRoute.capacity_utilization_pct >= 95
-                        ? "#f59e0b"
-                        : activeRoute.color,
-                  }}
-                />
-              </div>
-              <div className={`dispatch-capacity-foot [display:flex] [align-items:center] [justify-content:space-between] [font-size:10px] [color:var(--faint)] [margin-top:2px]`}>
-                <span>Nominal capacity: {activeRoute.nominal_cap} bags</span>
-                <span>Buffer reserve: {activeRoute.nominal_cap - activeRoute.max_load} bags</span>
-              </div>
             </div>
 
             {/* Quick Trip Metrics */}
@@ -486,8 +454,8 @@ export default function DispatchPanel({
         <div className={`dispatch-vehicle-list [padding:18px_20px_36px] [display:flex] [flex-direction:column] [gap:14px]`}>
           <div className={`dispatch-vehicle-list__head [display:flex] [align-items:center] [justify-content:space-between] [&_h3]:[font-size:13px] [&_h3]:[font-weight:600] [&_h3]:[text-transform:uppercase] [&_h3]:[letter-spacing:0.04em] [&_h3]:[color:var(--ink)] [&_h3]:[margin:0]`}>
             <div className={`list-title [.dispatch-vehicle-list__head_&]:[display:flex] [.dispatch-vehicle-list__head_&]:[align-items:center] [.dispatch-vehicle-list__head_&]:[gap:8px]`}>
-              <h3>Vehicles in Active Plan</h3>
-              <span className={`count-pill [.dispatch-vehicle-list__head_&]:[font-size:11px] [.dispatch-vehicle-list__head_&]:[padding:2px_7px] [.dispatch-vehicle-list__head_&]:[border-radius:999px] [.dispatch-vehicle-list__head_&]:[background:var(--bone)] [.dispatch-vehicle-list__head_&]:[border:1px_solid_var(--line)] [.dispatch-vehicle-list__head_&]:[color:var(--muted)]`}>{filteredRoutes.length} of 10 vans</span>
+              <h3>Routes in Active Plan</h3>
+              <span className={`count-pill [.dispatch-vehicle-list__head_&]:[font-size:11px] [.dispatch-vehicle-list__head_&]:[padding:2px_7px] [.dispatch-vehicle-list__head_&]:[border-radius:999px] [.dispatch-vehicle-list__head_&]:[background:var(--bone)] [.dispatch-vehicle-list__head_&]:[border:1px_solid_var(--line)] [.dispatch-vehicle-list__head_&]:[color:var(--muted)]`}>{filteredRoutes.length} routes</span>
             </div>
             <button
               type="button"
@@ -526,40 +494,12 @@ export default function DispatchPanel({
                       ) : null}
                     </div>
 
-                    <span
-                      className={`van-status-tag [font-size:10px] [font-weight:600] [padding:2px_7px] [border-radius:999px] [line-height:1.2] ${
-                        route.capacity_utilization_pct >= 95
-                          ? `van-status-tag--high [background:rgba(245,_158,_11,_0.14)] [color:#92400e] [border:1px_solid_rgba(245,_158,_11,_0.35)]`
-                          : `van-status-tag--optimal [background:rgba(16,_185,_129,_0.12)] [color:#065f46] [border:1px_solid_rgba(16,_185,_129,_0.25)]`
-                      }`}
-                    >
-                      {route.capacity_utilization_pct}% load
-                    </span>
                   </div>
 
                   <div className={`van-sector-title [font-family:var(--font-instrument-serif),_Georgia,_serif] [font-size:18px] [color:var(--ink)] [line-height:1.25]`}>
                     {route.vehicle_label.includes(" - ")
                       ? route.vehicle_label.split(" - ")[1].replace(")", "")
                       : route.region_name}
-                  </div>
-
-                  {/* Capacity Bar */}
-                  <div className={`van-mini-capacity [display:flex] [flex-direction:column] [gap:4px] [padding:8px_10px] [background:var(--bone)] [border-radius:6px]`}>
-                    <div className={`mini-labels [display:flex] [justify-content:space-between] [align-items:center] [font-size:10.5px] [color:var(--muted)] [&_b]:[color:var(--ink)] [&_b]:[font-weight:600]`}>
-                      <span>Payload load</span>
-                      <b>
-                        {route.total_bags} / {route.max_load} bags
-                      </b>
-                    </div>
-                    <div className={`mini-progress-bar [width:100%] [height:6px] [border-radius:3px] [background:rgba(24,_36,_30,_0.08)] [overflow:hidden] [position:relative]`}>
-                      <div
-                        className={`mini-progress-fill [height:100%] [border-radius:3px] [transition:width_0.3s_ease]`}
-                        style={{
-                          width: `${Math.min(route.capacity_utilization_pct, 100)}%`,
-                          backgroundColor: route.color,
-                        }}
-                      />
-                    </div>
                   </div>
 
                   <div className={`van-card-stats [display:grid] [grid-template-columns:repeat(3,_1fr)] [gap:8px] [padding-top:6px] [border-top:1px_dashed_var(--line)] [&>div]:[display:flex] [&>div]:[flex-direction:column] [&>div]:[gap:2px] [&_span]:[font-size:9.5px] [&_span]:[text-transform:uppercase] [&_span]:[letter-spacing:0.04em] [&_span]:[color:var(--muted)] [&_b]:[font-size:11px] [&_b]:[color:var(--ink)] [&_b]:[white-space:nowrap]`}>

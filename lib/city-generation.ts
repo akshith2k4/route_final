@@ -17,8 +17,11 @@ import {
 import { getCoverageHotels } from "./hotels";
 import { getFacilityRows } from "./facilities";
 import { getVehicleRows } from "./vehicles";
-import type { Plan, PlanDepot, PlanLaundry, TravelMatrix } from "./plan";
-import type { StudioDepot, StudioVehicle } from "./coverage";
+import type { City } from "./city-types";
+import type { MatrixPoint, Plan, PlanDepot, PlanLaundry, TravelMatrix } from "./plan";
+import type { DispatchRoute, StudioDepot, StudioVehicle } from "./coverage";
+import { getGoogleAccessToken } from "./google-auth";
+import { isoWithOffset, localDateString } from "./timezone";
 import {
   buildBaselinePlan,
   buildGeometries,
@@ -27,6 +30,7 @@ import {
   matrixPointsFromMasters,
   planToDispatchRoutes,
 } from "./city-pipeline";
+import { scheduleDispatchRoutesWithGoogle } from "./google-schedule";
 
 async function writeDataset(cityId: string, kind: string, payload: unknown): Promise<void> {
   const id = `${cityId}:${kind}`;
@@ -106,6 +110,119 @@ async function loadMasters(cityId: string): Promise<CityMasters> {
   return { city, regions, hotels, depots, planDepots, laundries, vehicles };
 }
 
+/**
+ * Calibrates the OSRM matrix against Google's traffic-aware Routes API.
+ *
+ * OSRM returns free-flow times. Google's traffic-aware durations are often
+ * 1.3–2.5x longer in Indian cities. Sampling a handful of representative legs
+ * and storing one factor keeps per-stop arrival times realistic without
+ * calling Google for every leg on every request. An existing non-1 factor
+ * (for example the offline Bengaluru calibration) is preserved.
+ */
+async function calibrateMatrixWithGoogle(
+  matrix: TravelMatrix,
+  city: City,
+): Promise<TravelMatrix> {
+  if (matrix.duration_factor && matrix.duration_factor !== 1) return matrix;
+  if (!matrix.points || matrix.points.length < 4) return matrix;
+
+  const indexById = new Map(matrix.points.map((point, index) => [point.id, index]));
+  const step = Math.max(1, Math.floor(matrix.points.length / 8));
+  const sampled = matrix.points.filter((_, index) => index % step === 0).slice(0, 8);
+
+  const pairs: { from: MatrixPoint; to: MatrixPoint; osrmSeconds: number }[] = [];
+  for (let index = 0; index < sampled.length; index += 1) {
+    const from = sampled[index];
+    const to = sampled[(index + 3) % sampled.length];
+    if (!from || !to || from.id === to.id) continue;
+    const fromIndex = indexById.get(from.id);
+    const toIndex = indexById.get(to.id);
+    const seconds =
+      fromIndex !== undefined && toIndex !== undefined
+        ? matrix.durations_s[fromIndex]?.[toIndex]
+        : null;
+    const meters =
+      fromIndex !== undefined && toIndex !== undefined
+        ? matrix.distances_m[fromIndex]?.[toIndex]
+        : null;
+    if (typeof seconds === "number" && seconds > 120 && (meters ?? 0) > 2_000) {
+      pairs.push({ from, to, osrmSeconds: seconds });
+    }
+  }
+  if (pairs.length < 3) return matrix;
+
+  let token: string;
+  try {
+    ({ token } = await getGoogleAccessToken(
+      "https://www.googleapis.com/auth/cloud-platform",
+    ));
+  } catch {
+    return matrix;
+  }
+
+  const dateStr = localDateString(
+    city.timezone,
+    new Date(Date.now() + 24 * 60 * 60 * 1000),
+  );
+  const departureTime = isoWithOffset(city.timezone, dateStr, "08:00");
+
+  let googleSeconds = 0;
+  let osrmSeconds = 0;
+  let count = 0;
+
+  for (const pair of pairs) {
+    try {
+      const response = await fetch(
+        "https://routes.googleapis.com/directions/v2:computeRoutes",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            "X-Goog-FieldMask": "routes.duration",
+          },
+          body: JSON.stringify({
+            origin: {
+              location: {
+                latLng: { latitude: pair.from.lat, longitude: pair.from.lon },
+              },
+            },
+            destination: {
+              location: {
+                latLng: { latitude: pair.to.lat, longitude: pair.to.lon },
+              },
+            },
+            travelMode: "DRIVE",
+            routingPreference: "TRAFFIC_AWARE",
+            departureTime,
+          }),
+        },
+      );
+      if (!response.ok) continue;
+      const data = await response.json();
+      const seconds = Number(
+        String(data.routes?.[0]?.duration ?? "0s").replace("s", ""),
+      );
+      if (seconds > 0) {
+        googleSeconds += seconds;
+        osrmSeconds += pair.osrmSeconds;
+        count += 1;
+      }
+    } catch {
+      // try the next pair
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+
+  if (count < 3 || osrmSeconds <= 0) return matrix;
+  const factor = Math.min(3, Math.max(1, googleSeconds / osrmSeconds));
+  return {
+    ...matrix,
+    duration_factor: Number(factor.toFixed(2)),
+    notes: `${matrix.notes ? `${matrix.notes} · ` : ""}Google-calibrated traffic factor ${factor.toFixed(2)}`,
+  };
+}
+
 /** Step: coverage hex map from hotels + regions + facilities. */
 export async function generateHexMap(cityId: string): Promise<{ cells: number }> {
   const { city, regions, hotels, planDepots, laundries } = await loadMasters(cityId);
@@ -161,7 +278,10 @@ export async function generateTravelMatrix(
   if (points.length === 0) throw new Error("No hotels or facilities to build a matrix from.");
   const existing = await getCityDataset<TravelMatrix>(cityId, "travel_matrix");
   const progress = await buildTravelMatrix(points, { existing, budgetMs });
-  await writeDataset(cityId, "travel_matrix", progress.matrix);
+  const matrix = progress.complete
+    ? await calibrateMatrixWithGoogle(progress.matrix, masters.city)
+    : progress.matrix;
+  await writeDataset(cityId, "travel_matrix", matrix);
   return { complete: progress.complete, filledPairs: progress.filledPairs, totalPairs: progress.totalPairs };
 }
 
@@ -195,7 +315,7 @@ export async function generateGeometries(
  * published copy is namespaced with its own city slug.
  */
 export async function publishPlanAsManual(cityId: string, plan: Plan): Promise<void> {
-  await requireCity(cityId);
+  const city = await requireCity(cityId);
 
   const requestedId = plan.plan_id || "manual-current";
   const [owner] = await db
@@ -235,8 +355,45 @@ export async function publishPlanAsManual(cityId: string, plan: Plan): Promise<v
     });
   }
 
+  const matrix = await getCityDataset<TravelMatrix>(cityId, "travel_matrix");
+  const dispatchRoutes = await scheduleDispatchRoutesWithGoogle(
+    planToDispatchRoutes(stored),
+    stored.depot,
+    matrix,
+    {
+      fallbackSpeedKmh: city.fallbackSpeedKmh,
+      roadFactor: city.roadFactor,
+      timezone: city.timezone,
+    },
+  );
+
   await writeDataset(cityId, "baseline_plan", stored);
-  await writeDataset(cityId, "manual_routes", planToDispatchRoutes(stored));
+  await writeDataset(cityId, "manual_routes", dispatchRoutes);
+}
+
+/**
+ * Recomputes stop times for existing manual routes with Google traffic.
+ * Used when a city was published before per-leg Google scheduling existed.
+ */
+export async function rescheduleManualRoutes(
+  cityId: string,
+): Promise<{ routes: number }> {
+  const masters = await loadMasters(cityId);
+  const manual = await getCityDataset<DispatchRoute[]>(cityId, "manual_routes");
+  if (!manual || manual.length === 0) return { routes: 0 };
+  const matrix = await getCityDataset<TravelMatrix>(cityId, "travel_matrix");
+  const scheduled = await scheduleDispatchRoutesWithGoogle(
+    manual,
+    masters.planDepots[0],
+    matrix,
+    {
+      fallbackSpeedKmh: masters.city.fallbackSpeedKmh,
+      roadFactor: masters.city.roadFactor,
+      timezone: masters.city.timezone,
+    },
+  );
+  await writeDataset(cityId, "manual_routes", scheduled);
+  return { routes: scheduled.length };
 }
 
 /** Flips a city live (or back to draft). */

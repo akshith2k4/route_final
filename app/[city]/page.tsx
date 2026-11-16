@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: Promise<{ city: string }>;
+  searchParams: Promise<{ view?: string | string[] }>;
 };
 
 export async function generateMetadata({
@@ -24,12 +25,14 @@ export async function generateMetadata({
   };
 }
 
-export default async function CityHome({ params }: PageProps) {
+export default async function CityHome({ params, searchParams }: PageProps) {
   const { city: slug } = await params;
+  const { view } = await searchParams;
   const context = await getCityContext(slug);
   if (!context) notFound();
 
-  const { city, regions, hotels, hexMap, optimizedRoutes, manualRoutes, depots } = context;
+  const { city, regions, hotels, hexMap, optimizedRoutes, manualRoutes, depots, vehicles } =
+    context;
 
   return (
     <CoverageApp
@@ -50,6 +53,8 @@ export default async function CityHome({ params }: PageProps) {
       routes={optimizedRoutes}
       manualRoutes={manualRoutes}
       depots={depots}
+      vehicles={vehicles}
+      initialWorkspace={view === "manual" ? "manual" : undefined}
     />
   );
 }

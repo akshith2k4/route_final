@@ -8,13 +8,11 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type FormEvent,
 } from "react";
 import {
   ArrowRight,
   ArrowUpRight,
   Compass,
-  Crosshair,
   MapPin,
   Search,
   SearchX,
@@ -26,10 +24,7 @@ import CoverageMap, {
 import DispatchPanel from "./dispatch-panel";
 import StudioPanel from "./studio-panel";
 import {
-  formatDistance,
   hotelKey,
-  parseCoordinate,
-  resolveCoordinate,
   type CoordinateResult,
   type DispatchRoute,
   type DispatchStop,
@@ -212,11 +207,6 @@ const SHOW_DISPATCH_AND_STUDIO = false;
   const [pinned, setPinned] = useState<CoordinateResult | null>(null);
   const [query, setQuery] = useState("");
   const [regionFilter, setRegionFilter] = useState<number | "all">("all");
-  const [lookupOpen, setLookupOpen] = useState(false);
-  const [lookupInput, setLookupInput] = useState("");
-  const [lookupError, setLookupError] = useState("");
-  const [lookupResult, setLookupResult] =
-    useState<CoordinateResult | null>(null);
 
   const mapRef = useRef<CoverageMapHandle | null>(null);
 
@@ -239,10 +229,6 @@ const SHOW_DISPATCH_AND_STUDIO = false;
       .sort((a, b) => collator.compare(a.name, b.name));
   }, [hotels, query, regionFilter]);
 
-  const resultRegion = lookupResult
-    ? (regionById.get(lookupResult.regionId) ?? regions[0])
-    : undefined;
-
   const selectRegion = useCallback(
     (id: number | null, fly = false) => {
       setSelectedRegion(id);
@@ -264,7 +250,6 @@ const SHOW_DISPATCH_AND_STUDIO = false;
     setSelectedRegion(hotel.region);
     setActiveHotel(hotel);
     setPinned(null);
-    setLookupResult(null);
     setHotelsVisible(true);
 
     if (fly) {
@@ -277,9 +262,6 @@ const SHOW_DISPATCH_AND_STUDIO = false;
     setHoveredRegion(null);
     setActiveHotel(null);
     setPinned(null);
-    setLookupResult(null);
-    setLookupOpen(false);
-    setLookupError("");
     mapRef.current?.fitAll();
   }, []);
 
@@ -296,86 +278,9 @@ const SHOW_DISPATCH_AND_STUDIO = false;
     setQuery("");
   }, [selectedRegion]);
 
-  const openLookup = useCallback(() => {
-    setLookupOpen(true);
-    setLookupError("");
-  }, []);
-
-  const closeLookup = useCallback(() => {
-    setLookupOpen(false);
-  }, []);
-
-  const handleLookupSubmit = useCallback(
-    (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-
-      const parsed = parseCoordinate(lookupInput);
-      if (!parsed.ok) {
-        setLookupError(parsed.error);
-        return;
-      }
-
-      const result = resolveCoordinate(
-        parsed.lat,
-        parsed.lon,
-        hexMap,
-        hotels,
-        regions,
-        cityCenter,
-        h3Resolution,
-      );
-
-      setLookupError("");
-      setLookupResult(result);
-      setPinned(result);
-      setSelectedRegion(result.regionId);
-      setHoveredRegion(null);
-      setActiveHotel(null);
-    },
-    [lookupInput, hexMap, hotels, regions, cityCenter, h3Resolution],
-  );
-
-  const resetLookup = useCallback(() => {
-    setLookupResult(null);
-    setLookupError("");
-    setLookupInput("");
-  }, []);
-
   const clearPinned = useCallback(() => {
     setPinned(null);
-    setLookupResult(null);
   }, []);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        (event.metaKey || event.ctrlKey) &&
-        event.key.toLowerCase() === "k"
-      ) {
-        event.preventDefault();
-        setLookupOpen(true);
-        setLookupError("");
-      }
-
-      if (event.key === "Escape") {
-        setLookupOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  useEffect(() => {
-    if (!lookupOpen) return;
-
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, [lookupOpen]);
 
   const neighbourhoodLabel = query.trim()
     ? `${filteredHotels.length} match${filteredHotels.length === 1 ? "" : "es"}`
@@ -526,15 +431,6 @@ const SHOW_DISPATCH_AND_STUDIO = false;
               )}
             </span>
           </div>
-          <button
-            type="button"
-            className={`lookup-button [display:inline-flex] [align-items:center] [gap:8px] [height:35px] [padding:0_11px] [border-radius:9px] [background:var(--ink)] [color:var(--cream)] [font-size:11.5px] [font-weight:600] [white-space:nowrap] [box-shadow:0_1px_2px_rgba(24,_36,_30,_0.16)] [transition:background_160ms_ease,_transform_160ms_ease] hover:[background:#263a2e] hover:[transform:translateY(-1px)] [&_svg]:[color:#b8c6bb] [&_kbd]:[display:inline-flex] [&_kbd]:[align-items:center] [&_kbd]:[height:18px] [&_kbd]:[padding:0_4px] [&_kbd]:[border:1px_solid_rgba(255,_255,_255,_0.13)] [&_kbd]:[border-radius:4px] [&_kbd]:[background:rgba(255,_255,_255,_0.08)] [&_kbd]:[color:rgba(251,_247,_236,_0.66)] [&_kbd]:[font-family:var(--font-mono)] [&_kbd]:[font-size:8.5px] [&_kbd]:[font-weight:500] max-[560px]:[gap:0] max-[560px]:[height:33px] max-[560px]:[padding:0_10px] max-[560px]:[&_span]:[display:none] max-[560px]:[&_kbd]:[display:none]`}
-            onClick={openLookup}
-          >
-            <Crosshair size={14} />
-            <span>Look up a pin</span>
-            <kbd>⌘K</kbd>
-          </button>
         </div>
       </header>
 
@@ -620,7 +516,6 @@ const SHOW_DISPATCH_AND_STUDIO = false;
                   hotels={hotels}
                   regions={regions}
                   depots={simulatedDepots}
-                  vehicles={vehicles}
                 />
               </div>
             </div>
@@ -1008,179 +903,7 @@ const SHOW_DISPATCH_AND_STUDIO = false;
         </aside>
       </main>
 
-      {lookupOpen && (
-        <div
-          className={`modal-backdrop [position:fixed] [inset:0] [z-index:200] [display:grid] [place-items:center] [padding:20px] [background:rgba(17,_27,_22,_0.46)] [animation:fade-in_160ms_ease_both] [backdrop-filter:blur(7px)] [position:fixed] [inset:0] [z-index:200] [display:grid] [place-items:center] [padding:20px] [background:rgba(17,_27,_22,_0.46)] [animation:fade-in_160ms_ease_both] [backdrop-filter:blur(7px)]`}
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) closeLookup();
-          }}
-        >
-          <div
-            className={`lookup-dialog [position:relative] [width:min(462px,_100%)] [max-height:calc(100svh_-_40px)] [padding:25px] [overflow-y:auto] [border:1px_solid_rgba(255,_255,_255,_0.38)] [border-radius:16px] [background:var(--paper-strong)] [box-shadow:0_30px_80px_rgba(12,_20,_16,_0.36)] [animation:dialog-in_200ms_ease_both] [&_h2]:[margin:11px_38px_8px_0] [&_h2]:[color:var(--ink)] [&_h2]:[font-family:var(--font-instrument-serif),_Georgia,_"Times_New_Roman",_serif] [&_h2]:[font-size:32px] [&_h2]:[font-weight:400] [&_h2]:[letter-spacing:-0.018em] [&_h2]:[line-height:1.02] [&_label]:[display:block] [&_label]:[margin-bottom:6px] [&_label]:[color:var(--muted)] [&_label]:[font-size:8.5px] [&_label]:[font-weight:700] [&_label]:[letter-spacing:0.09em] [&_label]:[text-transform:uppercase] max-[560px]:[padding:21px_18px] max-[560px]:[border-radius:14px] max-[560px]:[&_h2]:[font-size:28px] max-[560px]:[&_h2]:[margin-top:10px]`}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="lookup-title"
-          >
-            <button
-              type="button"
-              className={`dialog-close [position:absolute] [top:13px] [right:13px] [display:grid] [width:28px] [height:28px] [place-items:center] [border-radius:7px] [color:var(--muted)] hover:[background:var(--bone)] hover:[color:var(--ink)] [position:absolute] [top:13px] [right:13px] [display:grid] [width:28px] [height:28px] [place-items:center] [border-radius:7px] [color:var(--muted)] hover:[background:var(--bone)] hover:[color:var(--ink)]`}
-              onClick={closeLookup}
-              aria-label="Close coordinate lookup"
-            >
-              <X size={16} />
-            </button>
 
-            <span className={`dialog-eyebrow [display:flex] [align-items:center] [gap:6px] [color:var(--muted)] [font-size:8.5px] [font-weight:700] [letter-spacing:0.13em] [text-transform:uppercase] [display:flex] [align-items:center] [gap:6px] [color:var(--muted)] [font-size:8.5px] [font-weight:700] [letter-spacing:0.13em] [text-transform:uppercase]`}>
-              <Crosshair size={12} />
-              Coordinate lookup
-            </span>
-
-            {lookupResult && resultRegion ? (
-              <>
-                <h2 id="lookup-title">
-                  {lookupResult.inside
-                    ? "Inside the footprint"
-                    : "Outside the footprint"}
-                </h2>
-                <p className={`dialog-lede [max-width:368px] [margin-bottom:18px] [color:var(--muted)] [font-size:11.5px] [line-height:1.55] max-[560px]:[margin-bottom:15px] max-[560px]:[font-size:11px]`}>
-                  {lookupResult.inside
-                    ? "This point lands in a mapped H3 cell. Here is the owning region and its closest hotel."
-                    : "This point sits outside the mapped H3 cells, so the nearest operational region is shown."}
-                </p>
-
-                <div className={`lookup-coords [display:flex] [align-items:center] [gap:8px] [padding:10px_11px] [border:1px_solid_var(--line)] [border-radius:9px] [background:var(--paper)] [color:var(--ink-soft)] [font-family:var(--font-mono)] [font-size:10.5px] [&_svg]:[flex:0_0_auto] [&_svg]:[color:var(--faint)]`}>
-                  <MapPin size={14} />
-                  <span>{coordinateLabel(lookupResult.lat, lookupResult.lon)}</span>
-                </div>
-
-                <div
-                  className={`result-region [display:flex] [align-items:flex-start] [gap:10px] [margin-top:10px] [padding:12px] [border:1px_solid_color-mix(in_srgb,_var(--region)_20%,_var(--line))] [border-radius:10px] [background:color-mix(in_srgb,_var(--region)_4%,_var(--paper-strong))] max-[560px]:[gap:8px] max-[560px]:[padding:10px]`}
-                  style={regionStyle(resultRegion.color)}
-                >
-                  <span className={`result-region__code [display:grid] [flex:0_0_auto] [width:38px] [height:38px] [place-items:center] [border:1px_solid_color-mix(in_srgb,_var(--region)_22%,_transparent)] [border-radius:9px] [background:color-mix(in_srgb,_var(--region)_10%,_var(--paper-strong))] [color:var(--region)] [font-family:var(--font-mono)] [font-size:10px] [font-weight:700]`}>
-                    {resultRegion.code}
-                  </span>
-                  <div className={`result-region__body [flex:1] [min-width:0]`}>
-                    <div className={`result-region__name [color:var(--ink)] [font-size:11.5px] [font-weight:600] [letter-spacing:-0.01em] [line-height:1.3]`}>
-                      {resultRegion.short_name}
-                    </div>
-                    <div className={`result-region__route [margin-top:2px] [color:var(--muted)] [font-size:8.5px] [line-height:1.4]`}>
-                      {resultRegion.lotr_route}
-                    </div>
-                  </div>
-                  <span
-                    className={`status-pill [display:inline-flex] [flex:0_0_auto] [align-items:center] [padding:2px_6px] [border:1px_solid] [border-radius:999px] [font-size:7.5px] [font-weight:700] [letter-spacing:0.065em] [line-height:1.5] [text-transform:uppercase] [border-color:#d7e5d9] [background:#ecf4ed] [color:#2f6b4c] [border-color:#e9d8b5] [background:#f8f0de] [color:#8a6428] [.result-region_&]:[margin-top:1px] max-[560px]:[.result-region_&]:[display:none]`}
-                    data-status={
-                      resultRegion.route_status === "Proposed"
-                        ? "proposed"
-                        : "known"
-                    }
-                  >
-                    {resultRegion.route_status}
-                  </span>
-                </div>
-
-                <dl className={`result-facts [display:flex] [flex-direction:column] [margin-top:12px] [border-top:1px_solid_var(--line)] [&>div]:[display:flex] [&>div]:[align-items:baseline] [&>div]:[justify-content:space-between] [&>div]:[gap:14px] [&>div]:[padding:8px_0] [&>div]:[border-bottom:1px_solid_var(--line)] [&_dt]:[flex:0_0_auto] [&_dt]:[color:var(--faint)] [&_dt]:[font-size:9.5px] [&_dd]:[color:var(--ink-soft)] [&_dd]:[font-size:10px] [&_dd]:[font-weight:600] [&_dd]:[line-height:1.4] [&_dd]:[text-align:right] max-[560px]:[&>div]:[gap:10px]`}>
-                  <div>
-                    <dt>Nearest hotel</dt>
-                    <dd>{lookupResult.nearestHotel?.name ?? "None on record"}</dd>
-                  </div>
-                  <div>
-                    <dt>Distance to hotel</dt>
-                    <dd>{formatDistance(lookupResult.nearestDistanceKm)}</dd>
-                  </div>
-                  <div>
-                    <dt>From city centre</dt>
-                    <dd>{formatDistance(lookupResult.centerDistanceKm)}</dd>
-                  </div>
-                  <div>
-                    <dt>Coverage cell</dt>
-                    <dd className={`result-facts__mono [font-family:var(--font-mono)] [font-size:9px] [font-weight:500] [word-break:break-all]`}>
-                      {lookupResult.cell || "—"}
-                    </dd>
-                  </div>
-                </dl>
-
-                <div className={`dialog-actions [display:flex] [justify-content:flex-end] [gap:8px] [margin-top:20px] max-[560px]:[margin-top:17px]`}>
-                  <button
-                    type="button"
-                    className={`btn [.plan-actions_>_&]:[height:33px] [.plan-actions_>_&]:[padding:0_11px] [.plan-actions_>_&]:[font-size:10px] [.map-error__card_&]:[margin-top:8px] [display:inline-flex] [align-items:center] [justify-content:center] [gap:7px] [height:37px] [padding:0_14px] [border:1px_solid_transparent] [border-radius:9px] [font-size:10.5px] [font-weight:600] [letter-spacing:-0.005em] [transition:background_150ms_ease,_border-color_150ms_ease] max-[560px]:[.dialog-actions_&]:[flex:1] [.plan-actions_>_&]:[height:33px] [.plan-actions_>_&]:[padding:0_11px] [.plan-actions_>_&]:[font-size:10px] btn--ghost [border-color:var(--line-strong)] [color:var(--ink-soft)] [&:hover:not(:disabled)]:[background:var(--bone)] disabled:[opacity:0.45] disabled:[cursor:not-allowed]`}
-                    onClick={resetLookup}
-                  >
-                    Look up another
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn [.plan-actions_>_&]:[height:33px] [.plan-actions_>_&]:[padding:0_11px] [.plan-actions_>_&]:[font-size:10px] [.map-error__card_&]:[margin-top:8px] [display:inline-flex] [align-items:center] [justify-content:center] [gap:7px] [height:37px] [padding:0_14px] [border:1px_solid_transparent] [border-radius:9px] [font-size:10.5px] [font-weight:600] [letter-spacing:-0.005em] [transition:background_150ms_ease,_border-color_150ms_ease] max-[560px]:[.dialog-actions_&]:[flex:1] [.plan-actions_>_&]:[height:33px] [.plan-actions_>_&]:[padding:0_11px] [.plan-actions_>_&]:[font-size:10px] btn--primary [background:var(--ink)] [color:var(--cream)] hover:[background:#273a2f]`}
-                    onClick={closeLookup}
-                  >
-                    View on map
-                    <ArrowRight size={14} />
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <h2 id="lookup-title">Trace a coordinate</h2>
-                <p className={`dialog-lede [max-width:368px] [margin-bottom:18px] [color:var(--muted)] [font-size:11.5px] [line-height:1.55] max-[560px]:[margin-bottom:15px] max-[560px]:[font-size:11px]`}>
-                  Paste a latitude and longitude to find its coverage cell,
-                  owning region and nearest hotel.
-                </p>
-
-                <form onSubmit={handleLookupSubmit}>
-                  <label htmlFor="coordinate-input">Latitude, longitude</label>
-                  <div className={`coord-input [display:flex] [align-items:center] [gap:9px] [height:46px] [padding:0_12px] [border:1px_solid_var(--line-strong)] [border-radius:10px] [background:var(--paper)] [transition:border-color_150ms_ease,_box-shadow_150ms_ease,_background_150ms_ease] focus-within:[border-color:var(--green)] focus-within:[background:#fffefb] focus-within:[box-shadow:0_0_0_3px_rgba(45,_91,_66,_0.1)] [&>svg]:[flex:0_0_auto] [&>svg]:[color:var(--faint)] [&_input]:[width:100%] [&_input]:[border:0] [&_input]:[outline:none] [&_input]:[background:none] [&_input]:[color:var(--ink)] [&_input]:[font-family:var(--font-mono)] [&_input]:[font-size:12px] [&_input]:[letter-spacing:0.01em] [&_input::placeholder]:[color:var(--faint)]`}>
-                    <MapPin size={15} aria-hidden="true" />
-                    <input
-                      id="coordinate-input"
-                      value={lookupInput}
-                      onChange={(event) => {
-                        setLookupInput(event.target.value);
-                        if (lookupError) setLookupError("");
-                      }}
-                      placeholder="12.9716, 77.5946"
-                      inputMode="decimal"
-                      autoComplete="off"
-                      spellCheck={false}
-                      autoFocus
-                    />
-                  </div>
-                  <div className={`lookup-hint [display:flex] [align-items:center] [justify-content:space-between] [gap:12px] [margin-top:6px] [color:var(--faint)] [font-size:8.5px] max-[560px]:[align-items:flex-start] max-[560px]:[flex-direction:column] max-[560px]:[gap:3px]`}>
-                    <span>Decimal degrees · comma separated</span>
-                    <button
-                      type="button"
-                      className={`lookup-example [flex:0_0_auto] [border-bottom:1px_solid_rgba(45,_91,_66,_0.24)] [color:var(--green)] [font-size:8.5px] [font-weight:600] hover:[border-bottom-color:var(--green)]`}
-                      onClick={() => setLookupInput("12.9716, 77.5946")}
-                    >
-                      Use city centre
-                    </button>
-                  </div>
-
-                  {lookupError && (
-                    <div className={`lookup-error [margin-top:10px] [padding:7px_9px] [border:1px_solid_#efd5cf] [border-radius:7px] [background:#faedea] [color:var(--danger)] [font-size:10px] [line-height:1.45]`} role="alert">
-                      {lookupError}
-                    </div>
-                  )}
-
-                  <div className={`dialog-actions [display:flex] [justify-content:flex-end] [gap:8px] [margin-top:20px] max-[560px]:[margin-top:17px]`}>
-                    <button
-                      type="button"
-                      className={`btn [.plan-actions_>_&]:[height:33px] [.plan-actions_>_&]:[padding:0_11px] [.plan-actions_>_&]:[font-size:10px] [.map-error__card_&]:[margin-top:8px] [display:inline-flex] [align-items:center] [justify-content:center] [gap:7px] [height:37px] [padding:0_14px] [border:1px_solid_transparent] [border-radius:9px] [font-size:10.5px] [font-weight:600] [letter-spacing:-0.005em] [transition:background_150ms_ease,_border-color_150ms_ease] max-[560px]:[.dialog-actions_&]:[flex:1] [.plan-actions_>_&]:[height:33px] [.plan-actions_>_&]:[padding:0_11px] [.plan-actions_>_&]:[font-size:10px] btn--ghost [border-color:var(--line-strong)] [color:var(--ink-soft)] [&:hover:not(:disabled)]:[background:var(--bone)] disabled:[opacity:0.45] disabled:[cursor:not-allowed]`}
-                      onClick={closeLookup}
-                    >
-                      Cancel
-                    </button>
-                    <button type="submit" className={`btn [.plan-actions_>_&]:[height:33px] [.plan-actions_>_&]:[padding:0_11px] [.plan-actions_>_&]:[font-size:10px] [.map-error__card_&]:[margin-top:8px] [display:inline-flex] [align-items:center] [justify-content:center] [gap:7px] [height:37px] [padding:0_14px] [border:1px_solid_transparent] [border-radius:9px] [font-size:10.5px] [font-weight:600] [letter-spacing:-0.005em] [transition:background_150ms_ease,_border-color_150ms_ease] max-[560px]:[.dialog-actions_&]:[flex:1] [.plan-actions_>_&]:[height:33px] [.plan-actions_>_&]:[padding:0_11px] [.plan-actions_>_&]:[font-size:10px] btn--primary [background:var(--ink)] [color:var(--cream)] hover:[background:#273a2f]`}>
-                      <Crosshair size={14} />
-                      Locate pin
-                    </button>
-                  </div>
-                </form>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
