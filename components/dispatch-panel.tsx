@@ -27,6 +27,7 @@ import {
 } from "../lib/coverage";
 
 type DispatchPanelProps = {
+  cityName: string;
   routes: DispatchRoute[];
   depot: FleetDepot;
   regions: RegionMeta[];
@@ -44,6 +45,7 @@ type DispatchPanelProps = {
 };
 
 export default function DispatchPanel({
+  cityName,
   routes,
   depot,
   regions,
@@ -149,12 +151,12 @@ export default function DispatchPanel({
       <div className={`panel-intro [flex:0_0_auto] [padding:21px_22px_16px] [&_h1]:[margin:11px_0_7px] [&_h1]:[color:var(--ink)] [&_h1]:[font-family:var(--font-instrument-serif),_Georgia,_"Times_New_Roman",_serif] [&_h1]:[font-size:40px] [&_h1]:[font-weight:400] [&_h1]:[letter-spacing:-0.022em] [&_h1]:[line-height:0.98] [&_p]:[max-width:307px] [&_p]:[color:var(--muted)] [&_p]:[font-size:12px] [&_p]:[line-height:1.58] max-[1180px]:[padding:23px_18px_17px] max-[760px]:[padding:22px_18px_16px] max-[760px]:[&_h1]:[font-size:39px] max-[560px]:[padding:21px_16px_15px] max-[560px]:[&_h1]:[font-size:36px] max-[560px]:[&_p]:[font-size:11.5px] dispatch-intro [padding-bottom:14px] [border-bottom:1px_solid_var(--line)]`}>
         <span className={`eyebrow [display:flex] [align-items:center] [gap:8px] [color:var(--muted)] [font-size:9px] [font-weight:700] [letter-spacing:0.145em] [text-transform:uppercase] [display:flex] [align-items:center] [gap:8px] [color:var(--muted)] [font-size:9px] [font-weight:700] [letter-spacing:0.145em] [text-transform:uppercase]`}>
           <span className={`eyebrow__dot [width:5px] [height:5px] [border-radius:50%] [background:#3c7a55] [box-shadow:0_0_0_3px_rgba(60,_122,_85,_0.1)] [width:5px] [height:5px] [border-radius:50%] [background:#3c7a55] [box-shadow:0_0_0_3px_rgba(60,_122,_85,_0.1)] eyebrow__dot--dispatch [background:#0891b2] [box-shadow:0_0_0_3px_rgba(8,_145,_178,_0.22)] [background:#0891b2] [box-shadow:0_0_0_3px_rgba(8,_145,_178,_0.22)]`} />
-          Bengaluru · Fleet Operations
+          {cityName} · Fleet Operations
         </span>
         <h1>{title ?? "Fleet dispatch"}</h1>
         <p>
           {description ??
-            `${fleetStats.totalVans} multi-van routes across 5 regions. Central HQ: Yeshwanthpur Central Laundry.`}
+            `${fleetStats.totalVans} multi-van routes across ${regions.length} regions. Central HQ: ${depot.name}.`}
         </p>
 
         <div className={`intro-stats [display:grid] [grid-template-columns:repeat(3,_1fr)] [margin-top:15px] [padding:10px_0] [border-top:1px_solid_var(--line)] [border-bottom:1px_solid_var(--line)] dispatch-stats-strip [margin-top:14px] [grid-template-columns:repeat(4,_1fr)] [gap:8px]`}>

@@ -29,6 +29,11 @@ const TILE_ATTRIBUTION =
 const REGION_PANE = "plan-region-pane";
 
 type PlanCanvasMapProps = {
+  /** Centre of the city, used as the initial map view. */
+  center: { lat: number; lon: number };
+  zoom: number;
+  minZoom: number;
+  maxZoom: number;
   plan: Plan;
   routes: ComputedRoute[];
   selectedRouteId: string | null;
@@ -53,6 +58,10 @@ type MapStatus = "loading" | "ready" | "error";
 const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
   function PlanCanvasMap(
     {
+      center,
+      zoom,
+      minZoom,
+      maxZoom,
       plan,
       routes,
       selectedRouteId,
@@ -110,10 +119,10 @@ const PlanCanvasMap = forwardRef<PlanCanvasMapHandle, PlanCanvasMapProps>(
 
           leafletRef.current = L;
           map = L.map(containerRef.current, {
-            center: [12.9716, 77.5946],
-            zoom: 11,
-            minZoom: 9,
-            maxZoom: 17,
+            center: [center.lat, center.lon],
+            zoom,
+            minZoom,
+            maxZoom,
             zoomControl: false,
             attributionControl: true,
             zoomSnap: 0.25,

@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { Hotel, RegionMeta } from "./coverage";
 import { db } from "./db";
 import { hotels, type HotelRow } from "../db/schema";
@@ -70,16 +70,22 @@ function toHotelAdminItem(row: HotelRow): HotelAdminItem {
   };
 }
 
-export async function getHotelRows(): Promise<HotelRow[]> {
+export async function getHotelRows(cityId: string): Promise<HotelRow[]> {
   return db
     .select()
     .from(hotels)
-    .where(eq(hotels.isActive, true))
+    .where(and(eq(hotels.isActive, true), eq(hotels.cityId, cityId)))
     .orderBy(asc(hotels.name));
 }
 
-export async function getHotelAdminItems(): Promise<HotelAdminItem[]> {
-  const rows = await db.select().from(hotels).orderBy(asc(hotels.name));
+export async function getHotelAdminItems(
+  cityId: string,
+): Promise<HotelAdminItem[]> {
+  const rows = await db
+    .select()
+    .from(hotels)
+    .where(eq(hotels.cityId, cityId))
+    .orderBy(asc(hotels.name));
   return rows.map(toHotelAdminItem);
 }
 
@@ -88,9 +94,10 @@ export async function getHotelAdminItems(): Promise<HotelAdminItem[]> {
  * region_name is stored as the region's short display name.
  */
 export async function getCoverageHotels(
+  cityId: string,
   regions: RegionMeta[],
 ): Promise<Hotel[]> {
-  const rows = await getHotelRows();
+  const rows = await getHotelRows(cityId);
   const regionIdByName = new Map<string, number>();
 
   for (const region of regions) {
@@ -212,7 +219,7 @@ function slugifyHotelName(name: string): string {
   );
 }
 
-async function nextHotelId(name: string): Promise<string> {
+async function nextHotelId(cityId: string, name: string): Promise<string> {
   const base = slugifyHotelName(name);
   let candidate = base;
   let suffix = 2;
@@ -221,7 +228,7 @@ async function nextHotelId(name: string): Promise<string> {
     const [existing] = await db
       .select({ id: hotels.id })
       .from(hotels)
-      .where(eq(hotels.id, candidate))
+      .where(and(eq(hotels.cityId, cityId), eq(hotels.id, candidate)))
       .limit(1);
     if (!existing) return candidate;
     candidate = `${base}-${suffix}`;
@@ -229,11 +236,15 @@ async function nextHotelId(name: string): Promise<string> {
   }
 }
 
-export async function createHotel(input: HotelInput): Promise<HotelAdminItem> {
-  const id = await nextHotelId(input.name);
+export async function createHotel(
+  cityId: string,
+  input: HotelInput,
+): Promise<HotelAdminItem> {
+  const id = await nextHotelId(cityId, input.name);
   const [row] = await db
     .insert(hotels)
     .values({
+      cityId,
       id,
       ...input,
     })
@@ -243,6 +254,7 @@ export async function createHotel(input: HotelInput): Promise<HotelAdminItem> {
 }
 
 export async function updateHotel(
+  cityId: string,
   id: string,
   input: HotelInput,
 ): Promise<HotelAdminItem | null> {
@@ -252,16 +264,19 @@ export async function updateHotel(
       ...input,
       updatedAt: new Date(),
     })
-    .where(eq(hotels.id, id))
+    .where(and(eq(hotels.cityId, cityId), eq(hotels.id, id)))
     .returning();
 
   return row ? toHotelAdminItem(row) : null;
 }
 
-export async function deleteHotel(id: string): Promise<boolean> {
+export async function deleteHotel(
+  cityId: string,
+  id: string,
+): Promise<boolean> {
   const [row] = await db
     .delete(hotels)
-    .where(eq(hotels.id, id))
+    .where(and(eq(hotels.cityId, cityId), eq(hotels.id, id)))
     .returning({ id: hotels.id });
 
   return Boolean(row);

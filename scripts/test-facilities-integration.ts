@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { eq } from "drizzle-orm";
 import { db } from "../lib/db";
 import { hotels } from "../db/schema";
 import { getPlanById } from "../lib/plan-store";
@@ -10,16 +11,18 @@ import {
   FacilityConflictError,
 } from "../lib/facilities";
 
+const CITY = "bengaluru";
+
 async function main() {
   console.log("Starting Facilities Integration Tests...\n");
 
   // 1. Existing plan regression
   console.log("Checking existing plan regression...");
-  const manualCurrent = await getPlanById("manual-current");
+  const manualCurrent = await getPlanById(CITY, "manual-current");
   assert.ok(manualCurrent, "manual-current plan must exist in DB");
   assert.equal(manualCurrent.plan.routes.length, 8, "manual-current baseline has 8 routes");
 
-  const shabariPlan = await getPlanById("plan-1cc0cd9f-8a94-42bd-96a8-44ddc50564ea");
+  const shabariPlan = await getPlanById(CITY, "plan-1cc0cd9f-8a94-42bd-96a8-44ddc50564ea");
   if (shabariPlan) {
     const route2 = shabariPlan.plan.routes.find((r) => r.route_id === "103602");
     assert.ok(route2, "Route 2 - Jayanagara must exist in Shabari first plan");
@@ -27,7 +30,7 @@ async function main() {
     console.log("  Shabari first: Route 2 Jayanagara has vehicle-9.");
   }
 
-  const hotelRows = await db.select().from(hotels);
+  const hotelRows = await db.select().from(hotels).where(eq(hotels.cityId, CITY));
   assert.equal(hotelRows.length, 102, "expected exactly 102 hotels in DB");
   console.log("  102 hotels intact in DB.");
 
@@ -51,7 +54,7 @@ async function main() {
 
   // Test adding a dynamic master facility -> must appear in plan depots on merge
   console.log("\nTesting dynamic master facility addition...");
-  const tempWarehouse = await createFacility({
+  const tempWarehouse = await createFacility(CITY, {
     name: "Temp Integration Warehouse",
     shortName: "TIW",
     address: "Peenya 2nd Stage, Bengaluru",
@@ -63,7 +66,7 @@ async function main() {
     isActive: true,
   });
 
-  const refreshedPlan = await getPlanById("manual-current");
+  const refreshedPlan = await getPlanById(CITY, "manual-current");
   assert.ok(
     refreshedPlan?.plan.depots?.some((d) => d.id === tempWarehouse.id),
     "New active warehouse must appear in merged plan depots",
@@ -72,7 +75,7 @@ async function main() {
 
   // Test deactivating unreferenced facility -> must disappear from plan depots
   console.log("\nTesting unreferenced inactive facility exclusion...");
-  await updateFacility(tempWarehouse.id, {
+  await updateFacility(CITY, tempWarehouse.id, {
     name: tempWarehouse.name,
     shortName: tempWarehouse.shortName,
     address: tempWarehouse.address,
@@ -84,7 +87,7 @@ async function main() {
     isActive: false, // deactivate
   });
 
-  const planAfterDeactivate = await getPlanById("manual-current");
+  const planAfterDeactivate = await getPlanById(CITY, "manual-current");
   assert.ok(
     !planAfterDeactivate?.plan.depots?.some((d) => d.id === tempWarehouse.id),
     "Unreferenced inactive warehouse must NOT appear in merged plan depots",
@@ -92,7 +95,7 @@ async function main() {
   console.log("  Unreferenced inactive warehouse successfully excluded.");
 
   // Clean up temp facility
-  await deleteFacility(tempWarehouse.id);
+  await deleteFacility(CITY, tempWarehouse.id);
   console.log("  Cleaned up temporary facility.");
 
   // 3. Deletion and role protection verification
@@ -100,7 +103,7 @@ async function main() {
   // Try to delete depot-yeshwanthpur -> MUST be blocked
   let deleteBlocked = false;
   try {
-    await deleteFacility("depot-yeshwanthpur");
+    await deleteFacility(CITY, "depot-yeshwanthpur");
   } catch (err) {
     if (err instanceof FacilityConflictError) {
       deleteBlocked = true;
@@ -115,10 +118,10 @@ async function main() {
   // Try to remove Warehouse role from depot-yeshwanthpur -> MUST be blocked
   let roleRemovalBlocked = false;
   try {
-    const hq = (await getFacilityAdminItems()).find(
+    const hq = (await getFacilityAdminItems(CITY)).find(
       (f) => f.id === "depot-yeshwanthpur",
     )!;
-    await updateFacility("depot-yeshwanthpur", {
+    await updateFacility(CITY, "depot-yeshwanthpur", {
       name: hq.name,
       shortName: hq.shortName,
       address: hq.address,
@@ -142,12 +145,12 @@ async function main() {
 
   // 4. Deactivation of referenced facility
   console.log("\nChecking deactivation of facility...");
-  const pioneerLaundry = (await getFacilityAdminItems()).find(
+  const pioneerLaundry = (await getFacilityAdminItems(CITY)).find(
     (f) => f.id === "laundry-pioneer",
   )!;
 
   // Deactivate laundry-pioneer
-  await updateFacility("laundry-pioneer", {
+  await updateFacility(CITY, "laundry-pioneer", {
     name: pioneerLaundry.name,
     shortName: pioneerLaundry.shortName,
     address: pioneerLaundry.address,
@@ -161,7 +164,7 @@ async function main() {
   console.log("  Deactivation of facility succeeded.");
 
   // Re-activate laundry-pioneer
-  await updateFacility("laundry-pioneer", {
+  await updateFacility(CITY, "laundry-pioneer", {
     name: pioneerLaundry.name,
     shortName: pioneerLaundry.shortName,
     address: pioneerLaundry.address,

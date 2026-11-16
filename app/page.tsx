@@ -1,25 +1,32 @@
-import CoverageApp from "../components/coverage-app";
-import hexMapJson from "../data/hex_map.json";
-import regionMetadataJson from "../data/region_metadata.json";
-import optimizedRoutesJson from "../data/optimized_routes.json";
-import fleetJson from "../data/fleet.json";
-import type { DispatchRoute, FleetDepot, RegionMeta } from "../lib/coverage";
-import { getCoverageHotels } from "../lib/hotels";
+import { redirect } from "next/navigation";
+import { getDefaultCity } from "../lib/cities";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * The app is city-scoped, so the root path hands over to the first active
+ * city. A deployment with several cities still opens on the default one, and
+ * every city keeps its own shareable URL.
+ */
 export default async function Home() {
-  const regions = Object.values(regionMetadataJson) as RegionMeta[];
-  const hotels = await getCoverageHotels(regions);
+  const city = await getDefaultCity();
 
-  return (
-    <CoverageApp
-      regions={regions}
-      hotels={hotels}
-      hexMap={hexMapJson as Record<string, number>}
-      routes={optimizedRoutesJson as DispatchRoute[]}
-      depot={fleetJson.depot as FleetDepot}
-    />
-  );
+  if (!city) {
+    return (
+      <main
+        style={{
+          padding: "48px 24px",
+          fontFamily: "var(--font-dm-sans), system-ui, sans-serif",
+        }}
+      >
+        <h1>No cities configured</h1>
+        <p>
+          Run <code>npm run db:seed:city -- bengaluru</code> to publish the
+          first city.
+        </p>
+      </main>
+    );
+  }
+
+  redirect(`/${city.id}`);
 }
-

@@ -85,6 +85,13 @@ import {
 const OSRM_BASE_URL = "https://router.project-osrm.org";
 
 type PlanCanvasProps = {
+  cityId: string;
+  cityName: string;
+  cities: { id: string; name: string }[];
+  cityCenter: { lat: number; lon: number };
+  defaultZoom: number;
+  minZoom: number;
+  maxZoom: number;
   initialPlan: Plan;
   initialPlanId: string;
   initialPlans: PlanSummary[];
@@ -97,6 +104,13 @@ type PlanCanvasProps = {
 };
 
 export default function PlanCanvas({
+  cityId,
+  cityName,
+  cities,
+  cityCenter,
+  defaultZoom,
+  minZoom,
+  maxZoom,
   initialPlan,
   initialPlanId,
   initialPlans,
@@ -382,8 +396,8 @@ export default function PlanCanvas({
 
       try {
         const [response, listResponse] = await Promise.all([
-          fetch(`/api/plans/${currentPlanId}`, { cache: "no-store" }),
-          fetch("/api/plans", { cache: "no-store" }),
+          fetch(`/api/${cityId}/plans/${currentPlanId}`, { cache: "no-store" }),
+          fetch(`/api/${cityId}/plans`, { cache: "no-store" }),
         ]);
         const data = (await response.json().catch(() => null)) as
           | {
@@ -452,7 +466,7 @@ export default function PlanCanvas({
     setSaveState("saving");
     const timer = window.setTimeout(async () => {
       try {
-        const response = await fetch(`/api/plans/${currentPlanId}`, {
+        const response = await fetch(`/api/${cityId}/plans/${currentPlanId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -531,8 +545,8 @@ export default function PlanCanvas({
       setPlanSwitching(true);
       try {
         const [response, listResponse] = await Promise.all([
-          fetch(`/api/plans/${nextPlanId}`, { cache: "no-store" }),
-          fetch("/api/plans", { cache: "no-store" }),
+          fetch(`/api/${cityId}/plans/${nextPlanId}`, { cache: "no-store" }),
+          fetch(`/api/${cityId}/plans`, { cache: "no-store" }),
         ]);
         const data = (await response.json().catch(() => null)) as
           | {
@@ -590,7 +604,7 @@ export default function PlanCanvas({
 
   const handleSaveAsSubmit = useCallback(
     async (name: string) => {
-      const response = await fetch("/api/plans", {
+      const response = await fetch(`/api/${cityId}/plans`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, plan: planRef.current }),
@@ -1024,7 +1038,7 @@ export default function PlanCanvas({
 
       let createdId: string | null = null;
       try {
-        const response = await fetch("/api/hotels", {
+        const response = await fetch(`/api/${cityId}/hotels`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1060,7 +1074,7 @@ export default function PlanCanvas({
             matrix,
           );
         } catch (error) {
-          await fetch(`/api/hotels/${createdId}`, { method: "DELETE" }).catch(
+          await fetch(`/api/${cityId}/hotels/${createdId}`, { method: "DELETE" }).catch(
             () => undefined,
           );
           throw error;
@@ -1097,7 +1111,7 @@ export default function PlanCanvas({
       let createdFacility: FacilityAdminItem | null = null;
 
       try {
-        const response = await fetch("/api/facilities", {
+        const response = await fetch(`/api/${cityId}/facilities`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(values),
@@ -1190,7 +1204,7 @@ export default function PlanCanvas({
         return true;
       } catch (error) {
         if (createdFacility) {
-          await fetch(`/api/facilities/${createdFacility.id}`, {
+          await fetch(`/api/${cityId}/facilities/${createdFacility.id}`, {
             method: "DELETE",
           }).catch(() => undefined);
         }
@@ -1437,7 +1451,7 @@ export default function PlanCanvas({
 
       let createdId: string | null = null;
       try {
-        const response = await fetch("/api/vehicles", {
+        const response = await fetch(`/api/${cityId}/vehicles`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1483,7 +1497,7 @@ export default function PlanCanvas({
             color: data.vehicle.color,
           });
         } catch (error) {
-          await fetch(`/api/vehicles/${createdId}`, { method: "DELETE" }).catch(
+          await fetch(`/api/${cityId}/vehicles/${createdId}`, { method: "DELETE" }).catch(
             () => undefined,
           );
           throw error;
@@ -1515,7 +1529,7 @@ export default function PlanCanvas({
         return;
       }
 
-      const response = await fetch(`/api/vehicles/${vehicleId}`, {
+      const response = await fetch(`/api/${cityId}/vehicles/${vehicleId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, realCapacity: capacity }),
@@ -1567,7 +1581,7 @@ export default function PlanCanvas({
       if (!vehicle) return;
 
       const next = deleteVehicle(current, vehicleId);
-      const response = await fetch(`/api/vehicles/${vehicleId}`, {
+      const response = await fetch(`/api/${cityId}/vehicles/${vehicleId}`, {
         method: "DELETE",
       });
       if (!response.ok) {
@@ -1815,6 +1829,8 @@ export default function PlanCanvas({
     <div className="flex flex-col w-full h-[100svh] min-h-0 overflow-hidden bg-bone">
       <PlanHeader
         planName={plan.name}
+        cities={cities}
+        currentCityId={cityId}
         mode={mode}
         onChangeMode={changeMode}
         onUndo={undo}
@@ -1830,6 +1846,7 @@ export default function PlanCanvas({
 
       <main className={workspace}>
         <PlanSidebar
+          cityId={cityId}
           plan={plan}
           viewPlan={viewPlan}
           currentPlanId={currentPlanId}
@@ -1882,6 +1899,10 @@ export default function PlanCanvas({
 
         <PlanMapStage
           mapRef={mapRef}
+          center={cityCenter}
+          zoom={defaultZoom}
+          minZoom={minZoom}
+          maxZoom={maxZoom}
           viewPlan={viewPlan}
           routes={computation.routes}
           selectedRouteId={selectedRouteId}
@@ -1904,6 +1925,7 @@ export default function PlanCanvas({
         />
 
         <PlanInspector
+          cityId={cityId}
           inspectorOpen={inspectorOpen}
           onCloseInspector={() => setInspectorOpen(false)}
           mode={mode}
@@ -1985,6 +2007,8 @@ export default function PlanCanvas({
       />
 
       <PlanNewHotelDialog
+        cityId={cityId}
+        cityName={cityName}
         open={newHotelOpen}
         plan={plan}
         regions={regions}
@@ -1997,6 +2021,8 @@ export default function PlanCanvas({
       />
 
       <PlanNewFacilityDialog
+        cityId={cityId}
+        cityName={cityName}
         open={newFacilityOpen}
         initialRole={facilityRole}
         selectedRouteName={

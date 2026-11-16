@@ -24,6 +24,8 @@ import {
 } from "./ui/plan-styles";
 
 type PlanNewFacilityDialogProps = {
+  cityId: string;
+  cityName: string;
   open: boolean;
   initialRole: "warehouse" | "laundry";
   selectedRouteName?: string;
@@ -32,6 +34,8 @@ type PlanNewFacilityDialogProps = {
 };
 
 export default function PlanNewFacilityDialog({
+  cityId,
+  cityName,
   open,
   initialRole,
   selectedRouteName,
@@ -89,7 +93,7 @@ export default function PlanNewFacilityDialog({
     setGeocoding(true);
     setGeocodeError(null);
     try {
-      const response = await fetch("/api/geocode", {
+      const response = await fetch(`/api/${cityId}/geocode`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ address: query }),
@@ -266,7 +270,7 @@ export default function PlanNewFacilityDialog({
                 value={name}
                 placeholder={
                   isWarehouse
-                    ? "e.g. North Bengaluru Warehouse, Peenya Depot"
+                    ? `e.g. North ${cityName} Warehouse, Central Depot`
                     : "e.g. Pioneer, Laundry Solutions South"
                 }
                 onChange={(event) => setName(event.target.value)}

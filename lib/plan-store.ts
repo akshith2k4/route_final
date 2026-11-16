@@ -1,7 +1,5 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import planJson from "../data/plan.json";
-import regionMetadataJson from "../data/region_metadata.json";
 import {
   getPlanDepots,
   getPlanLaundries,
@@ -13,6 +11,7 @@ import {
 } from "./plan";
 import { db } from "./db";
 import { facilities, hotels, plans, vehicles } from "../db/schema";
+import { getRegionMeta } from "./cities";
 
 export type PlanSummary = {
   id: string;
@@ -39,18 +38,6 @@ export type StoredPlanConflict = {
   current: StoredPlan | null;
 };
 
-const BASELINE_PLAN = planJson as Plan;
-
-const regionIdByName = new Map<string, number>();
-for (const region of Object.values(regionMetadataJson) as {
-  id: number;
-  name: string;
-  short_name: string;
-}[]) {
-  regionIdByName.set(region.short_name, region.id);
-  regionIdByName.set(region.name, region.id);
-}
-
 function toSummary(row: {
   id: string;
   name: string;
@@ -67,12 +54,30 @@ function toSummary(row: {
   };
 }
 
-async function mergeMasterData(plan: Plan): Promise<Plan> {
+/**
+ * Region names are unique inside a city but not across cities, so the lookup
+ * table is rebuilt per city.
+ */
+async function regionIdByName(
+  cityId: string,
+): Promise<Map<string, number>> {
+  const regions = await getRegionMeta(cityId);
+  const map = new Map<string, number>();
+  for (const region of regions) {
+    map.set(region.short_name, region.id);
+    map.set(region.name, region.id);
+  }
+  return map;
+}
+
+async function mergeMasterData(cityId: string, plan: Plan): Promise<Plan> {
   const [hotelRows, vehicleRows, facilityRows] = await Promise.all([
-    db.select().from(hotels),
-    db.select().from(vehicles),
-    db.select().from(facilities),
+    db.select().from(hotels).where(eq(hotels.cityId, cityId)),
+    db.select().from(vehicles).where(eq(vehicles.cityId, cityId)),
+    db.select().from(facilities).where(eq(facilities.cityId, cityId)),
   ]);
+
+  const regionIds = await regionIdByName(cityId);
 
   const hotelById = new Map(hotelRows.map((hotel) => [hotel.id, hotel]));
   const vehicleById = new Map(
@@ -240,7 +245,7 @@ async function mergeMasterData(plan: Plan): Promise<Plan> {
           name: hotel.name,
           lat: hotel.latitude,
           lon: hotel.longitude,
-          region: regionIdByName.get(hotel.regionName) ?? stop.region,
+          region: regionIds.get(hotel.regionName) ?? stop.region,
           service_mins: hotel.stopMins,
           load_bags: stopDays.length === 2 ? dailyBags : alternateBags,
           daily_load_bags: dailyBags,
@@ -284,24 +289,54 @@ async function mergeMasterData(plan: Plan): Promise<Plan> {
   };
 }
 
-async function ensureDefaultPlan(): Promise<void> {
-  const [existing] = await db.select({ id: plans.id }).from(plans).limit(1);
+/**
+ * Publishes a city's baseline plan the first time the city is opened.
+ *
+ * Plan ids are globally unique, but every pipeline run uses the same baseline
+ * id. When another city already owns that id, this city's copy is namespaced
+ * with its own slug so both baselines can coexist.
+ */
+export async function ensureDefaultPlan(
+  cityId: string,
+  baselinePlan: Plan | null,
+): Promise<void> {
+  if (!baselinePlan) return;
+
+  const [existing] = await db
+    .select({ id: plans.id })
+    .from(plans)
+    .where(eq(plans.cityId, cityId))
+    .limit(1);
   if (existing) return;
+
+  const [owner] = await db
+    .select({ cityId: plans.cityId })
+    .from(plans)
+    .where(eq(plans.id, baselinePlan.plan_id))
+    .limit(1);
+
+  const id =
+    owner && owner.cityId !== cityId
+      ? `${cityId}-${baselinePlan.plan_id}`
+      : baselinePlan.plan_id;
 
   await db
     .insert(plans)
     .values({
-      id: BASELINE_PLAN.plan_id,
-      name: BASELINE_PLAN.name,
-      status: BASELINE_PLAN.status,
-      data: BASELINE_PLAN,
+      id,
+      cityId,
+      name: baselinePlan.name,
+      status: baselinePlan.status,
+      data: { ...baselinePlan, plan_id: id },
       version: 1,
     })
     .onConflictDoNothing();
 }
 
-export async function listPlanSummaries(): Promise<PlanSummary[]> {
-  await ensureDefaultPlan();
+export async function listPlanSummaries(
+  cityId: string,
+): Promise<PlanSummary[]> {
+  await ensureDefaultPlan(cityId, null);
   const rows = await db
     .select({
       id: plans.id,
@@ -311,16 +346,20 @@ export async function listPlanSummaries(): Promise<PlanSummary[]> {
       updatedAt: plans.updatedAt,
     })
     .from(plans)
+    .where(eq(plans.cityId, cityId))
     .orderBy(desc(plans.updatedAt));
 
   return rows.map(toSummary);
 }
 
-export async function getPlanById(id: string): Promise<StoredPlan | null> {
+export async function getPlanById(
+  cityId: string,
+  id: string,
+): Promise<StoredPlan | null> {
   const [row] = await db
     .select()
     .from(plans)
-    .where(eq(plans.id, id))
+    .where(and(eq(plans.cityId, cityId), eq(plans.id, id)))
     .limit(1);
 
   if (!row) return null;
@@ -328,34 +367,38 @@ export async function getPlanById(id: string): Promise<StoredPlan | null> {
   return {
     id: row.id,
     name: row.name,
-    plan: await mergeMasterData({ ...row.data, plan_id: row.id }),
+    plan: await mergeMasterData(cityId, { ...row.data, plan_id: row.id }),
     version: row.version,
     updatedAt: row.updatedAt.toISOString(),
   };
 }
 
 export async function getInitialPlan(
+  cityId: string,
+  baselinePlan: Plan | null,
   preferredId?: string,
 ): Promise<StoredPlanWithList> {
-  const plans = await listPlanSummaries();
+  await ensureDefaultPlan(cityId, baselinePlan);
+  const planList = await listPlanSummaries(cityId);
   const selected =
     (preferredId
-      ? plans.find((candidate) => candidate.id === preferredId)
-      : null) ?? plans[0];
+      ? planList.find((candidate) => candidate.id === preferredId)
+      : null) ?? planList[0];
 
   if (!selected) {
     throw new Error("Could not find a plan.");
   }
 
-  const stored = await getPlanById(selected.id);
+  const stored = await getPlanById(cityId, selected.id);
   if (!stored) {
     throw new Error("Could not load the selected plan.");
   }
 
-  return { ...stored, plans };
+  return { ...stored, plans: planList };
 }
 
 export async function createPlan(
+  cityId: string,
   name: string,
   plan: Plan,
 ): Promise<StoredPlanWithList> {
@@ -377,6 +420,7 @@ export async function createPlan(
     .insert(plans)
     .values({
       id,
+      cityId,
       name: trimmed,
       status: "draft",
       data: nextPlan,
@@ -390,11 +434,12 @@ export async function createPlan(
     plan: row.data,
     version: row.version,
     updatedAt: row.updatedAt.toISOString(),
-    plans: await listPlanSummaries(),
+    plans: await listPlanSummaries(cityId),
   };
 }
 
 export async function updateStoredPlan(
+  cityId: string,
   id: string,
   plan: Plan,
   expectedVersion: number,
@@ -409,11 +454,17 @@ export async function updateStoredPlan(
       version: sql`${plans.version} + 1`,
       updatedAt: new Date(),
     })
-    .where(and(eq(plans.id, id), eq(plans.version, expectedVersion)))
+    .where(
+      and(
+        eq(plans.cityId, cityId),
+        eq(plans.id, id),
+        eq(plans.version, expectedVersion),
+      ),
+    )
     .returning();
 
   if (!row) {
-    const current = await getPlanById(id);
+    const current = await getPlanById(cityId, id);
     return { conflict: true, current };
   }
 

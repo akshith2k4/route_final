@@ -32,9 +32,7 @@ import {
   Zap,
 } from "lucide-react";
 import {
-  DEFAULT_DEPOTS,
   DEFAULT_SHIFT_SETTINGS,
-  DEFAULT_STUDIO_VEHICLES,
   formatDistance,
   formatMins,
   type DispatchRoute,
@@ -54,8 +52,18 @@ import {
 import { type OptimizationObjective } from "../lib/google-route-optimization";
 
 type StudioPanelProps = {
+  /** City slug, used to reach the city-scoped optimization API. */
+  cityId: string;
+  cityName: string;
   hotels: Hotel[];
   regions: RegionMeta[];
+  /** Vehicles and depots of the active city. */
+  vehicles: StudioVehicle[];
+  depots: StudioDepot[];
+  /** City road estimates for the local fallback solver. */
+  roadFactor: number;
+  avgSpeedKmh: number;
+  regionAdjacency: Record<string, string[]>;
   routes: DispatchRoute[];
   onApplySimulatedRoutes: (
     simulatedRoutes: DispatchRoute[],
@@ -72,8 +80,15 @@ type StudioPanelProps = {
 type StudioTab = "hotels" | "fleet" | "shifts" | "windows" | "simulate";
 
 export default function StudioPanel({
+  cityId,
+  cityName,
   hotels,
   regions,
+  vehicles: initialVehicles,
+  depots,
+  roadFactor,
+  avgSpeedKmh,
+  regionAdjacency,
   routes: originalRoutes,
   onApplySimulatedRoutes,
   onSelectRoute,
@@ -85,16 +100,15 @@ export default function StudioPanel({
 }: StudioPanelProps) {
   const [activeTab, setActiveTab] = useState<StudioTab>("hotels");
 
-  // 1. Vehicles State
+  // 1. Vehicles State (seeded from the active city's fleet)
   const [vehicles, setVehicles] = useState<StudioVehicle[]>(() =>
-    DEFAULT_STUDIO_VEHICLES.map((v) => ({ ...v })),
+    initialVehicles.map((v) => ({ ...v })),
   );
 
   // Locked capacities tracker
   const [lockedCapacities, setLockedCapacities] = useState<Record<number, boolean>>({});
 
-  // 2. Depots State
-  const [depots] = useState<StudioDepot[]>(DEFAULT_DEPOTS);
+  // 2. Depots come from the active city's facility fleet.
 
   // 3. Shift & Lunch State
   const [shiftSettings, setShiftSettings] = useState<StudioShiftSetting>(
@@ -362,7 +376,7 @@ export default function StudioPanel({
 
     try {
       // 1. Send configuration to Google Route Optimization API endpoint
-      const res = await fetch("/api/optimize", {
+      const res = await fetch(`/api/${cityId}/optimize`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -405,6 +419,9 @@ export default function StudioPanel({
         vehicles,
         depots,
         shiftSettings,
+        roadFactor,
+        avgSpeedKmh,
+        regionAdjacency,
       });
 
       setSolverProvider("local");
@@ -426,6 +443,9 @@ export default function StudioPanel({
         vehicles,
         depots,
         shiftSettings,
+        roadFactor,
+        avgSpeedKmh,
+        regionAdjacency,
       });
 
       setSolverProvider("local");
@@ -441,11 +461,15 @@ export default function StudioPanel({
       setIsSimulating(false);
     }
   }, [
+    cityId,
     hotels,
     hotelSettings,
     vehicles,
     depots,
     shiftSettings,
+    roadFactor,
+    avgSpeedKmh,
+    regionAdjacency,
     onApplySimulatedRoutes,
   ]);
 
@@ -524,7 +548,7 @@ export default function StudioPanel({
         </div>
 
         <p className={`studio-header__sub [font-size:11.5px] [color:var(--muted)] [line-height:1.4] [margin:0]`}>
-          Manual constraint solver with hotel multi-select, 10-van capacity locking, Yeshwanthpur Central Laundry (HQ) fleet base, shift & lunch windows, and priority SLA rules.
+          Manual constraint solver with hotel multi-select, capacity locking, {depots[0]?.name ?? `${cityName} depot`} fleet base, shift & lunch windows, and priority SLA rules.
         </p>
 
         {/* Live KPI Metric Chips */}
@@ -802,7 +826,7 @@ export default function StudioPanel({
               <div>
                 <h3 className={`studio-section__title [font-size:15px] [font-weight:700] [color:var(--ink)] [margin:0]`}>Fleet & Vehicle Capacity</h3>
                 <p className={`studio-section__desc [font-size:11.5px] [color:var(--muted)] [margin:3px_0_0] [line-height:1.35]`}>
-                  Toggle active vehicles and lock customized capacity buffers. All routes operate out of LinenGrass HQ (Yeshwanthpur Central Laundry).
+                  Toggle active vehicles and lock customized capacity buffers. All routes operate out of {depots[0]?.name ?? `${cityName} depot`}.
                 </p>
               </div>
               <div className={`studio-actions-group [display:flex] [align-items:center] [gap:6px] [flex-shrink:0]`}>
@@ -865,7 +889,7 @@ export default function StudioPanel({
                           <div className={`studio-depot-fixed-badge [display:flex] [align-items:center] [justify-content:space-between] [gap:8px] [height:32px] [padding:0_10px] [border-radius:6px] [border:1px_solid_var(--line)] [background:var(--bone)] [color:var(--ink)] [font-size:11px] [font-weight:600]`}>
                             <span className={`studio-depot-fixed-dot [width:7px] [height:7px] [border-radius:50%] [background:#18241e] [border:1px_solid_#fbbf24] [flex-shrink:0]`} />
                             <span className={`studio-depot-fixed-text [flex:1] [white-space:nowrap] [overflow:hidden] [text-overflow:ellipsis]`}>
-                              LinenGrass HQ (Yeshwanthpur Central Laundry)
+                              {depots[0]?.name ?? `${cityName} depot`}
                             </span>
                             <span className={`studio-depot-hq-tag [font-size:8.5px] [font-weight:800] [padding:1px_5px] [border-radius:3px] [background:#18241e] [color:#fbbf24] [letter-spacing:0.05em] [text-transform:uppercase]`}>Unified HQ</span>
                           </div>
@@ -1167,7 +1191,7 @@ export default function StudioPanel({
                       {objective === "shortest_distance" && <Check size={14} />}
                     </div>
                     <b>Shortest Road Distance</b>
-                    <p>Minimizes total kilometers driven across Bangalore to reduce diesel/battery consumption, even if taking local roads.</p>
+                    <p>Minimizes total kilometers driven across {cityName} to reduce diesel/battery consumption, even if taking local roads.</p>
                   </button>
 
                   <button
@@ -1355,7 +1379,7 @@ export default function StudioPanel({
                 <h4>No Custom Plan Computed Yet</h4>
                 <p>
                   Click "Run Optimization" below to cluster the selected {selectedHotelsCount}{" "}
-                  hotels across your {activeVehiclesCount} active vehicles operating out of Yeshwanthpur Central Laundry (HQ),
+                  hotels across your {activeVehiclesCount} active vehicles operating out of {depots[0]?.name ?? `${cityName} depot`},
                   shift hours, and priority rules.
                 </p>
                 <button
@@ -1495,7 +1519,7 @@ export default function StudioPanel({
                               {route.vehicle_label}
                             </span>
                             <span className={`studio-route-depot-tag [font-size:10px] [font-weight:600] [color:var(--muted)] [background:var(--bone)] [padding:1px_6px] [border-radius:4px]`}>
-                              📍 Yeshwanthpur HQ
+                              📍 {depots[0]?.name ?? "HQ"}
                             </span>
                           </div>
 

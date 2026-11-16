@@ -444,3 +444,67 @@ select {
 
 @media (max-width: 760px) {
 }
+
+/* City switcher ---------------------------------------------------------- */
+
+.city-switcher {
+  @apply inline-flex;
+  @apply items-center;
+  @apply gap-2;
+  @apply min-w-0;
+}
+
+.city-switcher__label {
+  @apply text-[8.5px];
+  @apply font-semibold;
+  @apply uppercase;
+  @apply tracking-[0.14em];
+  @apply text-faint;
+}
+
+.city-switcher__control {
+  @apply relative;
+  @apply inline-flex;
+  @apply items-center;
+}
+
+.city-switcher__select {
+  @apply appearance-none;
+  @apply h-[26px];
+  @apply max-w-[130px];
+  @apply truncate;
+  @apply rounded-[7px];
+  @apply border;
+  @apply border-line-strong;
+  @apply bg-paper-strong;
+  @apply pl-[9px];
+  @apply pr-[24px];
+  @apply text-[10px];
+  @apply font-semibold;
+  @apply text-ink;
+  @apply outline-none;
+  @apply transition-colors;
+  @apply cursor-pointer;
+}
+
+.city-switcher__select:hover {
+  @apply bg-bone;
+  @apply border-line-strong;
+}
+
+.city-switcher__select:focus-visible {
+  @apply border-[var(--focus)];
+  @apply ring-[2px];
+  @apply ring-[rgba(59,107,80,0.2)];
+}
+
+.city-switcher__chevron {
+  @apply pointer-events-none;
+  @apply absolute;
+  @apply right-[7px];
+  @apply text-faint;
+}
+
+.city-switcher[data-pending="true"] .city-switcher__select {
+  @apply opacity-60;
+}

@@ -55,12 +55,14 @@ function googleErrorMessage(error: {
 
 async function geocodeWithOAuth(
   address: string,
+  bias: string | null,
 ): Promise<GeocodeResult> {
   const { token } = await getGoogleAccessToken(
     "https://www.googleapis.com/auth/maps-platform.geocode.address",
   );
+  const query = bias ? `${address}, ${bias}` : address;
   const url = new URL(
-    `https://geocode.googleapis.com/v4/geocode/address/${encodeURIComponent(address)}`,
+    `https://geocode.googleapis.com/v4/geocode/address/${encodeURIComponent(query)}`,
   );
   url.searchParams.set("regionCode", "IN");
   url.searchParams.set("languageCode", "en");
@@ -93,7 +95,7 @@ async function geocodeWithOAuth(
   return {
     latitude: latitude as number,
     longitude: longitude as number,
-    formattedAddress: result.formattedAddress ?? address,
+    formattedAddress: result.formattedAddress ?? query,
     placeId: result.placeId ?? null,
   };
 }
@@ -101,9 +103,10 @@ async function geocodeWithOAuth(
 async function geocodeWithApiKey(
   address: string,
   apiKey: string,
+  bias: string | null,
 ): Promise<GeocodeResult> {
   const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
-  url.searchParams.set("address", address);
+  url.searchParams.set("address", bias ? `${address}, ${bias}` : address);
   url.searchParams.set("key", apiKey);
   url.searchParams.set("language", "en");
   url.searchParams.set("region", "in");
@@ -143,13 +146,20 @@ async function geocodeWithApiKey(
   };
 }
 
+/**
+ * Looks up an address. `bias` narrows the search to a city, so the same
+ * street name resolves to the right city when a deployment runs several.
+ */
 export async function geocodeAddress(
   address: string,
+  bias?: string | null,
 ): Promise<GeocodeResult> {
+  const cityBias =
+    bias && bias.trim().length > 0 ? bias.trim() : null;
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (apiKey) {
-    return geocodeWithApiKey(address, apiKey);
+    return geocodeWithApiKey(address, apiKey, cityBias);
   }
 
-  return geocodeWithOAuth(address);
+  return geocodeWithOAuth(address, cityBias);
 }

@@ -70,6 +70,7 @@ import { PlanRouteCard } from "./plan-route-card";
 import { PlanWarehouseSection } from "./plan-warehouse-section";
 
 type PlanSidebarProps = {
+  cityId: string;
   plan: Plan;
   viewPlan: Plan;
   currentPlanId: string;
@@ -144,6 +145,7 @@ type PlanSidebarProps = {
 };
 
 export function PlanSidebar({
+  cityId,
   plan,
   viewPlan,
   currentPlanId,
@@ -422,7 +424,7 @@ export function PlanSidebar({
         <div className={sidebarRoutesWarehouse}>
           <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-line bg-paper-strong">
             <Link
-              href="/facilities"
+              href={`/${cityId}/facilities`}
               className="text-xs font-medium text-ink-soft hover:text-ink underline"
             >
               Manage facilities

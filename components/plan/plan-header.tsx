@@ -12,10 +12,13 @@ import {
   Undo2,
   Warehouse,
 } from "lucide-react";
+import CitySwitcher from "../city-switcher";
 import type { PlanMode, SaveState } from "./plan-types";
 
 type PlanHeaderProps = {
   planName: string;
+  cities: { id: string; name: string }[];
+  currentCityId: string;
   mode: PlanMode;
   onChangeMode: (mode: PlanMode) => void;
   onUndo: () => void;
@@ -31,6 +34,8 @@ type PlanHeaderProps = {
 
 export function PlanHeader({
   planName,
+  cities,
+  currentCityId,
   mode,
   onChangeMode,
   onUndo,
@@ -48,7 +53,7 @@ export function PlanHeader({
       {/* Brand logo */}
       <Link
         className="inline-flex items-center gap-2.5 justify-self-start min-w-0 rounded-lg text-left group"
-        href="/"
+        href={`/${currentCityId}`}
         aria-label="Back to home"
       >
         <span
@@ -137,6 +142,7 @@ export function PlanHeader({
 
       {/* Topbar Actions */}
       <div className="flex items-center justify-self-end gap-2.5 min-w-0">
+        <CitySwitcher cities={cities} currentCityId={currentCityId} />
         {/* Undo / Redo */}
         <div className="flex gap-px p-0.5 border border-line rounded-lg bg-paper">
           <button
@@ -196,14 +202,14 @@ export function PlanHeader({
 
         {/* Links */}
         <Link
-          href="/facilities"
+          href={`/${currentCityId}/facilities`}
           className="inline-flex items-center gap-1.5 h-[33px] px-2.5 rounded-lg border border-line-strong text-[10px] font-semibold text-ink-soft transition-colors hover:bg-bone max-[560px]:hidden"
         >
           <Warehouse size={13} />
           Facilities
         </Link>
         <Link
-          href="/hotels"
+          href={`/${currentCityId}/hotels`}
           className="inline-flex items-center gap-1.5 h-[33px] px-2.5 rounded-lg border border-line-strong text-[10px] font-semibold text-ink-soft transition-colors hover:bg-bone max-[560px]:hidden"
         >
           <Hotel size={13} />

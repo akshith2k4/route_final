@@ -26,8 +26,6 @@ import CoverageMap, {
 import DispatchPanel from "./dispatch-panel";
 import StudioPanel from "./studio-panel";
 import {
-  DEFAULT_DEPOTS,
-  REGION_MAP_LABELS,
   formatDistance,
   hotelKey,
   parseCoordinate,
@@ -35,21 +33,34 @@ import {
   type CoordinateResult,
   type DispatchRoute,
   type DispatchStop,
-  type FleetDepot,
   type HexMap,
   type Hotel,
   type RegionMeta,
   type StudioDepot,
+  type StudioVehicle,
 } from "../lib/coverage";
-import manualRoutesJson from "../data/manual_routes.json";
+import CitySwitcher from "./city-switcher";
 
 type CoverageAppProps = {
+  cityId: string;
+  cityName: string;
+  cities: { id: string; name: string }[];
+  cityCenter: { lat: number; lon: number };
+  defaultZoom: number;
+  minZoom: number;
+  maxZoom: number;
+  h3Resolution: number;
+  /** City road estimates and region adjacency for the studio solver. */
+  roadFactor: number;
+  avgSpeedKmh: number;
+  regionAdjacency: Record<string, string[]>;
   regions: RegionMeta[];
   hotels: Hotel[];
   hexMap: HexMap;
   routes?: DispatchRoute[];
   manualRoutes?: DispatchRoute[];
-  depot?: FleetDepot;
+  depots?: StudioDepot[];
+  vehicles?: StudioVehicle[];
   initialWorkspace?: "coverage" | "manual" | "dispatch" | "studio";
 };
 
@@ -69,16 +80,28 @@ function coordinateLabel(lat: number, lon: number): string {
 }
 
 export default function CoverageApp({
+  cityId,
+  cityName,
+  cities,
+  cityCenter,
+  defaultZoom,
+  minZoom,
+  maxZoom,
+  h3Resolution,
+  roadFactor,
+  avgSpeedKmh,
+  regionAdjacency,
   regions: regionData,
   hotels,
   hexMap,
   routes = [],
-  manualRoutes: manualRoutesProp,
-  depot,
+  manualRoutes: manualRoutesProp = [],
+  depots = [],
+  vehicles = [],
   initialWorkspace = "coverage",
 }: CoverageAppProps) {
   const manualRoutes = useMemo(
-    () => manualRoutesProp ?? ((manualRoutesJson as unknown) as DispatchRoute[]),
+    () => manualRoutesProp,
     [manualRoutesProp],
   );
   const regions = useMemo(
@@ -123,7 +146,24 @@ const SHOW_DISPATCH_AND_STUDIO = false;
     "coverage" | "manual" | "dispatch" | "studio"
   >(initialWorkspace === "manual" ? "manual" : SHOW_DISPATCH_AND_STUDIO ? initialWorkspace : "coverage");
   const [simulatedRoutes, setSimulatedRoutes] = useState<DispatchRoute[]>(routes);
-  const [simulatedDepots, setSimulatedDepots] = useState<StudioDepot[]>(DEFAULT_DEPOTS);
+  const [simulatedDepots, setSimulatedDepots] = useState<StudioDepot[]>(depots);
+
+  const primaryDepot = useMemo(() => {
+    const primary =
+      depots.find((depot) => depot.isPrimary) ?? depots[0] ?? null;
+    if (!primary) {
+      return {
+        name: `${cityName} Depot`,
+        latitude: cityCenter.lat,
+        longitude: cityCenter.lon,
+      };
+    }
+    return {
+      name: primary.name,
+      latitude: primary.latitude,
+      longitude: primary.longitude,
+    };
+  }, [depots, cityName, cityCenter]);
 
   const handleApplySimulatedRoutes = useCallback(
     (newRoutes: DispatchRoute[], newDepots: StudioDepot[]) => {
@@ -279,6 +319,8 @@ const SHOW_DISPATCH_AND_STUDIO = false;
         hexMap,
         hotels,
         regions,
+        cityCenter,
+        h3Resolution,
       );
 
       setLookupError("");
@@ -288,7 +330,7 @@ const SHOW_DISPATCH_AND_STUDIO = false;
       setHoveredRegion(null);
       setActiveHotel(null);
     },
-    [lookupInput, hexMap, hotels, regions],
+    [lookupInput, hexMap, hotels, regions, cityCenter, h3Resolution],
   );
 
   const resetLookup = useCallback(() => {
@@ -398,19 +440,19 @@ const SHOW_DISPATCH_AND_STUDIO = false;
             Manual routes
             <span className={`topnav__live-pill [display:inline-flex] [align-items:center] [gap:4px] [margin-left:6px] [padding:2px_7px] [border:1px_solid_rgba(16,_185,_129,_0.35)] [border-radius:999px] [background:rgba(16,_185,_129,_0.12)] [color:#065f46] [font-size:9px] [font-weight:700] [text-transform:uppercase] [letter-spacing:0.05em] [line-height:1] before:[content:""] before:[display:inline-block] before:[width:5px] before:[height:5px] before:[border-radius:50%] before:[background:#10b981] before:[box-shadow:0_0_6px_rgba(16,_185,_129,_0.8)] before:[animation:pulse-dot_1.8s_cubic-bezier(0.4,_0,_0.6,_1)_infinite]`}>8 Routes</span>
           </button>
-          <Link className={`topnav__item [display:inline-flex] [align-items:center] [gap:6px] [height:28px] [padding:0_11px] [border-radius:7px] [color:var(--muted)] [font-size:11.5px] [font-weight:600] [letter-spacing:-0.005em] [&:hover:not(.topnav__item--active):not(.topnav__item--disabled)]:[background:var(--bone)] [&:hover:not(.topnav__item--active):not(.topnav__item--disabled)]:[color:var(--ink)]`} href="/plan">
+          <Link className={`topnav__item [display:inline-flex] [align-items:center] [gap:6px] [height:28px] [padding:0_11px] [border-radius:7px] [color:var(--muted)] [font-size:11.5px] [font-weight:600] [letter-spacing:-0.005em] [&:hover:not(.topnav__item--active):not(.topnav__item--disabled)]:[background:var(--bone)] [&:hover:not(.topnav__item--active):not(.topnav__item--disabled)]:[color:var(--ink)]`} href={`/${cityId}/plan`}>
             Plan canvas
             <ArrowUpRight size={11} />
           </Link>
-          <Link className={`topnav__item [display:inline-flex] [align-items:center] [gap:6px] [height:28px] [padding:0_11px] [border-radius:7px] [color:var(--muted)] [font-size:11.5px] [font-weight:600] [letter-spacing:-0.005em] [&:hover:not(.topnav__item--active):not(.topnav__item--disabled)]:[background:var(--bone)] [&:hover:not(.topnav__item--active):not(.topnav__item--disabled)]:[color:var(--ink)]`} href="/facilities">
+          <Link className={`topnav__item [display:inline-flex] [align-items:center] [gap:6px] [height:28px] [padding:0_11px] [border-radius:7px] [color:var(--muted)] [font-size:11.5px] [font-weight:600] [letter-spacing:-0.005em] [&:hover:not(.topnav__item--active):not(.topnav__item--disabled)]:[background:var(--bone)] [&:hover:not(.topnav__item--active):not(.topnav__item--disabled)]:[color:var(--ink)]`} href={`/${cityId}/facilities`}>
             Facilities
             <ArrowUpRight size={11} />
           </Link>
-          <Link className={`topnav__item [display:inline-flex] [align-items:center] [gap:6px] [height:28px] [padding:0_11px] [border-radius:7px] [color:var(--muted)] [font-size:11.5px] [font-weight:600] [letter-spacing:-0.005em] [&:hover:not(.topnav__item--active):not(.topnav__item--disabled)]:[background:var(--bone)] [&:hover:not(.topnav__item--active):not(.topnav__item--disabled)]:[color:var(--ink)]`} href="/hotels">
+          <Link className={`topnav__item [display:inline-flex] [align-items:center] [gap:6px] [height:28px] [padding:0_11px] [border-radius:7px] [color:var(--muted)] [font-size:11.5px] [font-weight:600] [letter-spacing:-0.005em] [&:hover:not(.topnav__item--active):not(.topnav__item--disabled)]:[background:var(--bone)] [&:hover:not(.topnav__item--active):not(.topnav__item--disabled)]:[color:var(--ink)]`} href={`/${cityId}/hotels`}>
             Hotels
             <ArrowUpRight size={11} />
           </Link>
-          <Link className={`topnav__item [display:inline-flex] [align-items:center] [gap:6px] [height:28px] [padding:0_11px] [border-radius:7px] [color:var(--muted)] [font-size:11.5px] [font-weight:600] [letter-spacing:-0.005em] [&:hover:not(.topnav__item--active):not(.topnav__item--disabled)]:[background:var(--bone)] [&:hover:not(.topnav__item--active):not(.topnav__item--disabled)]:[color:var(--ink)]`} href="/vehicles">
+          <Link className={`topnav__item [display:inline-flex] [align-items:center] [gap:6px] [height:28px] [padding:0_11px] [border-radius:7px] [color:var(--muted)] [font-size:11.5px] [font-weight:600] [letter-spacing:-0.005em] [&:hover:not(.topnav__item--active):not(.topnav__item--disabled)]:[background:var(--bone)] [&:hover:not(.topnav__item--active):not(.topnav__item--disabled)]:[color:var(--ink)]`} href={`/${cityId}/vehicles`}>
             Vehicles
             <ArrowUpRight size={11} />
           </Link>
@@ -445,6 +487,7 @@ const SHOW_DISPATCH_AND_STUDIO = false;
         </nav>
 
         <div className={`topbar__actions [display:flex] [align-items:center] [justify-self:end] [gap:14px] [min-width:0] max-[560px]:[gap:0] [display:flex] [align-items:center] [justify-self:end] [gap:14px] [min-width:0] max-[560px]:[gap:0]`}>
+          <CitySwitcher cities={cities} currentCityId={cityId} />
           <div className={`topbar-stat [display:flex] [align-items:center] [gap:7px] [color:var(--muted)] [font-size:10.5px] [white-space:nowrap] [&_b]:[color:var(--ink)] [&_b]:[font-weight:600] [&_b]:[font-variant-numeric:tabular-nums] max-[1180px]:[display:none] [display:flex] [align-items:center] [gap:7px] [color:var(--muted)] [font-size:10.5px] [white-space:nowrap] [&_b]:[color:var(--ink)] [&_b]:[font-weight:600] [&_b]:[font-variant-numeric:tabular-nums] max-[1180px]:[display:none]`}>
             <span className={`topbar-stat__dot [width:5px] [height:5px] [border-radius:50%] [background:#3c7a55] [box-shadow:0_0_0_3px_rgba(60,_122,_85,_0.11)] [width:5px] [height:5px] [border-radius:50%] [background:#3c7a55] [box-shadow:0_0_0_3px_rgba(60,_122,_85,_0.11)]`} />
             <span>
@@ -487,6 +530,12 @@ const SHOW_DISPATCH_AND_STUDIO = false;
           <CoverageMap
             ref={mapRef}
             workspace={activeWorkspace}
+            cityName={cityName}
+            center={cityCenter}
+            zoom={defaultZoom}
+            minZoom={minZoom}
+            maxZoom={maxZoom}
+            h3Resolution={h3Resolution}
             regions={regions}
             hotels={hotels}
             hexMap={hexMap}
@@ -497,7 +546,7 @@ const SHOW_DISPATCH_AND_STUDIO = false;
                   ? simulatedRoutes
                   : routes
             }
-            depot={depot}
+            depot={primaryDepot}
             depots={activeWorkspace === "studio" ? simulatedDepots : undefined}
             selectedRouteIndex={selectedRouteIndex}
             selectedStopNumber={selectedStopNumber}
@@ -532,17 +581,12 @@ const SHOW_DISPATCH_AND_STUDIO = false;
         >
           {activeWorkspace === "manual" ? (
             <DispatchPanel
+              cityName={cityName}
               title="Manual route mapping"
-              description="8 multi-van manual routes across Bangalore with turn-by-turn road navigation from LinenGrass HQ (Yeshwanthpur Central Laundry)."
+              description={`${manualRoutes.length} multi-van manual routes across ${cityName} with turn-by-turn road navigation from ${primaryDepot.name}.`}
               manifestDownloadName="linengrass_manual_routes_manifest.csv"
               routes={manualRoutes}
-              depot={
-                depot ?? {
-                  name: "LinenGrass HQ (Yeshwanthpur Central Laundry)",
-                  latitude: 13.017275,
-                  longitude: 77.546578,
-                }
-              }
+              depot={primaryDepot}
               regions={regions}
               selectedRouteIndex={selectedRouteIndex}
               onSelectRoute={handleSelectRoute}
@@ -555,8 +599,15 @@ const SHOW_DISPATCH_AND_STUDIO = false;
             />
           ) : activeWorkspace === "studio" ? (
             <StudioPanel
+              cityId={cityId}
+              cityName={cityName}
               hotels={hotels}
               regions={regions}
+              depots={simulatedDepots}
+              vehicles={vehicles}
+              roadFactor={roadFactor}
+              avgSpeedKmh={avgSpeedKmh}
+              regionAdjacency={regionAdjacency}
               routes={simulatedRoutes}
               onApplySimulatedRoutes={handleApplySimulatedRoutes}
               onSelectRoute={handleSelectRoute}
@@ -568,14 +619,9 @@ const SHOW_DISPATCH_AND_STUDIO = false;
             />
           ) : activeWorkspace === "dispatch" ? (
             <DispatchPanel
+              cityName={cityName}
               routes={routes}
-              depot={
-                depot ?? {
-                  name: "LinenGrass HQ (Yeshwanthpur Central Laundry)",
-                  latitude: 13.017275,
-                  longitude: 77.546578,
-                }
-              }
+              depot={primaryDepot}
               regions={regions}
               selectedRouteIndex={selectedRouteIndex}
               onSelectRoute={handleSelectRoute}
@@ -591,7 +637,7 @@ const SHOW_DISPATCH_AND_STUDIO = false;
           <div className={`panel-intro [flex:0_0_auto] [padding:21px_22px_16px] [&_h1]:[margin:11px_0_7px] [&_h1]:[color:var(--ink)] [&_h1]:[font-family:var(--font-instrument-serif),_Georgia,_"Times_New_Roman",_serif] [&_h1]:[font-size:40px] [&_h1]:[font-weight:400] [&_h1]:[letter-spacing:-0.022em] [&_h1]:[line-height:0.98] [&_p]:[max-width:307px] [&_p]:[color:var(--muted)] [&_p]:[font-size:12px] [&_p]:[line-height:1.58] max-[1180px]:[padding:23px_18px_17px] max-[760px]:[padding:22px_18px_16px] max-[760px]:[&_h1]:[font-size:39px] max-[560px]:[padding:21px_16px_15px] max-[560px]:[&_h1]:[font-size:36px] max-[560px]:[&_p]:[font-size:11.5px]`}>
             <span className={`eyebrow [display:flex] [align-items:center] [gap:8px] [color:var(--muted)] [font-size:9px] [font-weight:700] [letter-spacing:0.145em] [text-transform:uppercase] [display:flex] [align-items:center] [gap:8px] [color:var(--muted)] [font-size:9px] [font-weight:700] [letter-spacing:0.145em] [text-transform:uppercase]`}>
               <span className={`eyebrow__dot [width:5px] [height:5px] [border-radius:50%] [background:#3c7a55] [box-shadow:0_0_0_3px_rgba(60,_122,_85,_0.1)] [width:5px] [height:5px] [border-radius:50%] [background:#3c7a55] [box-shadow:0_0_0_3px_rgba(60,_122,_85,_0.1)]`} />
-              Bengaluru · Coverage atlas
+              {cityName} · Coverage atlas
             </span>
             <h1>Hotel coverage</h1>
             <p>
@@ -678,7 +724,7 @@ const SHOW_DISPATCH_AND_STUDIO = false;
                     const count = hotelCounts.get(region.id) ?? 0;
                     const isActive = selectedRegion === region.id;
                     const railLabel =
-                      REGION_MAP_LABELS[region.id] ?? region.short_name;
+                      region.map_label || region.short_name;
 
                     return (
                       <button

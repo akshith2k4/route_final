@@ -83,6 +83,7 @@ import {
 } from "./plan-types";
 
 type PlanInspectorProps = {
+  cityId: string;
   inspectorOpen: boolean;
   onCloseInspector: () => void;
   mode: PlanMode;
@@ -163,6 +164,7 @@ type PlanInspectorProps = {
 };
 
 export function PlanInspector({
+  cityId,
   inspectorOpen,
   onCloseInspector,
   mode,
@@ -480,7 +482,7 @@ export function PlanInspector({
                     + Add warehouse
                   </button>
                   <Link
-                    href="/facilities"
+                    href={`/${cityId}/facilities`}
                     className="text-xs text-muted hover:text-ink underline"
                   >
                     Manage
@@ -611,7 +613,7 @@ export function PlanInspector({
                       + New laundry
                     </button>
                     <Link
-                      href="/facilities"
+                      href={`/${cityId}/facilities`}
                       className="text-xs text-muted hover:text-ink underline"
                     >
                       Manage
