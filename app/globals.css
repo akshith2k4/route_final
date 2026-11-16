@@ -508,3 +508,83 @@ select {
 .city-switcher[data-pending="true"] .city-switcher__select {
   @apply opacity-60;
 }
+
+/* Admin onboarding maps ---------------------------------------------------- */
+
+.admin-region-marker,
+.admin-center-marker {
+  background: transparent;
+  border: none;
+}
+
+.admin-region-pin {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--pin-color, #2563eb);
+  border: 2.5px solid #fffdf7;
+  box-shadow: 0 2px 8px rgba(24, 36, 30, 0.35);
+  cursor: grab;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.admin-region-pin:active {
+  cursor: grabbing;
+}
+
+.admin-region-pin__code {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #fffdf7;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.admin-region-pin--selected {
+  transform: scale(1.18);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--pin-color, #2563eb) 30%, transparent),
+    0 3px 10px rgba(24, 36, 30, 0.4);
+}
+
+.admin-center-pin {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(24, 36, 30, 0.85);
+  border: 2.5px solid #fffdf7;
+  box-shadow: 0 2px 8px rgba(24, 36, 30, 0.4);
+  cursor: grab;
+}
+
+.admin-center-pin span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #fbbf24;
+}
+
+.leaflet-tooltip.admin-region-tooltip {
+  padding: 6px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #fbf8f1;
+  box-shadow: 0 4px 14px rgba(24, 36, 30, 0.14);
+  color: var(--ink);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.leaflet-tooltip.admin-region-tooltip b {
+  font-size: 11px;
+}
+
+.leaflet-tooltip.admin-region-tooltip span {
+  color: var(--muted);
+  font-size: 10px;
+}
