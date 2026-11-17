@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import VehiclesDashboard from "../../../components/vehicles-dashboard";
-import { getCityContext } from "../../../lib/city-context";
+import { getCity, getRegionMeta, listCities } from "../../../lib/cities";
 import { getVehicleAdminItems } from "../../../lib/vehicles";
 import { getWarehouseFacilities } from "../../../lib/facilities";
 
@@ -15,10 +15,9 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { city: slug } = await params;
-  const context = await getCityContext(slug);
-  if (!context) return { title: "City not found" };
+  const city = await getCity(slug);
+  if (!city) return { title: "City not found" };
 
-  const { city } = context;
   const label = city.displayName ?? city.name;
   return {
     title: `Vehicle Dashboard · ${label} · LinenGrass Fleet Atlas`,
@@ -28,12 +27,12 @@ export async function generateMetadata({
 
 export default async function VehiclesPage({ params }: PageProps) {
   const { city: slug } = await params;
-  const context = await getCityContext(slug);
-  if (!context) notFound();
+  const city = await getCity(slug);
+  if (!city) notFound();
 
-  const { city, regions } = context;
-
-  const [vehicles, warehouses] = await Promise.all([
+  const [regions, cities, vehicles, warehouses] = await Promise.all([
+    getRegionMeta(city.id),
+    listCities(),
     getVehicleAdminItems(city.id),
     getWarehouseFacilities(city.id, true),
   ]);
@@ -42,7 +41,7 @@ export default async function VehiclesPage({ params }: PageProps) {
     <VehiclesDashboard
       cityId={city.id}
       cityName={city.name}
-      cities={context.cities}
+      cities={cities}
       initialVehicles={vehicles}
       regions={regions.map((region) => ({
         id: region.id,

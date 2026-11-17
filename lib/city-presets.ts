@@ -23,6 +23,9 @@ export type CityBasicsDraft = {
   display_name: string;
   slug: string;
   timezone: string;
+  /** Daily fleet shift, as 24-hour "HH:MM" clocks. */
+  shift_start: string;
+  shift_end: string;
   center: { lat: number; lon: number };
   default_zoom: number;
   min_zoom: number;
@@ -31,6 +34,9 @@ export type CityBasicsDraft = {
   fallback_speed_kmh: number;
   road_factor: number;
 };
+
+/** Defaults when the manager does not change the shift on the Basics step. */
+export const DEFAULT_CITY_SHIFT = { start: "07:00", end: "17:00" } as const;
 
 export const REGION_COLOR_PALETTE = [
   "#EF4444",
@@ -70,6 +76,8 @@ export function emptyCityBasics(): CityBasicsDraft {
     display_name: "",
     slug: "",
     timezone: "Asia/Kolkata",
+    shift_start: DEFAULT_CITY_SHIFT.start,
+    shift_end: DEFAULT_CITY_SHIFT.end,
     center: { lat: 20.5937, lon: 78.9629 },
     default_zoom: 5,
     min_zoom: 3,
@@ -143,6 +151,8 @@ export function toDraftCityInput(
     display_name: basics.display_name || null,
     center: basics.center,
     timezone: basics.timezone,
+    shift_start: basics.shift_start,
+    shift_end: basics.shift_end,
     default_zoom: basics.default_zoom,
     min_zoom: basics.min_zoom,
     max_zoom: basics.max_zoom,

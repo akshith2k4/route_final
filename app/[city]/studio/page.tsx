@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import CoverageApp from "../../../components/coverage-app";
+import { getCity } from "../../../lib/cities";
 import { getCityContext } from "../../../lib/city-context";
 
 export const dynamic = "force-dynamic";
@@ -13,10 +14,9 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { city: slug } = await params;
-  const context = await getCityContext(slug);
-  if (!context) return { title: "City not found" };
+  const city = await getCity(slug);
+  if (!city) return { title: "City not found" };
 
-  const { city } = context;
   const label = city.displayName ?? city.name;
   return {
     title: `Optimizer Studio · ${label} · LinenGrass Fleet Atlas`,
@@ -53,6 +53,8 @@ export default async function StudioPage({ params }: PageProps) {
       roadFactor={city.roadFactor}
       avgSpeedKmh={city.fallbackSpeedKmh}
       regionAdjacency={city.settings.regionAdjacency ?? {}}
+      shiftStart={city.settings.shiftStart}
+      shiftEnd={city.settings.shiftEnd}
       regions={regions}
       hotels={hotels}
       hexMap={hexMap}

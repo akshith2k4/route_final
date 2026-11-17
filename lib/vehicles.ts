@@ -1,6 +1,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "./db";
 import { vehicles, type VehicleRow } from "../db/schema";
+import { clearCityCache } from "./cities";
 
 const VEHICLE_COLORS = [
   "#1d4ed8",
@@ -249,6 +250,7 @@ export async function createVehicle(
     })
     .returning();
 
+  clearCityCache(cityId);
   return toVehicleAdminItem(row);
 }
 
@@ -266,6 +268,9 @@ export async function updateVehicle(
     .where(and(eq(vehicles.cityId, cityId), eq(vehicles.id, id)))
     .returning();
 
+  if (row) {
+    clearCityCache(cityId);
+  }
   return row ? toVehicleAdminItem(row) : null;
 }
 
@@ -278,5 +283,8 @@ export async function deleteVehicle(
     .where(and(eq(vehicles.cityId, cityId), eq(vehicles.id, id)))
     .returning({ id: vehicles.id });
 
+  if (row) {
+    clearCityCache(cityId);
+  }
   return Boolean(row);
 }

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import FacilitiesDashboard from "../../../components/facilities-dashboard";
-import { getCityContext } from "../../../lib/city-context";
+import { getCity, listCities } from "../../../lib/cities";
 import { getFacilityAdminItems } from "../../../lib/facilities";
 
 export const dynamic = "force-dynamic";
@@ -14,10 +14,9 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { city: slug } = await params;
-  const context = await getCityContext(slug);
-  if (!context) return { title: "City not found" };
+  const city = await getCity(slug);
+  if (!city) return { title: "City not found" };
 
-  const { city } = context;
   const label = city.displayName ?? city.name;
   return {
     title: `Facility Dashboard · ${label} · LinenGrass Fleet Atlas`,
@@ -27,17 +26,19 @@ export async function generateMetadata({
 
 export default async function FacilitiesPage({ params }: PageProps) {
   const { city: slug } = await params;
-  const context = await getCityContext(slug);
-  if (!context) notFound();
+  const city = await getCity(slug);
+  if (!city) notFound();
 
-  const { city } = context;
-  const facilities = await getFacilityAdminItems(city.id);
+  const [cities, facilities] = await Promise.all([
+    listCities(),
+    getFacilityAdminItems(city.id),
+  ]);
 
   return (
     <FacilitiesDashboard
       cityId={city.id}
       cityName={city.name}
-      cities={context.cities}
+      cities={cities}
       initialFacilities={facilities}
     />
   );

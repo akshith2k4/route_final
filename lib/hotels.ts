@@ -2,6 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import type { Hotel, RegionMeta } from "./coverage";
 import { db } from "./db";
 import { hotels, type HotelRow } from "../db/schema";
+import { clearCityCache } from "./cities";
 
 export const HOTEL_DAY_PLANS = ["daily", "day1", "day2"] as const;
 export type HotelDayPlan = (typeof HOTEL_DAY_PLANS)[number];
@@ -250,6 +251,7 @@ export async function createHotel(
     })
     .returning();
 
+  clearCityCache(cityId);
   return toHotelAdminItem(row);
 }
 
@@ -267,6 +269,9 @@ export async function updateHotel(
     .where(and(eq(hotels.cityId, cityId), eq(hotels.id, id)))
     .returning();
 
+  if (row) {
+    clearCityCache(cityId);
+  }
   return row ? toHotelAdminItem(row) : null;
 }
 
@@ -279,5 +284,8 @@ export async function deleteHotel(
     .where(and(eq(hotels.cityId, cityId), eq(hotels.id, id)))
     .returning({ id: hotels.id });
 
+  if (row) {
+    clearCityCache(cityId);
+  }
   return Boolean(row);
 }

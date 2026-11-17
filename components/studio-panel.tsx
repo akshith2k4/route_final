@@ -64,6 +64,9 @@ type StudioPanelProps = {
   roadFactor: number;
   avgSpeedKmh: number;
   regionAdjacency: Record<string, string[]>;
+  /** Daily fleet shift seeded from the city's onboarding settings. */
+  shiftStart?: string;
+  shiftEnd?: string;
   routes: DispatchRoute[];
   onApplySimulatedRoutes: (
     simulatedRoutes: DispatchRoute[],
@@ -89,6 +92,8 @@ export default function StudioPanel({
   roadFactor,
   avgSpeedKmh,
   regionAdjacency,
+  shiftStart = "07:00",
+  shiftEnd = "17:00",
   routes: originalRoutes,
   onApplySimulatedRoutes,
   onSelectRoute,
@@ -110,10 +115,12 @@ export default function StudioPanel({
 
   // 2. Depots come from the active city's facility fleet.
 
-  // 3. Shift & Lunch State
-  const [shiftSettings, setShiftSettings] = useState<StudioShiftSetting>(
-    DEFAULT_SHIFT_SETTINGS,
-  );
+  // 3. Shift & Lunch State — shift hours come from the city's onboarding.
+  const [shiftSettings, setShiftSettings] = useState<StudioShiftSetting>(() => ({
+    ...DEFAULT_SHIFT_SETTINGS,
+    earliestDeparture: shiftStart,
+    latestReturn: shiftEnd,
+  }));
 
   // 3b. Optimization Objective
   const [objective, setObjective] = useState<OptimizationObjective>("fastest_turnaround");

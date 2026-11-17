@@ -19,7 +19,13 @@ import { getFacilityRows } from "./facilities";
 import { getVehicleRows } from "./vehicles";
 import type { City } from "./city-types";
 import type { MatrixPoint, Plan, PlanDepot, PlanLaundry, TravelMatrix } from "./plan";
-import type { DispatchRoute, StudioDepot, StudioVehicle } from "./coverage";
+import {
+  DEFAULT_SHIFT_SETTINGS,
+  type DispatchRoute,
+  type StudioDepot,
+  type StudioShiftSetting,
+  type StudioVehicle,
+} from "./coverage";
 import { getGoogleAccessToken } from "./google-auth";
 import { isoWithOffset, localDateString } from "./timezone";
 import {
@@ -108,6 +114,19 @@ async function loadMasters(cityId: string): Promise<CityMasters> {
     }));
 
   return { city, regions, hotels, depots, planDepots, laundries, vehicles };
+}
+
+/**
+ * City-level shift hours seed the solver and every generated plan. Cities
+ * onboarded before shift timing existed fall back to the standard 07:00–17:00.
+ */
+export function cityShiftSettings(city: City): StudioShiftSetting {
+  return {
+    ...DEFAULT_SHIFT_SETTINGS,
+    earliestDeparture:
+      city.settings.shiftStart ?? DEFAULT_SHIFT_SETTINGS.earliestDeparture,
+    latestReturn: city.settings.shiftEnd ?? DEFAULT_SHIFT_SETTINGS.latestReturn,
+  };
 }
 
 /**
@@ -258,6 +277,7 @@ export async function generateBaselinePlan(cityId: string): Promise<{ routes: nu
     vehicles: masters.vehicles,
     depots: masters.depots,
     laundries: masters.laundries,
+    shift: cityShiftSettings(masters.city),
     roadFactor: masters.city.roadFactor,
     avgSpeedKmh: masters.city.fallbackSpeedKmh,
     regionAdjacency: masters.city.settings.regionAdjacency,

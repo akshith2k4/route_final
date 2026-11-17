@@ -2,14 +2,16 @@
 
 import { useState, useMemo } from "react";
 import {
-  Plus,
-  Trash2,
-  Save,
+  ArrowUpToLine,
   ChevronDown,
   ChevronUp,
-  Route as RouteIcon,
   Hotel as HotelIcon,
   Loader2,
+  Plus,
+  Route as RouteIcon,
+  Save,
+  Trash2,
+  X,
 } from "lucide-react";
 import {
   type Hotel,
@@ -17,6 +19,7 @@ import {
   type StudioDepot,
 } from "../lib/coverage";
 import { REGION_COLOR_PALETTE } from "../lib/city-presets";
+import { clockToMinutes } from "../lib/clock";
 
 type DraftRoute = {
   id: string;
@@ -43,6 +46,9 @@ type ManualRouteBuilderProps = {
   hotels: Hotel[];
   regions: RegionMeta[];
   depots: StudioDepot[];
+  /** Daily fleet shift from the city's onboarding settings ("HH:MM"). */
+  shiftStart?: string;
+  shiftEnd?: string;
 };
 
 /**
@@ -56,6 +62,8 @@ export default function ManualRouteBuilder({
   hotels,
   regions,
   depots,
+  shiftStart = "07:00",
+  shiftEnd = "17:00",
 }: ManualRouteBuilderProps) {
   const [routes, setRoutes] = useState<DraftRoute[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -126,6 +134,37 @@ export default function ManualRouteBuilder({
     );
   }
 
+  /** Moves a stop one place earlier or later; the order is what gets published. */
+  function moveHotel(routeId: string, hotelId: string, direction: -1 | 1) {
+    setRoutes((current) =>
+      current.map((route) => {
+        if (route.id !== routeId) return route;
+        const index = route.hotelIds.indexOf(hotelId);
+        const target = index + direction;
+        if (index < 0 || target < 0 || target >= route.hotelIds.length) return route;
+        const hotelIds = [...route.hotelIds];
+        const [moved] = hotelIds.splice(index, 1);
+        hotelIds.splice(target, 0, moved);
+        return { ...route, hotelIds };
+      }),
+    );
+  }
+
+  /** Promotes a hotel to stop 1 so the driver visits it before the rest. */
+  function moveHotelToFirst(routeId: string, hotelId: string) {
+    setRoutes((current) =>
+      current.map((route) => {
+        if (route.id !== routeId) return route;
+        const index = route.hotelIds.indexOf(hotelId);
+        if (index <= 0) return route;
+        const hotelIds = [...route.hotelIds];
+        const [moved] = hotelIds.splice(index, 1);
+        hotelIds.unshift(moved);
+        return { ...route, hotelIds };
+      }),
+    );
+  }
+
   function autoAssign() {
     // One route per region, exactly as the regions are defined.
     const regionRoutes = regions.map((region) => routeFromRegion(region));
@@ -149,8 +188,8 @@ export default function ManualRouteBuilder({
     setExpanded(next[0]?.id ?? null);
     setMessage(
       unassigned > 0
-        ? `Auto-assigned by region: ${next.length} route${next.length === 1 ? "" : "s"}. ${unassigned} hotel${unassigned === 1 ? "" : "s"} have no matching region.`
-        : `Auto-assigned by region: ${next.length} route${next.length === 1 ? "" : "s"}. Adjust as needed, then publish.`,
+        ? `Auto-assigned by region: ${next.length} route${next.length === 1 ? "" : "s"}. ${unassigned} hotel${unassigned === 1 ? "" : "s"} have no matching region. Set the visit order below.`
+        : `Auto-assigned by region: ${next.length} route${next.length === 1 ? "" : "s"}. Use "First" or the arrows to set the visit order, then publish.`,
     );
   }
 
@@ -163,6 +202,8 @@ export default function ManualRouteBuilder({
     setMessage(null);
     try {
       const primaryDepot = depots.find((d) => d.isPrimary) ?? depots[0];
+      const shiftStartMin = clockToMinutes(shiftStart);
+      const shiftEndMin = clockToMinutes(shiftEnd);
       const plan = {
         schema_version: 1,
         plan_id: "manual-current",
@@ -185,7 +226,7 @@ export default function ManualRouteBuilder({
         laundries: [],
         vehicles_version: 2,
         days_version: 1,
-        shift: { start_min: 7 * 60, end_min: 17 * 60 },
+        shift: { start_min: shiftStartMin, end_min: shiftEndMin },
         routes: routes.map((route) => ({
           route_id: route.id,
           route_key: route.id,
@@ -193,22 +234,25 @@ export default function ManualRouteBuilder({
           color: route.color,
           nominal_cap: 40,
           max_load: 36,
-          departure_min: 7 * 60,
+          departure_min: shiftStartMin,
           depot_id: primaryDepot?.id,
           laundry_id: null,
-          stops: route.hotelIds.map((id, i) => {
-            const hotel = hotelById.get(id)!;
-            return {
-              hotel_id: hotel.id,
-              name: hotel.name,
-              lat: hotel.lat,
-              lon: hotel.lon,
-              region: hotel.region,
-              service_mins: hotel.stop_mins,
-              load_bags: hotel.load,
-              rooms: 0,
-              days: ["day1", "day2"],
-            };
+          stops: route.hotelIds.flatMap((id) => {
+            const hotel = hotelById.get(id);
+            if (!hotel) return [];
+            return [
+              {
+                hotel_id: hotel.id,
+                name: hotel.name,
+                lat: hotel.lat,
+                lon: hotel.lon,
+                region: hotel.region,
+                service_mins: hotel.stop_mins,
+                load_bags: hotel.load,
+                rooms: 0,
+                days: ["day1", "day2"],
+              },
+            ];
           }),
         })),
         unassigned_hotel_ids: [],
@@ -304,8 +348,10 @@ export default function ManualRouteBuilder({
           No manual routes yet — build your own
         </p>
         <p className="mt-1 text-[11.5px] leading-relaxed text-muted">
-          Group the {hotels.length} hotels into routes. Publish and they become the
-          manual dispatch that the Plan Canvas opens with.
+          Group the {hotels.length} hotels into routes. Every route leaves the
+          warehouse at <b className="text-ink">{shiftStart}</b> and is planned to
+          return by <b className="text-ink">{shiftEnd}</b>. Publish and the routes
+          become the manual dispatch that the Plan Canvas opens with.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <button
@@ -377,34 +423,126 @@ export default function ManualRouteBuilder({
               </button>
             </div>
             {expanded === route.id && (
-              <>
-                <div className="max-h-48 overflow-y-auto px-2 py-2">
-                {visibleHotels.map((hotel) => {
-                  const owner = assigned.get(hotel.id);
-                  const checked = owner === route.id;
-                  return (
-                    <label
-                      key={hotel.id}
-                      className={`flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-[11px] ${
-                        owner && owner !== route.id ? "opacity-40" : "hover:bg-bone"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleHotel(route.id, hotel.id)}
-                        className="accent-[var(--ink)]"
-                      />
-                      <HotelIcon size={11} className="shrink-0 text-faint" />
-                      <span className="min-w-0 flex-1 truncate text-ink">{hotel.name}</span>
-                      <span className="font-mono text-[9px] text-faint">
-                        {regionById.get(hotel.region)?.map_label ?? `R${hotel.region}`}
-                      </span>
-                    </label>
-                  );
-                })}
+              <div className="border-t border-line px-2 py-2">
+                <div className="flex items-center justify-between px-2 pb-1.5">
+                  <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-muted">
+                    Stop order
+                  </span>
+                  <span className="text-[10px] text-faint">
+                    Stop 1 is visited first
+                  </span>
                 </div>
-              </>
+
+                {route.hotelIds.length === 0 ? (
+                  <p className="mb-2 rounded-md border border-dashed border-line-strong px-2 py-3 text-center text-[10.5px] text-muted">
+                    Tick hotels below to add them to this route.
+                  </p>
+                ) : (
+                  <ol className="mb-2 flex flex-col gap-1">
+                    {route.hotelIds.map((hotelId, stopIndex) => {
+                      const hotel = hotelById.get(hotelId);
+                      if (!hotel) return null;
+                      const isFirst = stopIndex === 0;
+                      const isLast = stopIndex === route.hotelIds.length - 1;
+                      return (
+                        <li
+                          key={hotelId}
+                          className={`flex items-center gap-1.5 rounded-md border px-2 py-1 ${
+                            isFirst
+                              ? "border-green/35 bg-green-soft/40"
+                              : "border-line bg-bone/40"
+                          }`}
+                        >
+                          <span
+                            className={`grid h-5 w-5 shrink-0 place-items-center rounded-full font-mono text-[9px] font-bold ${
+                              isFirst ? "bg-green text-cream" : "bg-paper text-faint"
+                            }`}
+                          >
+                            {stopIndex + 1}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-ink">
+                            {hotel.name}
+                          </span>
+                          {isFirst && (
+                            <span className="rounded bg-green/15 px-1.5 py-0.5 text-[8.5px] font-bold uppercase tracking-[0.08em] text-green">
+                              First
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => moveHotelToFirst(route.id, hotelId)}
+                            disabled={isFirst}
+                            className="grid h-5 w-5 place-items-center rounded text-muted transition-colors hover:bg-paper hover:text-ink disabled:opacity-25"
+                            title="Make this the first visit"
+                            aria-label={`Visit ${hotel.name} first`}
+                          >
+                            <ArrowUpToLine size={11} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveHotel(route.id, hotelId, -1)}
+                            disabled={isFirst}
+                            className="grid h-5 w-5 place-items-center rounded text-muted transition-colors hover:bg-paper hover:text-ink disabled:opacity-25"
+                            title="Move earlier"
+                            aria-label={`Move ${hotel.name} earlier`}
+                          >
+                            <ChevronUp size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveHotel(route.id, hotelId, 1)}
+                            disabled={isLast}
+                            className="grid h-5 w-5 place-items-center rounded text-muted transition-colors hover:bg-paper hover:text-ink disabled:opacity-25"
+                            title="Move later"
+                            aria-label={`Move ${hotel.name} later`}
+                          >
+                            <ChevronDown size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleHotel(route.id, hotelId)}
+                            className="grid h-5 w-5 place-items-center rounded text-danger transition-colors hover:bg-paper"
+                            title="Remove from route"
+                            aria-label={`Remove ${hotel.name} from this route`}
+                          >
+                            <X size={11} />
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
+
+                <p className="px-2 pb-1 text-[9px] font-bold uppercase tracking-[0.12em] text-muted">
+                  Add hotels
+                </p>
+                <div className="max-h-44 overflow-y-auto">
+                  {visibleHotels.map((hotel) => {
+                    const owner = assigned.get(hotel.id);
+                    const checked = owner === route.id;
+                    return (
+                      <label
+                        key={hotel.id}
+                        className={`flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-[11px] ${
+                          owner && owner !== route.id ? "opacity-40" : "hover:bg-bone"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleHotel(route.id, hotel.id)}
+                          className="accent-[var(--ink)]"
+                        />
+                        <HotelIcon size={11} className="shrink-0 text-faint" />
+                        <span className="min-w-0 flex-1 truncate text-ink">{hotel.name}</span>
+                        <span className="font-mono text-[9px] text-faint">
+                          {regionById.get(hotel.region)?.map_label ?? `R${hotel.region}`}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
         ))}

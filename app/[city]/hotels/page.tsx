@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import HotelsDashboard from "../../../components/hotels-dashboard";
-import { getCityContext } from "../../../lib/city-context";
+import { getCity, getRegionMeta, listCities } from "../../../lib/cities";
 import { getHotelAdminItems } from "../../../lib/hotels";
 
 export const dynamic = "force-dynamic";
@@ -14,10 +14,9 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { city: slug } = await params;
-  const context = await getCityContext(slug);
-  if (!context) return { title: "City not found" };
+  const city = await getCity(slug);
+  if (!city) return { title: "City not found" };
 
-  const { city } = context;
   const label = city.displayName ?? city.name;
   return {
     title: `Hotel Dashboard · ${label} · LinenGrass Fleet Atlas`,
@@ -27,17 +26,20 @@ export async function generateMetadata({
 
 export default async function HotelsPage({ params }: PageProps) {
   const { city: slug } = await params;
-  const context = await getCityContext(slug);
-  if (!context) notFound();
+  const city = await getCity(slug);
+  if (!city) notFound();
 
-  const { city, regions } = context;
-  const hotels = await getHotelAdminItems(city.id);
+  const [regions, cities, hotels] = await Promise.all([
+    getRegionMeta(city.id),
+    listCities(),
+    getHotelAdminItems(city.id),
+  ]);
 
   return (
     <HotelsDashboard
       cityId={city.id}
       cityName={city.name}
-      cities={context.cities}
+      cities={cities}
       initialHotels={hotels}
       regionNames={regions.map((region) => region.short_name)}
     />

@@ -1,9 +1,11 @@
+import { cache } from "react";
 import {
   getCity,
   getCityDataset,
   getCityDatasets,
   getRegionMeta,
   listCities,
+  registerCacheInvalidator,
 } from "./cities";
 import type { City } from "./city-types";
 import {
@@ -43,13 +45,34 @@ export type CityContext = {
   baselinePlan: Plan | null;
 };
 
+const CONTEXT_CACHE_TTL_MS = 60_000;
+const cityContextCache = new Map<
+  string,
+  { expiresAt: number; value: CityContext }
+>();
+
+export function clearCityContextCache(cityId?: string): void {
+  if (cityId) {
+    cityContextCache.delete(cityId);
+  } else {
+    cityContextCache.clear();
+  }
+}
+
+registerCacheInvalidator(clearCityContextCache);
+
 /**
  * Loads everything a city page needs in one place: the registry entry, its
  * regions, its master hotels and the reference datasets published for it.
  */
-export async function getCityContext(
+async function loadCityContext(
   slug: string,
 ): Promise<CityContext | null> {
+  const cached = cityContextCache.get(slug);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+
   const city = await getCity(slug);
   if (!city) return null;
 
@@ -183,7 +206,7 @@ export async function getCityContext(
     },
   );
 
-  return {
+  const context: CityContext = {
     city,
     cities,
     regions,
@@ -198,7 +221,16 @@ export async function getCityContext(
     manualRoutes,
     baselinePlan: (datasets.baseline_plan as Plan | undefined) ?? null,
   };
+
+  cityContextCache.set(slug, {
+    expiresAt: Date.now() + CONTEXT_CACHE_TTL_MS,
+    value: context,
+  });
+
+  return context;
 }
+
+export const getCityContext = cache(loadCityContext);
 
 function pathDistanceKm(path: [number, number][]): number {
   let total = 0;

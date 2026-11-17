@@ -47,6 +47,8 @@ export default async function CityHome({ params, searchParams }: PageProps) {
       roadFactor={city.roadFactor}
       avgSpeedKmh={city.fallbackSpeedKmh}
       regionAdjacency={city.settings.regionAdjacency ?? {}}
+      shiftStart={city.settings.shiftStart}
+      shiftEnd={city.settings.shiftEnd}
       regions={regions}
       hotels={hotels}
       hexMap={hexMap}

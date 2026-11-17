@@ -14,6 +14,7 @@ import {
   ArrowUpRight,
   Compass,
   MapPin,
+  Plus,
   Search,
   SearchX,
   X,
@@ -50,6 +51,9 @@ type CoverageAppProps = {
   roadFactor: number;
   avgSpeedKmh: number;
   regionAdjacency: Record<string, string[]>;
+  /** Daily fleet shift seeded from the city's onboarding settings. */
+  shiftStart?: string;
+  shiftEnd?: string;
   regions: RegionMeta[];
   hotels: Hotel[];
   hexMap: HexMap;
@@ -87,6 +91,8 @@ export default function CoverageApp({
   roadFactor,
   avgSpeedKmh,
   regionAdjacency,
+  shiftStart = "07:00",
+  shiftEnd = "17:00",
   regions: regionData,
   hotels,
   hexMap,
@@ -324,6 +330,15 @@ const SHOW_DISPATCH_AND_STUDIO = false;
           </span>
         </button>
           <CitySwitcher cities={cities} currentCityId={cityId} />
+          <Link
+            href="/admin/cities/new"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-line-strong bg-paper px-2.5 py-1.5 text-[11px] font-semibold text-ink transition-colors hover:bg-bone"
+            title="Create a new city"
+            aria-label="Create a new city"
+          >
+            <Plus size={12} />
+            <span className="hidden sm:inline">New city</span>
+          </Link>
         </div>
 
         <nav className={`topnav [display:flex] [align-items:center] [gap:2px] [padding:3px] [border:1px_solid_var(--line)] [border-radius:10px] [background:var(--paper)] max-[900px]:[display:none]`} aria-label="Primary">
@@ -516,6 +531,8 @@ const SHOW_DISPATCH_AND_STUDIO = false;
                   hotels={hotels}
                   regions={regions}
                   depots={simulatedDepots}
+                  shiftStart={shiftStart}
+                  shiftEnd={shiftEnd}
                 />
               </div>
             </div>
@@ -548,6 +565,8 @@ const SHOW_DISPATCH_AND_STUDIO = false;
               roadFactor={roadFactor}
               avgSpeedKmh={avgSpeedKmh}
               regionAdjacency={regionAdjacency}
+              shiftStart={shiftStart}
+              shiftEnd={shiftEnd}
               routes={simulatedRoutes}
               onApplySimulatedRoutes={handleApplySimulatedRoutes}
               onSelectRoute={handleSelectRoute}

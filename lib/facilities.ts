@@ -2,6 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "./db";
 import { facilities, plans, vehicles, type FacilityRow } from "../db/schema";
 import type { Plan } from "./plan";
+import { clearCityCache } from "./cities";
 
 export type FacilityAdminItem = {
   id: string;
@@ -489,6 +490,8 @@ export async function createFacility(
     })
     .returning();
 
+  clearCityCache(cityId);
+
   return {
     id: row.id,
     name: row.name,
@@ -540,6 +543,7 @@ export async function updateFacility(
     .returning();
 
   if (!row) return null;
+  clearCityCache(cityId);
   return getFacilityById(cityId, id);
 }
 
@@ -561,6 +565,9 @@ export async function deleteFacility(
     .where(and(eq(facilities.cityId, cityId), eq(facilities.id, id)))
     .returning({ id: facilities.id });
 
+  if (deleted) {
+    clearCityCache(cityId);
+  }
   return Boolean(deleted);
 }
 

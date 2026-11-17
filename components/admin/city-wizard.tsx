@@ -42,6 +42,7 @@ import {
 const INITIAL_BASICS = emptyCityBasics();
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const SHIFT_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 function slugify(value: string): string {
   return value
@@ -107,11 +108,17 @@ export default function CityWizard() {
   const [genError, setGenError] = useState<string | null>(null);
   const [activated, setActivated] = useState(false);
 
+  const shiftValid =
+    SHIFT_PATTERN.test(basics.shift_start) &&
+    SHIFT_PATTERN.test(basics.shift_end) &&
+    basics.shift_start < basics.shift_end;
+
   const basicsValid =
     basics.name.trim().length >= 2 &&
     SLUG_PATTERN.test(basics.slug) &&
     Number.isFinite(basics.center.lat) &&
-    Number.isFinite(basics.center.lon);
+    Number.isFinite(basics.center.lon) &&
+    shiftValid;
   const regionsValid =
     regions.length >= 1 && regions.every((region) => region.name.trim().length > 0);
 
@@ -384,8 +391,8 @@ export default function CityWizard() {
           regionName: region?.short_name ?? null,
           sector: null,
           depotId: warehouseId,
-          departureTime: "07:00",
-          returnTime: "17:00",
+          departureTime: basics.shift_start,
+          returnTime: basics.shift_end,
           isActive: true,
         }),
       });
@@ -639,6 +646,43 @@ export default function CityWizard() {
                     ))}
                   </select>
                 </Field>
+
+                <div className="rounded-xl border border-line bg-bone/50 px-3.5 py-3">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-muted">
+                    Driver shift
+                  </p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted">
+                    Vehicles leave the warehouse at shift start, and every route
+                    is planned to return by shift end.
+                  </p>
+                  <div className="mt-2.5 grid grid-cols-2 gap-3">
+                    <Field label="Shift start">
+                      <input
+                        className={inputClass}
+                        type="time"
+                        value={basics.shift_start}
+                        onChange={(event) =>
+                          updateBasics({ shift_start: event.target.value })
+                        }
+                      />
+                    </Field>
+                    <Field label="Shift end">
+                      <input
+                        className={inputClass}
+                        type="time"
+                        value={basics.shift_end}
+                        onChange={(event) =>
+                          updateBasics({ shift_end: event.target.value })
+                        }
+                      />
+                    </Field>
+                  </div>
+                  {!shiftValid && (
+                    <p className="mt-2 rounded-lg border border-danger/30 bg-danger/10 px-2.5 py-1.5 text-[11px] font-semibold text-danger">
+                      Enter a shift start and end, with the end later than the start.
+                    </p>
+                  )}
+                </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Centre latitude">
@@ -994,6 +1038,10 @@ export default function CityWizard() {
                       <SummaryItem label="Slug" value={`/${basics.slug}`} />
                       <SummaryItem label="Display name" value={basics.display_name || "—"} />
                       <SummaryItem label="Timezone" value={basics.timezone} />
+                      <SummaryItem
+                        label="Shift"
+                        value={`${basics.shift_start}–${basics.shift_end}`}
+                      />
                       <SummaryItem
                         label="Centre"
                         value={`${basics.center.lat.toFixed(4)}, ${basics.center.lon.toFixed(4)}`}
@@ -1479,7 +1527,7 @@ export default function CityWizard() {
             Back
           </button>
           <p className="hidden text-[10.5px] text-faint sm:block">
-            {step === 0 && "Five standard zones follow the centre — rename them next."}
+            {step === 0 && "Set the city details, shift and centre — five standard zones follow it."}
             {step === 1 && "Click the map to add regions · drag pins to move them."}
             {step === 2 && "Save the city to unlock the remaining steps."}
             {step === 3 && "Import hotels from the standard CSV."}

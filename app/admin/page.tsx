@@ -63,7 +63,8 @@ export default async function AdminCitiesPage() {
           <b className="text-ink">Full in-app onboarding:</b> a new city starts with{" "}
           <b className="text-ink">five standard zones</b> (North, South, East, West, Central)
           around its centre. The wizard then covers{" "}
-          <b className="text-ink">region editing</b>, <b className="text-ink">hotel CSV import</b>,{" "}
+          <b className="text-ink">region editing</b>, <b className="text-ink">shift timing</b>,{" "}
+          <b className="text-ink">hotel CSV import</b>,{" "}
           <b className="text-ink">fleet setup</b>, <b className="text-ink">dataset generation</b>{" "}
           and <b className="text-ink">activation</b> — all in the app.
         </div>
@@ -112,6 +113,11 @@ export default async function AdminCitiesPage() {
                 <Count label="Facilities" value={city.counts.facilities} />
                 <Count label="Plans" value={city.counts.plans} />
                 <Count label="Timezone" value={city.timezone} isText />
+                <Count
+                  label="Shift"
+                  value={`${city.settings.shiftStart ?? "07:00"}–${city.settings.shiftEnd ?? "17:00"}`}
+                  isText
+                />
               </dl>
             </li>
           ))}

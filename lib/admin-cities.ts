@@ -16,7 +16,7 @@ import {
   regions,
   vehicles,
 } from "../db/schema";
-import { clearCityDatasetCache, listCityRegions } from "./cities";
+import { clearCityCache, clearCityDatasetCache, listCityRegions } from "./cities";
 import type { City, CityRegion } from "./city-types";
 
 export class AdminInputError extends Error {
@@ -48,6 +48,9 @@ export type DraftCityInput = {
   display_name?: string | null;
   center: { lat: number; lon: number };
   timezone: string;
+  /** Daily fleet shift as 24-hour "HH:MM" clocks. */
+  shift_start?: string;
+  shift_end?: string;
   default_zoom?: number;
   min_zoom?: number;
   max_zoom?: number;
@@ -96,6 +99,14 @@ function validTimezone(timezone: string): boolean {
   }
 }
 
+/** Validates a 24-hour "HH:MM" clock and returns its minutes from midnight. */
+function clockMinutes(value: unknown): number | null {
+  const text = String(value ?? "").trim();
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(text)) return null;
+  const [hours, minutes] = text.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
 /** Validates and normalizes the wizard payload, or throws AdminInputError. */
 export function parseDraftCityInput(value: unknown): DraftCityInput {
   if (!value || typeof value !== "object") {
@@ -131,6 +142,17 @@ export function parseDraftCityInput(value: unknown): DraftCityInput {
   const timezone = String(body.timezone ?? "").trim();
   if (!validTimezone(timezone)) {
     throw new AdminInputError("Choose a valid IANA timezone.");
+  }
+
+  const shiftStart = String(body.shift_start ?? "07:00").trim();
+  const shiftEnd = String(body.shift_end ?? "17:00").trim();
+  const shiftStartMins = clockMinutes(shiftStart);
+  const shiftEndMins = clockMinutes(shiftEnd);
+  if (shiftStartMins === null || shiftEndMins === null) {
+    throw new AdminInputError("Shift timing must use 24-hour HH:MM values.");
+  }
+  if (shiftEndMins <= shiftStartMins) {
+    throw new AdminInputError("Shift end must be later than shift start.");
   }
 
   const rawRegions = Array.isArray(body.regions) ? body.regions : [];
@@ -209,6 +231,8 @@ export function parseDraftCityInput(value: unknown): DraftCityInput {
     display_name: displayNameRaw || null,
     center: { lat: center!.lat, lon: center!.lon },
     timezone,
+    shift_start: shiftStart,
+    shift_end: shiftEnd,
     default_zoom: defaultZoom,
     min_zoom: minZoom,
     max_zoom: maxZoom,
@@ -309,7 +333,10 @@ export async function createDraftCity(
       h3Resolution: input.h3_resolution ?? 7,
       fallbackSpeedKmh: input.fallback_speed_kmh ?? 24,
       roadFactor: input.road_factor ?? 1.35,
-      settings: {},
+      settings: {
+        shiftStart: input.shift_start ?? "07:00",
+        shiftEnd: input.shift_end ?? "17:00",
+      },
       isActive: false,
       sortOrder,
     })
@@ -343,6 +370,8 @@ export async function createDraftCity(
     await db.delete(cities).where(eq(cities.id, input.slug));
     throw error;
   }
+
+  clearCityCache();
 
   return {
     city: toCity(cityRow),

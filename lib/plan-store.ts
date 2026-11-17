@@ -11,7 +11,7 @@ import {
 } from "./plan";
 import { db } from "./db";
 import { facilities, hotels, plans, vehicles } from "../db/schema";
-import { getRegionMeta } from "./cities";
+import { clearCityCache, getRegionMeta, registerCacheInvalidator } from "./cities";
 
 export type PlanSummary = {
   id: string;
@@ -373,11 +373,37 @@ export async function getPlanById(
   };
 }
 
+const PLAN_CACHE_TTL_MS = 60_000;
+const initialPlanCache = new Map<
+  string,
+  { expiresAt: number; value: StoredPlanWithList }
+>();
+
+export function clearPlanCache(cityId?: string): void {
+  if (cityId) {
+    for (const key of Array.from(initialPlanCache.keys())) {
+      if (key.startsWith(`${cityId}:`)) {
+        initialPlanCache.delete(key);
+      }
+    }
+  } else {
+    initialPlanCache.clear();
+  }
+}
+
+registerCacheInvalidator(clearPlanCache);
+
 export async function getInitialPlan(
   cityId: string,
   baselinePlan: Plan | null,
   preferredId?: string,
 ): Promise<StoredPlanWithList> {
+  const cacheKey = `${cityId}:${preferredId ?? "default"}`;
+  const cached = initialPlanCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+
   await ensureDefaultPlan(cityId, baselinePlan);
   const planList = await listPlanSummaries(cityId);
   const selected =
@@ -394,7 +420,13 @@ export async function getInitialPlan(
     throw new Error("Could not load the selected plan.");
   }
 
-  return { ...stored, plans: planList };
+  const result: StoredPlanWithList = { ...stored, plans: planList };
+  initialPlanCache.set(cacheKey, {
+    expiresAt: Date.now() + PLAN_CACHE_TTL_MS,
+    value: result,
+  });
+
+  return result;
 }
 
 export async function createPlan(
@@ -427,6 +459,8 @@ export async function createPlan(
       version: 1,
     })
     .returning();
+
+  clearCityCache(cityId);
 
   return {
     id: row.id,
@@ -467,6 +501,8 @@ export async function updateStoredPlan(
     const current = await getPlanById(cityId, id);
     return { conflict: true, current };
   }
+
+  clearCityCache(cityId);
 
   return {
     id: row.id,

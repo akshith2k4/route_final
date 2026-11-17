@@ -8,6 +8,15 @@
 
 export type CitySettings = {
   /**
+   * Operating shift of the city's fleet, as 24-hour "HH:MM" clocks.
+   *
+   * Vehicles leave the warehouse at `shiftStart` and every route is expected
+   * back by `shiftEnd`. New manual routes and the baseline plan inherit these
+   * values, so the manager only enters the city's hours once.
+   */
+  shiftStart?: string;
+  shiftEnd?: string;
+  /**
    * Region indices that count as adjacent to a vehicle's home region when the
    * studio optimizer scores territory. Keys are region indices as strings,
    * values are the adjacent region indices.

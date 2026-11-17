@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import PlanCanvas from "../../../components/plan-canvas";
+import { getCity } from "../../../lib/cities";
 import { getCityContext } from "../../../lib/city-context";
 import { getInitialPlan } from "../../../lib/plan-store";
 
@@ -15,10 +16,9 @@ export async function generateMetadata({
   params,
 }: PlanPageProps): Promise<Metadata> {
   const { city: slug } = await params;
-  const context = await getCityContext(slug);
-  if (!context) return { title: "City not found" };
+  const city = await getCity(slug);
+  if (!city) return { title: "City not found" };
 
-  const { city } = context;
   const label = city.displayName ?? city.name;
   return {
     title: `Plan Canvas · ${label} · LinenGrass Fleet Atlas`,

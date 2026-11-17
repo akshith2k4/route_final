@@ -51,23 +51,67 @@ function toRegion(row: typeof regions.$inferSelect): CityRegion {
   };
 }
 
+const CACHE_TTL_MS = 60_000;
+
+type CacheInvalidator = (cityId?: string) => void;
+const cacheInvalidators = new Set<CacheInvalidator>();
+
+export function registerCacheInvalidator(fn: CacheInvalidator): () => void {
+  cacheInvalidators.add(fn);
+  return () => {
+    cacheInvalidators.delete(fn);
+  };
+}
+
+let listCitiesCache: { expiresAt: number; value: City[] } | null = null;
+const cityCache = new Map<string, { expiresAt: number; value: City | null }>();
+const regionMetaCache = new Map<
+  string,
+  { expiresAt: number; value: RegionMeta[] }
+>();
+const allDatasetsCache = new Map<
+  string,
+  { expiresAt: number; value: Partial<Record<CityDatasetKind, unknown>> }
+>();
+
 /** All cities, ordered for the switcher. */
 export async function listCities(): Promise<City[]> {
+  if (listCitiesCache && listCitiesCache.expiresAt > Date.now()) {
+    return listCitiesCache.value;
+  }
+
   const rows = await db
     .select()
     .from(cities)
     .where(eq(cities.isActive, true))
     .orderBy(asc(cities.sortOrder), asc(cities.name));
-  return rows.map(toCity);
+  const result = rows.map(toCity);
+
+  listCitiesCache = {
+    expiresAt: Date.now() + CACHE_TTL_MS,
+    value: result,
+  };
+  return result;
 }
 
 export async function getCity(slug: string): Promise<City | null> {
+  const cached = cityCache.get(slug);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+
   const [row] = await db
     .select()
     .from(cities)
     .where(eq(cities.id, slug))
     .limit(1);
-  return row ? toCity(row) : null;
+  const result = row ? toCity(row) : null;
+
+  cityCache.set(slug, {
+    expiresAt: Date.now() + CACHE_TTL_MS,
+    value: result,
+  });
+  return result;
 }
 
 export class CityNotFoundError extends Error {
@@ -104,8 +148,13 @@ export async function listCityRegions(cityId: string): Promise<CityRegion[]> {
  * consume. The numeric `id` stays the region index inside its city.
  */
 export async function getRegionMeta(cityId: string): Promise<RegionMeta[]> {
+  const cached = regionMetaCache.get(cityId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+
   const rows = await listCityRegions(cityId);
-  return rows.map((region) => ({
+  const result = rows.map((region) => ({
     id: region.regionIndex,
     code: region.code,
     name: region.name,
@@ -120,6 +169,12 @@ export async function getRegionMeta(cityId: string): Promise<RegionMeta[]> {
     center: { lat: region.centerLat, lon: region.centerLon },
     label_point: { lat: region.labelLat, lon: region.labelLon },
   }));
+
+  regionMetaCache.set(cityId, {
+    expiresAt: Date.now() + CACHE_TTL_MS,
+    value: result,
+  });
+  return result;
 }
 
 /**
@@ -166,6 +221,11 @@ export async function getCityDataset<T>(
 export async function getCityDatasets(
   cityId: string,
 ): Promise<Partial<Record<CityDatasetKind, unknown>>> {
+  const cached = allDatasetsCache.get(cityId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+
   const rows = await db
     .select()
     .from(cityDatasets)
@@ -174,11 +234,49 @@ export async function getCityDatasets(
   const result: Partial<Record<CityDatasetKind, unknown>> = {};
   for (const row of rows) {
     result[row.kind as CityDatasetKind] = row.payload;
+    datasetCache.set(cacheKey(cityId, row.kind), {
+      expiresAt: Date.now() + DATASET_CACHE_TTL_MS,
+      value: row.payload,
+    });
   }
+
+  allDatasetsCache.set(cityId, {
+    expiresAt: Date.now() + DATASET_CACHE_TTL_MS,
+    value: result,
+  });
+
   return result;
+}
+
+/** Drops in-process caches, optionally for a single city or across all cities. */
+export function clearCityCache(cityId?: string): void {
+  if (cityId) {
+    cityCache.delete(cityId);
+    regionMetaCache.delete(cityId);
+    allDatasetsCache.delete(cityId);
+    for (const key of Array.from(datasetCache.keys())) {
+      if (key.startsWith(`${cityId}:`)) {
+        datasetCache.delete(key);
+      }
+    }
+  } else {
+    cityCache.clear();
+    regionMetaCache.clear();
+    allDatasetsCache.clear();
+    datasetCache.clear();
+    listCitiesCache = null;
+  }
+
+  for (const invalidator of cacheInvalidators) {
+    try {
+      invalidator(cityId);
+    } catch (e) {
+      console.error("Cache invalidator error:", e);
+    }
+  }
 }
 
 /** Drops the in-process dataset cache, for example after a re-seed. */
 export function clearCityDatasetCache(): void {
-  datasetCache.clear();
+  clearCityCache();
 }
