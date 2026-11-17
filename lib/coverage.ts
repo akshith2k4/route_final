@@ -1,19 +1,27 @@
 import { latLngToCell } from "h3-js";
 
-export const H3_RESOLUTION = 7;
-export const BENGALURU_CENTER = { lat: 12.9716, lon: 77.5946 };
+/** Default H3 resolution when a city does not override it. */
+/** H3 resolution used when a city has not published its own. */
+export const DEFAULT_H3_RESOLUTION = 7;
 
 export type RegionMeta = {
+  /** Region index inside its city. */
   id: number;
   code: string;
   name: string;
   short_name: string;
+  /** Short label drawn on the map. */
+  map_label: string;
   tier: string;
   route_status: string;
   lotr_route: string;
   color: string;
   key_areas: string;
   areas_list: string[];
+  /** Visual centre of the region, used for nearest-region lookups. */
+  center: { lat: number; lon: number };
+  /** Label anchor point, nudged apart so map labels never collide. */
+  label_point: { lat: number; lon: number };
 };
 
 export type Hotel = {
@@ -98,15 +106,46 @@ export type StudioDepot = {
   isPrimary?: boolean;
 };
 
-export const DEFAULT_DEPOTS: StudioDepot[] = [
-  {
-    id: "depot-yeshwanthpur",
-    name: "LinenGrass HQ (Yeshwanthpur Central Laundry)",
-    latitude: 13.017275,
-    longitude: 77.546578,
-    isPrimary: true,
-  },
-];
+/**
+ * The per-city fleet definition. Each city owns its own warehouses, laundries
+ * and vehicles.
+ */
+export type CityFleet = {
+  depot?: {
+    name: string;
+    latitude: number;
+    longitude: number;
+  };
+  depots?: {
+    id: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+    short_name?: string;
+  }[];
+  laundries?: {
+    id: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+    short_name?: string;
+    service_mins?: number;
+  }[];
+  safety_buffer_pct?: number;
+  vehicles?: {
+    id: number;
+    label: string;
+    region_id: number;
+    region_name: string;
+    sector: string;
+    nominal_capacity: number;
+    max_load_90pct?: number;
+    color: string;
+    depot_id?: string;
+    departure_time?: string;
+    return_time?: string;
+  }[];
+};
 
 export type StudioVehicle = {
   id: number;
@@ -154,148 +193,6 @@ export const DEFAULT_SHIFT_SETTINGS: StudioShiftSetting = {
   lunchWindowEnd: "14:00",
 };
 
-export const DEFAULT_STUDIO_VEHICLES: StudioVehicle[] = [
-  {
-    id: 1,
-    label: "Vehicle 1",
-    region_id: 0,
-    region_name: "South-East",
-    sector: "Hosur Rd & E-City",
-    nominal_capacity: 40,
-    max_load: 36,
-    color: "#dc2626",
-    enabled: true,
-    depot_id: "depot-yeshwanthpur",
-    departure_time: "07:00",
-    return_time: "17:00",
-  },
-  {
-    id: 2,
-    label: "Vehicle 2",
-    region_id: 0,
-    region_name: "South-East",
-    sector: "Sarjapur Rd & HSR",
-    nominal_capacity: 40,
-    max_load: 36,
-    color: "#f87171",
-    enabled: true,
-    depot_id: "depot-yeshwanthpur",
-    departure_time: "07:00",
-    return_time: "17:00",
-  },
-  {
-    id: 8,
-    label: "Vehicle 8",
-    region_id: 1,
-    region_name: "Central / Inner East",
-    sector: "High Capacity CBD",
-    nominal_capacity: 70,
-    max_load: 63,
-    color: "#1e3a8a",
-    enabled: true,
-    depot_id: "depot-yeshwanthpur",
-    departure_time: "07:00",
-    return_time: "17:00",
-  },
-  {
-    id: 5,
-    label: "Vehicle 5",
-    region_id: 1,
-    region_name: "Central / Inner East",
-    sector: "Indiranagar & Domlur",
-    nominal_capacity: 35,
-    max_load: 31,
-    color: "#3b82f6",
-    enabled: true,
-    depot_id: "depot-yeshwanthpur",
-    departure_time: "07:00",
-    return_time: "17:00",
-  },
-  {
-    id: 7,
-    label: "Vehicle 7",
-    region_id: 2,
-    region_name: "North & West",
-    sector: "Hebbal & Airport NH44",
-    nominal_capacity: 40,
-    max_load: 36,
-    color: "#0f766e",
-    enabled: true,
-    depot_id: "depot-yeshwanthpur",
-    departure_time: "07:00",
-    return_time: "17:00",
-  },
-  {
-    id: 3,
-    label: "Vehicle 3",
-    region_id: 2,
-    region_name: "North & West",
-    sector: "Yeshwanthpur & Magadi Rd",
-    nominal_capacity: 35,
-    max_load: 31,
-    color: "#14b8a6",
-    enabled: true,
-    depot_id: "depot-yeshwanthpur",
-    departure_time: "07:00",
-    return_time: "17:00",
-  },
-  {
-    id: 4,
-    label: "Vehicle 4",
-    region_id: 3,
-    region_name: "East",
-    sector: "Whitefield & ITPL",
-    nominal_capacity: 20,
-    max_load: 18,
-    color: "#15803d",
-    enabled: true,
-    depot_id: "depot-yeshwanthpur",
-    departure_time: "07:00",
-    return_time: "17:00",
-  },
-  {
-    id: 6,
-    label: "Vehicle 6",
-    region_id: 3,
-    region_name: "East",
-    sector: "Marathahalli & Brookefield",
-    nominal_capacity: 20,
-    max_load: 18,
-    color: "#22c55e",
-    enabled: true,
-    depot_id: "depot-yeshwanthpur",
-    departure_time: "07:00",
-    return_time: "17:00",
-  },
-  {
-    id: 9,
-    label: "Vehicle 9",
-    region_id: 4,
-    region_name: "South",
-    sector: "Jayanagar & BTM Layout",
-    nominal_capacity: 40,
-    max_load: 36,
-    color: "#b45309",
-    enabled: true,
-    depot_id: "depot-yeshwanthpur",
-    departure_time: "07:00",
-    return_time: "17:00",
-  },
-  {
-    id: 10,
-    label: "Vehicle 10",
-    region_id: 4,
-    region_name: "South",
-    sector: "JP Nagar & Bannerghatta",
-    nominal_capacity: 40,
-    max_load: 36,
-    color: "#f59e0b",
-    enabled: true,
-    depot_id: "depot-yeshwanthpur",
-    departure_time: "07:00",
-    return_time: "17:00",
-  },
-];
 
 
 export function formatMins(mins: number): string {
@@ -307,32 +204,65 @@ export function formatMins(mins: number): string {
   return `${h}h ${m < 10 ? "0" : ""}${m}m`;
 }
 
-/** Hand-checked visual centres for the five region labels (from urban_centroids.csv). */
-export const REGION_CENTERS: Record<number, { lat: number; lon: number }> = {
-  0: { lat: 12.882914605295358, lon: 77.64500513464189 },
-  1: { lat: 12.975316953872893, lon: 77.6055154047403 },
-  2: { lat: 13.044628141029369, lon: 77.60090651569858 },
-  3: { lat: 12.976705032915488, lon: 77.7142173486534 },
-  4: { lat: 12.904112866412287, lon: 77.58571315594017 },
-};
+/**
+ * Warehouses a city dispatches from. The primary warehouse is the first
+ * entry, matching the depot ordering in the fleet definition.
+ */
+export function fleetDepots(fleet: CityFleet | null | undefined): StudioDepot[] {
+  const depots = fleet?.depots ?? [];
+  if (depots.length > 0) {
+    return depots.map((depot, index) => ({
+      id: depot.id,
+      name: depot.name,
+      latitude: depot.latitude,
+      longitude: depot.longitude,
+      isPrimary: index === 0,
+    }));
+  }
+  if (fleet?.depot) {
+    return [
+      {
+        id: "depot-primary",
+        name: fleet.depot.name,
+        latitude: fleet.depot.latitude,
+        longitude: fleet.depot.longitude,
+        isPrimary: true,
+      },
+    ];
+  }
+  return [];
+}
 
-/** Label anchor points, nudged apart so the five map labels never collide. */
-export const REGION_LABEL_POINTS: Record<number, { lat: number; lon: number }> =
-  {
-    0: { lat: 12.905, lon: 77.67 },
-    1: { lat: 12.985, lon: 77.6 },
-    2: { lat: 13.06, lon: 77.6 },
-    3: { lat: 12.99, lon: 77.73 },
-    4: { lat: 12.89, lon: 77.56 },
-  };
+/** Vehicles a city can dispatch, with the fleet's 90% safe load applied. */
+export function fleetVehicles(
+  fleet: CityFleet | null | undefined,
+): StudioVehicle[] {
+  const vehicles = fleet?.vehicles ?? [];
+  if (vehicles.length === 0) return [];
 
-export const REGION_MAP_LABELS: Record<number, string> = {
-  0: "South-East",
-  1: "Central",
-  2: "North & West",
-  3: "East",
-  4: "South",
-};
+  const primaryDepotId = fleet?.depots?.[0]?.id ?? "depot-primary";
+  const safetyBuffer = fleet?.safety_buffer_pct ?? 90;
+
+  return vehicles.map((vehicle) => ({
+    id: vehicle.id,
+    label: vehicle.label,
+    region_id: vehicle.region_id,
+    region_name: vehicle.region_name,
+    sector: vehicle.sector,
+    color: vehicle.color,
+    enabled: true,
+    nominal_capacity: vehicle.nominal_capacity,
+    max_load:
+      vehicle.max_load_90pct ??
+      Math.max(
+        1,
+        Math.floor((vehicle.nominal_capacity * safetyBuffer) / 100),
+      ),
+    depot_id: vehicle.depot_id ?? primaryDepotId,
+    departure_time: vehicle.departure_time ?? "07:00",
+    return_time: vehicle.return_time ?? "17:00",
+  }));
+}
 
 export function hotelKey(hotel: Hotel): string {
   return hotel.id || `${hotel.name}::${hotel.lat.toFixed(5)}::${hotel.lon.toFixed(5)}`;
@@ -355,15 +285,20 @@ export function haversineKm(
   return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export function nearestRegionId(lat: number, lon: number): number {
-  let bestId = 0;
+/** The region whose centre is closest to a coordinate. */
+export function nearestRegionId(
+  lat: number,
+  lon: number,
+  regions: RegionMeta[],
+): number {
+  let bestId = regions[0]?.id ?? 0;
   let bestDistance = Number.POSITIVE_INFINITY;
 
-  for (const [rawId, center] of Object.entries(REGION_CENTERS)) {
-    const distance = haversineKm(lat, lon, center.lat, center.lon);
+  for (const region of regions) {
+    const distance = haversineKm(lat, lon, region.center.lat, region.center.lon);
     if (distance < bestDistance) {
       bestDistance = distance;
-      bestId = Number(rawId);
+      bestId = region.id;
     }
   }
 
@@ -404,19 +339,21 @@ export function resolveCoordinate(
   hexMap: HexMap,
   hotels: Hotel[],
   regions: RegionMeta[],
+  center: { lat: number; lon: number },
+  h3Resolution: number = DEFAULT_H3_RESOLUTION,
 ): CoordinateResult {
   let cell = "";
   let mappedRegion: number | undefined;
 
   try {
-    cell = latLngToCell(lat, lon, H3_RESOLUTION);
+    cell = latLngToCell(lat, lon, h3Resolution);
     mappedRegion = hexMap[cell];
   } catch {
     cell = "";
   }
 
   const inside = mappedRegion !== undefined;
-  let regionId = mappedRegion ?? nearestRegionId(lat, lon);
+  let regionId = mappedRegion ?? nearestRegionId(lat, lon, regions);
 
   if (!regions.some((region) => region.id === regionId)) {
     regionId = regions[0]?.id ?? 0;
@@ -441,12 +378,7 @@ export function resolveCoordinate(
     regionId,
     nearestHotel,
     nearestDistanceKm,
-    centerDistanceKm: haversineKm(
-      BENGALURU_CENTER.lat,
-      BENGALURU_CENTER.lon,
-      lat,
-      lon,
-    ),
+    centerDistanceKm: haversineKm(center.lat, center.lon, lat, lon),
   };
 }
 

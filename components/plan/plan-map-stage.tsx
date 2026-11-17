@@ -29,6 +29,10 @@ import { shortRouteName } from "./plan-types";
 
 type PlanMapStageProps = {
   mapRef: RefObject<PlanCanvasMapHandle | null>;
+  center: { lat: number; lon: number };
+  zoom: number;
+  minZoom: number;
+  maxZoom: number;
   viewPlan: Plan;
   routes: PlanComputation["routes"];
   selectedRouteId: string | null;
@@ -56,6 +60,10 @@ type PlanMapStageProps = {
 
 export function PlanMapStage({
   mapRef,
+  center,
+  zoom,
+  minZoom,
+  maxZoom,
   viewPlan,
   routes,
   selectedRouteId,
@@ -80,6 +88,10 @@ export function PlanMapStage({
     <section className={mapStage} aria-label="Plan map">
       <PlanCanvasMap
         ref={mapRef}
+        center={center}
+        zoom={zoom}
+        minZoom={minZoom}
+        maxZoom={maxZoom}
         plan={viewPlan}
         routes={routes}
         selectedRouteId={selectedRouteId}

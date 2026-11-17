@@ -20,9 +20,9 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "LinenGrass — Bengaluru Coverage Atlas",
+  title: "LinenGrass Fleet Atlas",
   description:
-    "Interactive coverage map of 102 hotels across five LinenGrass operational regions in Bengaluru.",
+    "Interactive fleet coverage, dispatch and planning atlas for every LinenGrass operating city.",
 };
 
 export const viewport: Viewport = {

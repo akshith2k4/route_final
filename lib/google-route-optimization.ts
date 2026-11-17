@@ -8,9 +8,19 @@ import {
   type StudioVehicle,
 } from "./coverage";
 import { getGoogleAccessToken } from "./google-auth";
+import { isoWithOffset, localDateString } from "./timezone";
 
-const DEPOT = { latitude: 13.017275, longitude: 77.546578 };
-const DEPOT_NAME = "LinenGrass HQ (Yeshwanthpur Central Laundry)";
+/**
+ * Every optimisation run starts and ends at the city's primary warehouse.
+ * The caller supplies it, so each city dispatches from its own depot.
+ */
+export type OptimizationDepot = {
+  latitude: number;
+  longitude: number;
+  name: string;
+  /** IANA timezone used to render the returned timestamps. */
+  timezone: string;
+};
 
 // Decodes a Google Encoded Polyline into LatLng array
 export function decodePolyline(encoded: string): [number, number][] {
@@ -49,12 +59,15 @@ export function decodePolyline(encoded: string): [number, number][] {
   return points;
 }
 
-// Converts a timestamp to IST string "08:30 AM"
-function formatIst(isoString?: string): string {
+// Converts a timestamp into a local clock string such as "08:30 AM"
+function formatLocalTime(
+  isoString: string | undefined,
+  timezone: string,
+): string {
   if (!isoString) return "08:00 AM";
   const date = new Date(isoString);
   return date.toLocaleTimeString("en-IN", {
-    timeZone: "Asia/Kolkata",
+    timeZone: timezone,
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
@@ -90,14 +103,19 @@ export async function callGoogleOptimizeTours({
   hotelSettings,
   vehicles,
   shiftSettings,
+  depot,
   objective = "balanced",
 }: {
   hotels: Hotel[];
   hotelSettings: Record<string, StudioHotelSetting>;
   vehicles: StudioVehicle[];
   shiftSettings: StudioShiftSetting;
+  depot: OptimizationDepot;
   objective?: OptimizationObjective;
 }): Promise<GoogleOptimizationResult> {
+  const DEPOT = { latitude: depot.latitude, longitude: depot.longitude };
+  const DEPOT_NAME = depot.name;
+  const TIMEZONE = depot.timezone;
   const { token, projectId } = await getGoogleAccessToken();
 
   // 1. Filter selected hotels & enabled vehicles
@@ -115,15 +133,15 @@ export async function callGoogleOptimizeTours({
     throw new Error("No hotels selected for dispatch.");
   }
 
-  // 2. Set shift date window (Tomorrow morning IST)
+  // 2. Set shift date window (tomorrow morning, in the city's timezone)
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const dateStr = tomorrow.toISOString().slice(0, 10);
+  const dateStr = localDateString(TIMEZONE, tomorrow);
 
   const departureTime = shiftSettings.earliestDeparture || "07:00";
   const returnTime = shiftSettings.latestReturn || "17:00";
-  const globalStartIso = `${dateStr}T${departureTime}:00+05:30`;
-  const globalEndIso = `${dateStr}T${returnTime}:00+05:30`;
+  const globalStartIso = isoWithOffset(TIMEZONE, dateStr, departureTime);
+  const globalEndIso = isoWithOffset(TIMEZONE, dateStr, returnTime);
 
   // 3. Build Google Shipments
   const hotelDemands = new Map<string, number>();
@@ -151,8 +169,8 @@ export async function callGoogleOptimizeTours({
     if (s?.timeWindowEnabled && s.earliestArrival && s.latestArrival) {
       delivery.timeWindows = [
         {
-          startTime: `${dateStr}T${s.earliestArrival}:00+05:30`,
-          endTime: `${dateStr}T${s.latestArrival}:00+05:30`,
+          startTime: isoWithOffset(TIMEZONE, dateStr, s.earliestArrival),
+          endTime: isoWithOffset(TIMEZONE, dateStr, s.latestArrival),
         },
       ];
     }
@@ -224,8 +242,8 @@ export async function callGoogleOptimizeTours({
       vehicleObj.breakRule = {
         breakRequests: [
           {
-            earliestStartTime: `${dateStr}T${lunchStart}:00+05:30`,
-            latestStartTime: `${dateStr}T${lunchEnd}:00+05:30`,
+            earliestStartTime: isoWithOffset(TIMEZONE, dateStr, lunchStart),
+            latestStartTime: isoWithOffset(TIMEZONE, dateStr, lunchEnd),
             minDuration: `${lunchDuration}s`,
           },
         ],
@@ -311,8 +329,11 @@ export async function callGoogleOptimizeTours({
       const bags = hotelDemands.get(hotelName) ?? 3;
       cumulativeBags += bags;
 
-      const arrivalTime = formatIst(visit.startTime);
-      const departureTime = formatIst(visit.detour || visit.startTime);
+      const arrivalTime = formatLocalTime(visit.startTime, TIMEZONE);
+      const departureTime = formatLocalTime(
+        visit.detour || visit.startTime,
+        TIMEZONE,
+      );
       const serviceM = Math.round(parseSeconds(visit.duration) / 60) || 20;
 
       stops.push({
@@ -330,7 +351,7 @@ export async function callGoogleOptimizeTours({
 
     // Insert scheduled lunch breaks if returned by Google
     for (const b of breaks) {
-      const lunchArrival = formatIst(b.startTime);
+      const lunchArrival = formatLocalTime(b.startTime, TIMEZONE);
       const lunchDurationM = Math.round(parseSeconds(b.duration) / 60) || 45;
       stops.splice(Math.max(1, Math.floor(stops.length / 2)), 0, {
         stop_number: stopCounter++,

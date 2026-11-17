@@ -43,15 +43,31 @@ function minsToTimeStr(totalMins: number): string {
   return `${h12}:${mStr} ${period}`;
 }
 
-// Estimate road distance with Bengaluru curvature factor
-function roadDistKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  return haversineKm(lat1, lon1, lat2, lon2) * 1.34;
+// Fallbacks only used when a city has not published its own estimates.
+const DEFAULT_ROAD_FACTOR = 1.34;
+const DEFAULT_SPEED_KMH = 19;
+
+type EstimateConfig = {
+  /** Straight-line to road-distance multiplier. */
+  roadFactor: number;
+  /** Average logistics speed in km/h. */
+  avgSpeedKmh: number;
+};
+
+// Estimate road distance using the city's curvature factor
+function roadDistKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+  estimates: EstimateConfig,
+): number {
+  return haversineKm(lat1, lon1, lat2, lon2) * estimates.roadFactor;
 }
 
-// Estimate drive minutes at Bengaluru average logistics speed (~19 km/h)
-function driveTimeMins(distKm: number): number {
-  const avgSpeedKmh = 19;
-  return Math.max(3, Math.round((distKm / avgSpeedKmh) * 60));
+// Estimate drive minutes at the city's average logistics speed
+function driveTimeMins(distKm: number, estimates: EstimateConfig): number {
+  return Math.max(3, Math.round((distKm / estimates.avgSpeedKmh) * 60));
 }
 
 export function runStudioOptimization({
@@ -60,15 +76,35 @@ export function runStudioOptimization({
   vehicles,
   depots,
   shiftSettings,
+  roadFactor,
+  avgSpeedKmh,
+  regionAdjacency,
 }: {
   hotels: Hotel[];
   hotelSettings: Record<string, StudioHotelSetting>;
   vehicles: StudioVehicle[];
   depots: StudioDepot[];
   shiftSettings: StudioShiftSetting;
+  /** City straight-line to road-distance multiplier. */
+  roadFactor?: number;
+  /** City average logistics speed in km/h. */
+  avgSpeedKmh?: number;
+  /** City region indices that count as adjacent, keyed by region index. */
+  regionAdjacency?: Record<string, string[]>;
 }): OptimizationResult {
   const depotMap = new Map(depots.map((d) => [d.id, d]));
   const primaryDepot = depots.find((d) => d.isPrimary) ?? depots[0];
+  const estimates: EstimateConfig = {
+    roadFactor: roadFactor ?? DEFAULT_ROAD_FACTOR,
+    avgSpeedKmh: avgSpeedKmh ?? DEFAULT_SPEED_KMH,
+  };
+  const adjacency = new Map<number, Set<number>>();
+  for (const [region, neighbours] of Object.entries(regionAdjacency ?? {})) {
+    adjacency.set(
+      Number(region),
+      new Set(neighbours.map((value) => Number(value))),
+    );
+  }
 
   // 1. Identify selected hotels
   const selectedHotels = hotels.filter((hotel) => {
@@ -187,9 +223,7 @@ export function runStudioOptimization({
         score += 80;
       } else if (
         // Secondary adjacent region matches
-        (bucket.vehicle.region_id === 1 && (hotel.region === 0 || hotel.region === 2 || hotel.region === 4)) ||
-        (bucket.vehicle.region_id === 0 && hotel.region === 4) ||
-        (bucket.vehicle.region_id === 3 && (hotel.region === 0 || hotel.region === 1))
+        (adjacency.get(bucket.vehicle.region_id)?.has(hotel.region) ?? false)
       ) {
         score += 25;
       }
@@ -199,7 +233,8 @@ export function runStudioOptimization({
         hotel.lat,
         hotel.lon,
         bucket.depot.latitude,
-        bucket.depot.longitude
+        bucket.depot.longitude,
+        estimates
       );
       score -= distToDepot * 2.2;
 
@@ -207,7 +242,13 @@ export function runStudioOptimization({
       if (bucket.hotels.length > 0) {
         let minDistToStops = Number.POSITIVE_INFINITY;
         for (const existing of bucket.hotels) {
-          const d = roadDistKm(hotel.lat, hotel.lon, existing.lat, existing.lon);
+          const d = roadDistKm(
+            hotel.lat,
+            hotel.lon,
+            existing.lat,
+            existing.lon,
+            estimates
+          );
           if (d < minDistToStops) minDistToStops = d;
         }
         score -= minDistToStops * 3.5;
@@ -297,8 +338,14 @@ export function runStudioOptimization({
 
       for (let i = 0; i < remainingToVisit.length; i++) {
         const candidate = remainingToVisit[i];
-        const dist = roadDistKm(currentLat, currentLon, candidate.lat, candidate.lon);
-        const driveM = driveTimeMins(dist);
+        const dist = roadDistKm(
+          currentLat,
+          currentLon,
+          candidate.lat,
+          candidate.lon,
+          estimates
+        );
+        const driveM = driveTimeMins(dist, estimates);
         const arrivalEstimate = currentMins + driveM;
 
         const setting = hotelSettings[candidate.name];
@@ -333,8 +380,14 @@ export function runStudioOptimization({
       }
 
       const nextHotel = remainingToVisit.splice(bestStopIdx, 1)[0];
-      const dist = roadDistKm(currentLat, currentLon, nextHotel.lat, nextHotel.lon);
-      const driveM = driveTimeMins(dist);
+      const dist = roadDistKm(
+        currentLat,
+        currentLon,
+        nextHotel.lat,
+        nextHotel.lon,
+        estimates
+      );
+      const driveM = driveTimeMins(dist, estimates);
 
       totalDistKm += dist;
       totalDriveMins += driveM;
@@ -375,8 +428,14 @@ export function runStudioOptimization({
     }
 
     // Return to assigned depot
-    const returnDist = roadDistKm(currentLat, currentLon, depot.latitude, depot.longitude);
-    const returnDriveM = driveTimeMins(returnDist);
+    const returnDist = roadDistKm(
+      currentLat,
+      currentLon,
+      depot.latitude,
+      depot.longitude,
+      estimates
+    );
+    const returnDriveM = driveTimeMins(returnDist, estimates);
     totalDistKm += returnDist;
     totalDriveMins += returnDriveM;
     currentMins += returnDriveM;

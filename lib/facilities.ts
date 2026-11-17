@@ -1,7 +1,8 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "./db";
 import { facilities, plans, vehicles, type FacilityRow } from "../db/schema";
 import type { Plan } from "./plan";
+import { clearCityCache } from "./cities";
 
 export type FacilityAdminItem = {
   id: string;
@@ -254,6 +255,7 @@ function slugify(name: string): string {
 }
 
 export async function nextFacilityId(
+  cityId: string,
   name: string,
   isWarehouse: boolean,
   isLaundry: boolean,
@@ -274,7 +276,7 @@ export async function nextFacilityId(
     const [existing] = await db
       .select({ id: facilities.id })
       .from(facilities)
-      .where(eq(facilities.id, candidate))
+      .where(and(eq(facilities.cityId, cityId), eq(facilities.id, candidate)))
       .limit(1);
     if (!existing) return candidate;
     candidate = `${base}-${suffix}`;
@@ -292,12 +294,19 @@ export type FacilityUsage = {
   message?: string;
 };
 
-export async function checkFacilityUsage(id: string): Promise<FacilityUsage> {
+export async function checkFacilityUsage(
+  cityId: string,
+  id: string,
+): Promise<FacilityUsage> {
   const [allPlans, allVehicles] = await Promise.all([
-    db.select({ id: plans.id, name: plans.name, data: plans.data }).from(plans),
+    db
+      .select({ id: plans.id, name: plans.name, data: plans.data })
+      .from(plans)
+      .where(eq(plans.cityId, cityId)),
     db
       .select({ id: vehicles.id, name: vehicles.name, depotId: vehicles.depotId })
-      .from(vehicles),
+      .from(vehicles)
+      .where(eq(vehicles.cityId, cityId)),
   ]);
 
   const usedPlanNamesSet = new Set<string>();
@@ -366,30 +375,45 @@ export async function checkFacilityUsage(id: string): Promise<FacilityUsage> {
   };
 }
 
-export async function getFacilityRows(): Promise<FacilityRow[]> {
-  return db.select().from(facilities).orderBy(asc(facilities.name));
+export async function getFacilityRows(cityId: string): Promise<FacilityRow[]> {
+  return db
+    .select()
+    .from(facilities)
+    .where(eq(facilities.cityId, cityId))
+    .orderBy(asc(facilities.name));
 }
 
 export async function getWarehouseFacilities(
+  cityId: string,
   includeInactive = false,
 ): Promise<FacilityRow[]> {
-  const rows = await getFacilityRows();
+  const rows = await getFacilityRows(cityId);
   return rows.filter(
     (facility) =>
       facility.isWarehouse && (includeInactive || facility.isActive),
   );
 }
 
-export async function getLaundryFacilities(): Promise<FacilityRow[]> {
-  const rows = await getFacilityRows();
+export async function getLaundryFacilities(
+  cityId: string,
+): Promise<FacilityRow[]> {
+  const rows = await getFacilityRows(cityId);
   return rows.filter((f) => f.isLaundry && f.isActive);
 }
 
-export async function getFacilityAdminItems(): Promise<FacilityAdminItem[]> {
+export async function getFacilityAdminItems(
+  cityId: string,
+): Promise<FacilityAdminItem[]> {
   const [rows, allPlans, allVehicles] = await Promise.all([
-    getFacilityRows(),
-    db.select({ id: plans.id, name: plans.name, data: plans.data }).from(plans),
-    db.select({ id: vehicles.id, depotId: vehicles.depotId }).from(vehicles),
+    getFacilityRows(cityId),
+    db
+      .select({ id: plans.id, name: plans.name, data: plans.data })
+      .from(plans)
+      .where(eq(plans.cityId, cityId)),
+    db
+      .select({ id: vehicles.id, depotId: vehicles.depotId })
+      .from(vehicles)
+      .where(eq(vehicles.cityId, cityId)),
   ]);
 
   return rows.map((row) => {
@@ -440,23 +464,33 @@ export async function getFacilityAdminItems(): Promise<FacilityAdminItem[]> {
 }
 
 export async function getFacilityById(
+  cityId: string,
   id: string,
 ): Promise<FacilityAdminItem | null> {
-  const items = await getFacilityAdminItems();
+  const items = await getFacilityAdminItems(cityId);
   return items.find((f) => f.id === id) ?? null;
 }
 
 export async function createFacility(
+  cityId: string,
   input: FacilityInput,
 ): Promise<FacilityAdminItem> {
-  const id = await nextFacilityId(input.name, input.isWarehouse, input.isLaundry);
+  const id = await nextFacilityId(
+    cityId,
+    input.name,
+    input.isWarehouse,
+    input.isLaundry,
+  );
   const [row] = await db
     .insert(facilities)
     .values({
+      cityId,
       id,
       ...input,
     })
     .returning();
+
+  clearCityCache(cityId);
 
   return {
     id: row.id,
@@ -475,14 +509,15 @@ export async function createFacility(
 }
 
 export async function updateFacility(
+  cityId: string,
   id: string,
   input: FacilityInput,
 ): Promise<FacilityAdminItem | null> {
-  const existing = await getFacilityById(id);
+  const existing = await getFacilityById(cityId, id);
   if (!existing) return null;
 
   // Check role removal restrictions
-  const usage = await checkFacilityUsage(id);
+  const usage = await checkFacilityUsage(cityId, id);
   if (!input.isWarehouse && usage.usedAsWarehouse) {
     throw new FacilityConflictError(
       `Cannot remove Warehouse role while this facility is in use as a depot. ${usage.message ?? ""}`,
@@ -504,15 +539,19 @@ export async function updateFacility(
       ...input,
       updatedAt: new Date(),
     })
-    .where(eq(facilities.id, id))
+    .where(and(eq(facilities.cityId, cityId), eq(facilities.id, id)))
     .returning();
 
   if (!row) return null;
-  return getFacilityById(id);
+  clearCityCache(cityId);
+  return getFacilityById(cityId, id);
 }
 
-export async function deleteFacility(id: string): Promise<boolean> {
-  const usage = await checkFacilityUsage(id);
+export async function deleteFacility(
+  cityId: string,
+  id: string,
+): Promise<boolean> {
+  const usage = await checkFacilityUsage(cityId, id);
   if (usage.isUsed) {
     throw new FacilityConflictError(
       usage.message ?? "Facility is in use. Deactivate it instead.",
@@ -523,9 +562,12 @@ export async function deleteFacility(id: string): Promise<boolean> {
 
   const [deleted] = await db
     .delete(facilities)
-    .where(eq(facilities.id, id))
+    .where(and(eq(facilities.cityId, cityId), eq(facilities.id, id)))
     .returning({ id: facilities.id });
 
+  if (deleted) {
+    clearCityCache(cityId);
+  }
   return Boolean(deleted);
 }
 

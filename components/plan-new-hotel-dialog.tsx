@@ -37,6 +37,8 @@ import {
 type NewHotelDayValue = "both" | "day1" | "day2";
 
 type PlanNewHotelDialogProps = {
+  cityId: string;
+  cityName: string;
   open: boolean;
   plan: Plan;
   regions: RegionMeta[];
@@ -55,6 +57,8 @@ function dayValuesFor(value: NewHotelDayValue): PlanDay[] {
 }
 
 export default function PlanNewHotelDialog({
+  cityId,
+  cityName,
   open,
   plan,
   regions,
@@ -159,7 +163,7 @@ export default function PlanNewHotelDialog({
     Number.isInteger(serviceValue) &&
     serviceValue >= 0;
   const detectedRegion = coordsValid
-    ? nearestRegionId(latValue, lonValue)
+    ? nearestRegionId(latValue, lonValue, regions)
     : null;
   const effectiveRegion = regionId
     ? Number(regionId)
@@ -191,7 +195,7 @@ export default function PlanNewHotelDialog({
     setGeocoding(true);
     setGeocodeError(null);
     try {
-      const response = await fetch("/api/geocode", {
+      const response = await fetch(`/api/${cityId}/geocode`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ address: value }),
@@ -279,7 +283,7 @@ export default function PlanNewHotelDialog({
 
       const finalRegion = regionId
         ? Number(regionId)
-        : (nearestRegionId(finalLat, finalLon) ?? regions[0]?.id ?? 0);
+        : (nearestRegionId(finalLat, finalLon, regions) ?? regions[0]?.id ?? 0);
 
       const added = await onAdd(
         {
@@ -366,7 +370,7 @@ export default function PlanNewHotelDialog({
               type="text"
               value={address}
               maxLength={300}
-              placeholder="e.g. 12 MG Road, Bengaluru"
+              placeholder={`e.g. 12 MG Road, ${cityName}`}
               onChange={(event) => setAddress(event.target.value)}
             />
             <button

@@ -26,6 +26,7 @@ import { DayBadge } from "./ui/badge";
 import { SummaryCard } from "./ui/summary-card";
 import { Notice } from "./ui/notice";
 import { cn } from "./ui/cn";
+import CitySwitcher from "./city-switcher";
 import {
   dialog,
   dialogActions,
@@ -51,6 +52,9 @@ type VehicleDepot = {
 };
 
 type VehiclesDashboardProps = {
+  cityId: string;
+  cityName: string;
+  cities: { id: string; name: string }[];
   initialVehicles: VehicleAdminItem[];
   regions: VehicleRegion[];
   depots?: VehicleDepot[];
@@ -167,6 +171,9 @@ function buildPayload(
 }
 
 export default function VehiclesDashboard({
+  cityId,
+  cityName,
+  cities,
   initialVehicles,
   regions,
   depots = DEFAULT_DEPOTS,
@@ -290,7 +297,7 @@ export default function VehiclesDashboard({
 
     try {
       const response = await fetch(
-        editingId ? `/api/vehicles/${editingId}` : "/api/vehicles",
+        editingId ? `/api/${cityId}/vehicles/${editingId}` : `/api/${cityId}/vehicles`,
         {
           method: editingId ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
@@ -336,7 +343,7 @@ export default function VehiclesDashboard({
 
     setDeletingId(vehicle.id);
     try {
-      const response = await fetch(`/api/vehicles/${vehicle.id}`, {
+      const response = await fetch(`/api/${cityId}/vehicles/${vehicle.id}`, {
         method: "DELETE",
       });
       const data = (await response.json().catch(() => null)) as
@@ -362,7 +369,8 @@ export default function VehiclesDashboard({
   return (
     <div className={`plan-app [display:flex] [flex-direction:column] [width:100%] [height:100svh] [min-height:0] [overflow:hidden] [background:var(--bone)] hotels-app`}>
       <header className={`topbar [position:relative] [z-index:40] [display:grid] [flex:0_0_auto] [grid-template-columns:1fr_auto_1fr] [align-items:center] [gap:18px] [height:66px] [padding:0_22px] [border-bottom:1px_solid_var(--line)] [background:rgba(247,_243,_235,_0.94)] [backdrop-filter:blur(14px)] max-[900px]:[grid-template-columns:1fr_auto] max-[760px]:[position:sticky] max-[760px]:[top:0] max-[760px]:[grid-template-columns:1fr_auto] max-[760px]:[gap:10px] max-[760px]:[height:60px] max-[760px]:[padding:0_16px] max-[560px]:[height:58px] max-[560px]:[padding:0_12px] plan-topbar [grid-template-columns:auto_minmax(0,_1fr)_auto] [height:64px] [gap:20px]`}>
-        <Link className={`brand [display:inline-flex] [align-items:center] [justify-self:start] [gap:10px] [min-width:0] [border-radius:10px] [text-align:left] max-[560px]:[gap:8px]`} href="/" aria-label="Back to the coverage atlas">
+        <div className="flex min-w-0 items-center gap-3 justify-self-start">
+        <Link className={`brand [display:inline-flex] [align-items:center] [justify-self:start] [gap:10px] [min-width:0] [border-radius:10px] [text-align:left] max-[560px]:[gap:8px]`} href={`/${cityId}`} aria-label="Back to the coverage atlas">
           <span className={`brand-mark [display:grid] [flex:0_0_auto] [width:35px] [height:35px] [place-items:center] [border-radius:10px] [background:var(--ink)] [color:var(--cream)] [box-shadow:inset_0_0_0_1px_rgba(255,_255,_255,_0.07)] [transition:background_160ms_ease,_transform_160ms_ease] [.brand:hover_&]:[background:#25382d] [.brand:hover_&]:[transform:translateY(-1px)] [&_svg]:[width:21px] [&_svg]:[height:21px] max-[560px]:[width:32px] max-[560px]:[height:32px]`} aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none">
               <path
@@ -390,6 +398,8 @@ export default function VehiclesDashboard({
             <span className={`brand-sub [color:var(--faint)] [font-size:8.5px] [font-weight:600] [letter-spacing:0.14em] [text-transform:uppercase] max-[760px]:[display:none]`}>Vehicle dashboard</span>
           </span>
         </Link>
+          <CitySwitcher cities={cities} currentCityId={cityId} />
+        </div>
 
         <div className={`plan-heading [display:flex] [flex-direction:column] [align-items:center] [justify-self:center] [gap:2px] [min-width:0] [text-align:center] [&_h1]:[font-family:var(--font-instrument-serif),_Georgia,_"Times_New_Roman",_serif] [&_h1]:[font-size:23px] [&_h1]:[font-weight:400] [&_h1]:[line-height:1] [&_h1]:[letter-spacing:-0.01em]`}>
           <span className={`eyebrow [display:flex] [align-items:center] [gap:8px] [color:var(--muted)] [font-size:9px] [font-weight:700] [letter-spacing:0.145em] [text-transform:uppercase]`}>
@@ -402,13 +412,13 @@ export default function VehiclesDashboard({
         </div>
 
         <div className={`plan-actions [display:flex] [align-items:center] [justify-self:end] [gap:9px] [min-width:0]`}>
-          <ButtonLink href="/facilities" variant="ghost">
+          <ButtonLink href={`/${cityId}/facilities`} variant="ghost">
             Facilities
           </ButtonLink>
-          <ButtonLink href="/hotels" variant="ghost">
+          <ButtonLink href={`/${cityId}/hotels`} variant="ghost">
             Hotels
           </ButtonLink>
-          <ButtonLink href="/plan" variant="ghost">
+          <ButtonLink href={`/${cityId}/plan`} variant="ghost">
             Plan canvas
           </ButtonLink>
           <Button variant="primary" onClick={openCreate}>
@@ -666,7 +676,7 @@ export default function VehiclesDashboard({
                   type="text"
                   value={form.sector}
                   maxLength={120}
-                  placeholder="e.g. Whitefield & ITPL"
+                  placeholder="e.g. North zone & tech parks"
                   onChange={(event) =>
                     setForm((current) => ({
                       ...current,

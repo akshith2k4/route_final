@@ -27,9 +27,6 @@ import {
   X,
 } from "lucide-react";
 import {
-  H3_RESOLUTION,
-  REGION_LABEL_POINTS,
-  REGION_MAP_LABELS,
   escapeHtml,
   formatDistance,
   formatMins,
@@ -46,6 +43,14 @@ import {
 
 type CoverageMapProps = {
   workspace: "coverage" | "dispatch" | "studio" | "manual";
+  cityName: string;
+  /** Centre of the city, used as the initial map view. */
+  center: { lat: number; lon: number };
+  zoom: number;
+  minZoom: number;
+  maxZoom: number;
+  /** H3 resolution of this city's coverage hex map. */
+  h3Resolution: number;
   regions: RegionMeta[];
   hotels: Hotel[];
   hexMap: HexMap;
@@ -94,6 +99,12 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
   function CoverageMap(
     {
       workspace = "coverage",
+      cityName,
+      center,
+      zoom,
+      minZoom,
+      maxZoom,
+      h3Resolution,
       regions,
       hotels,
       hexMap,
@@ -134,7 +145,15 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
     const activeHotelKeyRef = useRef<string | null>(null);
     const [status, setStatus] = useState<MapStatus>("loading");
 
-    const dataRef = useRef({ regions, hotels, hexMap, routes, depot, workspace });
+    const dataRef = useRef({
+      regions,
+      hotels,
+      hexMap,
+      routes,
+      depot,
+      workspace,
+      h3Resolution,
+    });
     const callbacksRef = useRef({
       onSelectRegion,
       onSelectHotel,
@@ -144,8 +163,16 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
     });
 
     useEffect(() => {
-      dataRef.current = { regions, hotels, hexMap, routes, depot, workspace };
-    }, [regions, hotels, hexMap, routes, depot, workspace]);
+      dataRef.current = {
+        regions,
+        hotels,
+        hexMap,
+        routes,
+        depot,
+        workspace,
+        h3Resolution,
+      };
+    }, [regions, hotels, hexMap, routes, depot, workspace, h3Resolution]);
 
     useEffect(() => {
       callbacksRef.current = {
@@ -170,10 +197,10 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
 
         leafletRef.current = L;
         map = L.map(containerRef.current, {
-          center: [12.9716, 77.5946],
-          zoom: 11,
-          minZoom: 9,
-          maxZoom: 17,
+          center: [center.lat, center.lon],
+          zoom,
+          minZoom,
+          maxZoom,
           zoomControl: false,
           attributionControl: true,
           zoomSnap: 0.25,
@@ -336,7 +363,7 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
             const cell = latLngToCell(
               event.latlng.lat,
               event.latlng.lng,
-              H3_RESOLUTION,
+              dataRef.current.h3Resolution,
             );
             regionId = dataRef.current.hexMap[cell];
           } catch {
@@ -492,14 +519,14 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
             : [];
 
       depotsToRender.forEach((d) => {
-        const isHQ = d.isPrimary || d.id === "depot-yeshwanthpur";
-        const badgeLabel = isHQ
-          ? "HQ"
-          : d.name.includes("Whitefield")
-            ? "WF"
-            : d.name.includes("Electronic")
-              ? "EC"
-              : "JN";
+        const isHQ = d.isPrimary;
+        const initials = d.name
+          .split(/[\s/&-]+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((word) => word[0]?.toUpperCase() ?? "")
+          .join("");
+        const badgeLabel = isHQ ? "HQ" : initials || "DP";
 
         const depotMarker = L.marker([d.latitude, d.longitude], {
           icon: L.divIcon({
@@ -780,7 +807,7 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
           ref={containerRef}
           className={`coverage-map [position:absolute] [inset:0] [z-index:0] [background:var(--map-bg)]`}
           role="application"
-          aria-label="Map of LinenGrass hotel coverage across five Bengaluru regions"
+          aria-label={`Map of LinenGrass hotel coverage across ${regions.length} ${cityName} regions`}
         />
 
         {status === "loading" && (
@@ -849,7 +876,7 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
               />
               <span className={`map-context__code [color:var(--faint)] [font-family:var(--font-mono)] [font-size:8px] [font-weight:600]`}>{selectedMeta.code}</span>
               <span className={`map-context__name [overflow:hidden] [color:var(--ink)] [text-overflow:ellipsis] [white-space:nowrap]`}>
-                {REGION_MAP_LABELS[selectedMeta.id] ?? selectedMeta.short_name}
+                {selectedMeta.map_label || selectedMeta.short_name}
               </span>
               <button
                 type="button"
@@ -937,7 +964,7 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
                 <span className={`map-legend__dot [width:7px] [height:7px] [border-radius:2px] [background:var(--c)] [box-shadow:inset_0_0_0_1px_rgba(0,_0,_0,_0.09)] [.map-legend__row[data-proposed="true"]_&]:[border:1.5px_solid_var(--c)] [.map-legend__row[data-proposed="true"]_&]:[background:transparent]`} />
                 <span className={`map-legend__code [color:var(--faint)] [font-family:var(--font-mono)] [font-size:8px] [font-weight:600]`}>{region.code}</span>
                 <span className={`map-legend__name [overflow:hidden] [color:var(--ink-soft)] [font-size:9px] [font-weight:600] [text-overflow:ellipsis] [white-space:nowrap]`}>
-                  {REGION_MAP_LABELS[region.id] ?? region.short_name}
+                  {region.map_label || region.short_name}
                 </span>
                 <span className={`map-legend__count [color:var(--faint)] [font-family:var(--font-mono)] [font-size:8px] [font-variant-numeric:tabular-nums]`}>
                   {hotels.filter((hotel) => hotel.region === region.id).length}
@@ -969,7 +996,7 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
             </div>
             <div className={`dispatch-legend__depot [display:flex] [align-items:center] [gap:7px] [padding:5px_6px] [border-radius:5px] [background:var(--bone)] [font-size:10px] [font-weight:600] [color:var(--ink)] [margin-bottom:6px]`}>
               <span className={`depot-legend-dot [width:9px] [height:9px] [border-radius:2px] [background:#18241e] [border:1px_solid_#fbbf24] [flex-shrink:0]`} />
-              <span>LinenGrass HQ (Yeshwanthpur Central Laundry)</span>
+              <span>{depot?.name ?? `${cityName} depot`}</span>
             </div>
             {routes.slice(0, 8).map((route, idx) => (
               <button
@@ -1023,7 +1050,7 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
                 style={regionStyle(activeMeta.color)}
               />
               {activeMeta.code} ·{" "}
-              {REGION_MAP_LABELS[activeMeta.id] ?? activeMeta.short_name}
+              {activeMeta.map_label || activeMeta.short_name}
             </div>
             <div className={`map-card__metrics [display:grid] [grid-template-columns:repeat(3,_1fr)] [margin-top:11px] [padding-top:10px] [border-top:1px_solid_var(--line)]`}>
               <div className={`map-card__metric [padding:0_9px] [border-left:1px_solid_var(--line)] first:[padding-left:0] first:[border-left:0] [&_span]:[display:block] [&_span]:[margin-bottom:2px] [&_span]:[color:var(--faint)] [&_span]:[font-size:7px] [&_span]:[font-weight:600] [&_span]:[letter-spacing:0.08em] [&_span]:[text-transform:uppercase] [&_b]:[color:var(--ink)] [&_b]:[font-size:10.5px] [&_b]:[font-weight:600] [&_b]:[font-variant-numeric:tabular-nums]`}>
@@ -1084,7 +1111,7 @@ const CoverageMap = forwardRef<CoverageMapHandle, CoverageMapProps>(
                     style={regionStyle(pinnedMeta.color)}
                   />
                   {pinnedMeta.code} ·{" "}
-                  {REGION_MAP_LABELS[pinnedMeta.id] ?? pinnedMeta.short_name}
+                  {pinnedMeta.map_label || pinnedMeta.short_name}
                 </dd>
               </div>
               <div className={`map-card__row [display:flex] [justify-content:space-between] [gap:12px] [font-size:9.5px] [&_dt]:[flex:0_0_auto] [&_dt]:[color:var(--faint)] [&_dd]:[color:var(--ink-soft)] [&_dd]:[font-weight:600] [&_dd]:[line-height:1.35] [&_dd]:[text-align:right]`}>

@@ -1,6 +1,7 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "./db";
 import { vehicles, type VehicleRow } from "../db/schema";
+import { clearCityCache } from "./cities";
 
 const VEHICLE_COLORS = [
   "#1d4ed8",
@@ -68,21 +69,28 @@ function toVehicleAdminItem(row: VehicleRow): VehicleAdminItem {
   };
 }
 
-export async function getVehicleRows(): Promise<VehicleRow[]> {
-  return db.select().from(vehicles).orderBy(asc(vehicles.name));
+export async function getVehicleRows(cityId: string): Promise<VehicleRow[]> {
+  return db
+    .select()
+    .from(vehicles)
+    .where(eq(vehicles.cityId, cityId))
+    .orderBy(asc(vehicles.name));
 }
 
-export async function getVehicleAdminItems(): Promise<VehicleAdminItem[]> {
-  return (await getVehicleRows()).map(toVehicleAdminItem);
+export async function getVehicleAdminItems(
+  cityId: string,
+): Promise<VehicleAdminItem[]> {
+  return (await getVehicleRows(cityId)).map(toVehicleAdminItem);
 }
 
 export async function getVehicleById(
+  cityId: string,
   id: string,
 ): Promise<VehicleAdminItem | null> {
   const [row] = await db
     .select()
     .from(vehicles)
-    .where(eq(vehicles.id, id))
+    .where(and(eq(vehicles.cityId, cityId), eq(vehicles.id, id)))
     .limit(1);
   return row ? toVehicleAdminItem(row) : null;
 }
@@ -178,7 +186,7 @@ export function parseVehicleInput(
   const regionName = optionalString(candidate.regionName, "Region name", 120);
   const sector = optionalString(candidate.sector, "Sector", 120);
   const depotId =
-    optionalString(candidate.depotId, "Depot", 120) ?? "depot-yeshwanthpur";
+    optionalString(candidate.depotId, "Depot", 120) ?? "depot-primary";
   const departureTime = clockValue(
     candidate.departureTime,
     "Departure time",
@@ -206,7 +214,7 @@ function nextColor(seed: number): string {
   return VEHICLE_COLORS[seed % VEHICLE_COLORS.length];
 }
 
-async function nextVehicleId(): Promise<string> {
+async function nextVehicleId(cityId: string): Promise<string> {
   const base = `vehicle-${Date.now()}`;
   let candidate = base;
   let suffix = 2;
@@ -215,7 +223,7 @@ async function nextVehicleId(): Promise<string> {
     const [existing] = await db
       .select({ id: vehicles.id })
       .from(vehicles)
-      .where(eq(vehicles.id, candidate))
+      .where(and(eq(vehicles.cityId, cityId), eq(vehicles.id, candidate)))
       .limit(1);
     if (!existing) return candidate;
     candidate = `${base}-${suffix}`;
@@ -224,23 +232,30 @@ async function nextVehicleId(): Promise<string> {
 }
 
 export async function createVehicle(
+  cityId: string,
   input: VehicleInput,
 ): Promise<VehicleAdminItem> {
-  const existing = await db.select({ id: vehicles.id }).from(vehicles);
-  const id = await nextVehicleId();
+  const existing = await db
+    .select({ id: vehicles.id })
+    .from(vehicles)
+    .where(eq(vehicles.cityId, cityId));
+  const id = await nextVehicleId(cityId);
   const [row] = await db
     .insert(vehicles)
     .values({
+      cityId,
       id,
       ...input,
       color: input.color || nextColor(existing.length),
     })
     .returning();
 
+  clearCityCache(cityId);
   return toVehicleAdminItem(row);
 }
 
 export async function updateVehicle(
+  cityId: string,
   id: string,
   input: VehicleInput,
 ): Promise<VehicleAdminItem | null> {
@@ -250,17 +265,26 @@ export async function updateVehicle(
       ...input,
       updatedAt: new Date(),
     })
-    .where(eq(vehicles.id, id))
+    .where(and(eq(vehicles.cityId, cityId), eq(vehicles.id, id)))
     .returning();
 
+  if (row) {
+    clearCityCache(cityId);
+  }
   return row ? toVehicleAdminItem(row) : null;
 }
 
-export async function deleteVehicle(id: string): Promise<boolean> {
+export async function deleteVehicle(
+  cityId: string,
+  id: string,
+): Promise<boolean> {
   const [row] = await db
     .delete(vehicles)
-    .where(eq(vehicles.id, id))
+    .where(and(eq(vehicles.cityId, cityId), eq(vehicles.id, id)))
     .returning({ id: vehicles.id });
 
+  if (row) {
+    clearCityCache(cityId);
+  }
   return Boolean(row);
 }
